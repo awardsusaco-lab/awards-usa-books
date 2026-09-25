@@ -404,7 +404,7 @@ const daysBetween = (a, b) => Math.round((pd(b) - pd(a)) / 864e5);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const clone = o => JSON.parse(JSON.stringify(o));
 
-const COLS = ["customers","vendors","items","invoices","estimates","payments","bills","billpays","expenses","journals","adjustments","accounts","followups","banktx","bankrules","taxfilings","payruns","campaigns","trips","orders","history","holdings","pos"];
+const COLS = ["customers","vendors","items","invoices","estimates","payments","bills","billpays","expenses","journals","adjustments","accounts","followups","banktx","bankrules","taxfilings","payruns","campaigns","trips","orders","history","holdings","pos","mail","mailrules"];
 const S = {}; COLS.forEach(c => S[c] = []);
 const TAX_AGENCIES = {dor:{name:"Colorado Dept. of Revenue", acct:"a2100"}, lakewood:{name:"City of Lakewood", acct:"a2110"}, other:{name:"Other agency", acct:"a2100"}};
 const DEFAULT_TAX_PARTS = [
@@ -633,7 +633,7 @@ const UI = {q:{}, filter:{}};
 function route(){ const h = location.hash.replace(/^#\/?/, ""); const [view, id] = h.split("/"); return {view: view || "home", id: id ? decodeURIComponent(id) : ""}; }
 const go = h => { location.hash = "#/" + h; };
 
-const NAV_ALL = [["home","Home"],["customers","Customers"],["email","Email"],["sales","Sales"],["expenses","Expenses"],["banking","Banking"],["investments","Investments"],["taxes","Taxes"],["pay","Pay"],["inventory","Inventory"],["reports","Reports"],["accounts","Chart of accounts"],["settings","Settings"],["help","Help"]];
+const NAV_ALL = [["home","Home"],["inbox","Inbox"],["customers","Customers"],["email","Email"],["sales","Sales"],["expenses","Expenses"],["banking","Banking"],["investments","Investments"],["taxes","Taxes"],["pay","Pay"],["inventory","Inventory"],["reports","Reports"],["accounts","Chart of accounts"],["settings","Settings"],["help","Help"]];
 const SECTION = {pos:"expenses", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"sales", estimate:"sales", bills:"expenses", checks:"expenses", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
 const ICONS = {
   home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
@@ -745,6 +745,8 @@ VIEWS.home = () => {
   S.pos.filter(o => o.status === "shipped" && (o.deliveredHint || (o.expected && o.expected <= addDays(t, 1)))).forEach(o => todo.push(`<a class="item" href="#/pos"><div><div class="t">Check in delivery from ${esc(vendName(o.vendorId) || "supplier")}</div><div class="s">${o.deliveredHint ? "Email says it was delivered" : "Expected " + fmtDate(o.expected)} · tap Received when it's here</div></div><div class="r muted">›</div></a>`));
   S.pos.filter(o => o.status === "placed" && daysBetween(o.date, t) >= 10).forEach(o => todo.push(`<a class="item" href="#/pos"><div><div class="t">Order from ${esc(vendName(o.vendorId) || "supplier")} hasn't shipped</div><div class="s">Placed ${fmtDate(o.date)}${o.orderNo ? " · order #" + esc(o.orderNo) : ""}</div></div><div class="r muted">›</div></a>`));
   { const rr = openReplies().filter(r => r.kind === "real"); if (rr.length) todo.unshift(`<a class="item" href="#/email"><div><div class="t">${rr.length} customer${rr.length > 1 ? "s" : ""} replied to your emails</div><div class="s">${esc(rr.slice(0, 3).map(r => r.c.name).join(", "))}${rr.length > 3 ? "…" : ""}</div></div><div class="r"><span class="badge good">New</span></div></a>`); }
+  if (inboxWaiting()) todo.unshift(`<a class="item" href="#/inbox"><div><div class="t">${inboxWaiting()} email${inboxWaiting() > 1 ? "s" : ""} to sort</div><div class="s">Customers, suppliers and junk from your inbox</div></div><div class="r"><span class="badge brass">Inbox</span></div></a>`);
+  if (MCP && !UI.inboxAuto && (!S.company.inboxChecked || S.company.inboxChecked.slice(0, 10) < t) && S.accounts.length) { UI.inboxAuto = true; setTimeout(() => scanInbox(true), 6000); }
   if (MCP && !UI.replyAuto && (!S.company.repliesChecked || S.company.repliesChecked.slice(0, 10) < t) && S.accounts.length) { UI.replyAuto = true; setTimeout(() => checkReplies(true), 4000); }
   const nb = S.banktx.filter(t => t.status === "new").length;
   if (nb) todo.push(`<a class="item" href="#/banking"><div><div class="t">Review ${nb} bank transaction${nb > 1 ? "s" : ""}</div><div class="s">Match or categorize imported statement lines</div></div><div class="r muted">›</div></a>`);
@@ -803,10 +805,12 @@ VIEWS.customer = id => {
       ${c.contact ? `<span>Contact</span><div>${esc(c.contact)}</div>` : ""}
       ${c.email ? `<span>Email</span><div><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>` : ""}
       ${c.billingCc ? `<span>CC on invoices</span><div>${esc(c.billingCc)}</div>` : ""}
+      ${(c.contacts || []).length ? `<span>Other contacts</span><div>${(c.contacts || []).map(x => esc((x.name ? x.name + " · " : "") + x.email)).join("<br>")}</div>` : ""}
       ${c.phone ? `<span>Phone</span><div><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></div>` : ""}
       ${c.address ? `<span>Address</span><div class="pre">${esc(c.address)}</div>` : ""}
       <span>Sales tax</span><div>${c.taxable === false ? "Tax exempt" : "Taxable · " + custTax(c) + "%" + (hasOwnRate(c) ? "" : " (default)")}</div>
     </div></section>
+    ${(c.emails || []).length ? `<section class="panel"><h2 style="margin-bottom:6px">Emails</h2><div class="list">${(c.emails || []).slice().reverse().slice(0, 25).map(x => `<div class="item" style="cursor:default"><div><div class="t">${esc(x.subject || "(no subject)")}</div><div class="s">${esc(x.from || "")} · ${fmtDate((x.date || "").slice(0, 10))}</div></div><div class="r">${x.url ? `<a class="small" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">Open ↗</a>` : ""}</div></div>`).join("")}</div></section>` : ""}
     ${(c.replies || []).length ? `<section class="panel"><h2 style="margin-bottom:6px">Email replies</h2><div class="list">${(c.replies || []).slice().reverse().map(r => `<div class="item" style="cursor:default"><div><div class="t">${r.kind === "auto" ? "Auto-reply" : r.kind === "bounce" ? "Email bounced" : "Replied"} · ${fmtDate((r.date || "").slice(0, 10))}${r.done ? ' <span class="badge">Handled</span>' : ""}</div><div class="s">${esc(r.snippet)}</div></div><div class="r">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" class="small">Open ↗</a>` : ""}</div></div>`).join("")}</div></section>` : ""}
     <section class="panel"><div class="panel-head"><h2>Follow-ups</h2><button class="btn small" data-act="newFollowup" data-customer="${id}">Add follow-up</button></div>
       <div class="list">${fus.map(f => `<div class="item" data-act="openFollowup" data-id="${f.id}"><div><div class="t" ${f.done ? 'style="text-decoration:line-through;color:var(--muted)"' : ""}>${esc(f.text)}</div><div class="s">${f.done ? "Done" : f.due < todayISO() ? `<span class="neg">Due ${fmtDate(f.due)}</span>` : "Due " + fmtDate(f.due)}</div></div><div class="r">${f.done ? "" : `<button class="btn small" data-act="doneFollowup" data-id="${f.id}">Mark done</button>`}</div></div>`).join("") || empty("No follow-ups scheduled.")}</div></section>
@@ -899,7 +903,7 @@ VIEWS.invoice = id => {
   <div class="actions">${st !== "paid" ? `<button class="btn primary" data-act="receivePayment" data-customer="${inv.customerId}" data-invoice="${id}">Receive payment</button>` : ""}<button class="btn" data-act="editInvoice" data-id="${id}">Edit</button><button class="btn" data-act="emailInvoice" data-id="${id}">Email invoice</button><button class="btn" data-act="pdfInvoice" data-id="${id}">Save PDF</button><button class="btn" data-act="printDoc" data-id="${id}" data-kind="invoice">Print</button>${st !== "paid" && !inv.emailedAt && !inv.sentAt ? `<button class="btn" data-act="markSent" data-id="${id}">Mark as sent</button>` : ""}<button class="btn" data-act="copyInvoice" data-id="${id}">Duplicate</button><button class="btn" data-act="askReview" data-id="${id}">Ask for review</button></div></div>
   ${jobBar(inv)}
   ${inv.reviewAskedAt ? `<p class="small muted">Review requested ${fmtDate(inv.reviewAskedAt.slice(0, 10))}.</p>` : ""}
-  ${inv.emailedAt ? `<p class="small muted">Emailed to ${esc(inv.emailedTo)}${inv.emailedCc ? " (CC " + esc(inv.emailedCc) + ")" : ""} on ${fmtDate(inv.emailedAt.slice(0, 10))}.</p>` : ""}${invoiceDoc(inv)}
+  ${inv.emailedAt ? `<p class="small muted">Emailed to ${esc(inv.emailedTo)}${inv.emailedCc ? " (CC " + esc(inv.emailedCc) + ")" : ""} on ${fmtDate(inv.emailedAt.slice(0, 10))}.</p>` : ""}${(inv.emails || []).length ? `<p class="small noprint" style="margin:0 0 10px"><b>Related emails:</b> ${(inv.emails || []).map(x => `<a href="${esc(x.url || "#")}" target="_blank" rel="noopener noreferrer">${esc(x.subject || "email")} (${fmtDate((x.date || "").slice(0, 10))})</a>`).join(" · ")}</p>` : ""}${invoiceDoc(inv)}
   `;
 };
 
@@ -927,7 +931,7 @@ VIEWS.checks = () => {
 VIEWS.vendors = () => {
   const rows = S.vendors.slice().sort(byName);
   return expHead("vendors") + `<div class="panel"><div class="panel-head"><h2>Vendors</h2><button class="btn small" data-act="newVendor">New vendor</button></div><div class="list">
-  ${rows.map(v => { const owed = S.bills.filter(b => b.vendorId === v.id).reduce((s, b) => s + billBalance(b), 0); return `<div class="item" data-act="editVendor" data-id="${v.id}"><div><div class="t">${esc(v.name)}</div><div class="s">${esc([v.contact, v.phone, v.email].filter(Boolean).join(" · "))}</div><div class="actions" style="margin-top:6px">${v.website ? `<a class="btn small" href="${esc(v.website)}" target="_blank" rel="noopener noreferrer">Order online ↗</a>` : ""}<button class="btn small" data-act="newPO" data-vendor="${v.id}">Log an order</button></div></div><div class="r num">${owed > 0.004 ? money(owed) : '<span class="muted small">Nothing owed</span>'}</div></div>`; }).join("") || empty("Add your suppliers: blank plaques, trophy parts, badge stock, laser supplies.", '<button class="btn primary" data-act="newVendor">Add a vendor</button>')}
+  ${rows.map(v => { const owed = S.bills.filter(b => b.vendorId === v.id).reduce((s, b) => s + billBalance(b), 0); return `<div class="item" data-act="editVendor" data-id="${v.id}"><div><div class="t">${esc(v.name)}</div><div class="s">${esc([v.contact, v.phone, v.email].filter(Boolean).join(" · "))}</div>${vendCadence(v) ? `<div class="s">${esc(vendCadence(v))}</div>` : ""}${(v.emails || []).length ? `<div class="s">${(v.emails || []).length} email${(v.emails || []).length > 1 ? "s" : ""} filed · last ${fmtDate(((v.emails || []).slice(-1)[0].date || "").slice(0, 10))}</div>` : ""}<div class="actions" style="margin-top:6px">${v.website ? `<a class="btn small" href="${esc(v.website)}" target="_blank" rel="noopener noreferrer">Order online ↗</a>` : ""}<button class="btn small" data-act="newPO" data-vendor="${v.id}">Log an order</button></div></div><div class="r num">${owed > 0.004 ? money(owed) : '<span class="muted small">Nothing owed</span>'}</div></div>`; }).join("") || empty("Add your suppliers: blank plaques, trophy parts, badge stock, laser supplies.", '<button class="btn primary" data-act="newVendor">Add a vendor</button>')}
   </div></div>`;
 };
 
@@ -968,6 +972,7 @@ const HELP = [
  ["Orders, estimates and repeat customers", [
   ["What is \"Orders from email\"?", `Sales → Orders. Press <b>Check email for orders</b> and the app looks through recent Gmail for order requests. Add one as an order with a due date; when it's ready, open the order and press <b>Save &amp; make invoice</b>.`],
   ["What are yearly repeat orders?", `Sales → Repeat. The app notices customers who order around the same time every year and reminds you a few weeks ahead so you can email or text them first.`],
+  ["How do I sort my email into customers, suppliers and junk?", `Open <b>Inbox</b> (or press <b>Check my email</b> on Home). For each email pick what it is: a customer order, a customer asking about an invoice, a new potential customer, a supplier invoice, a supplier shipping notice, spam, or personal. Then pick who it's from and press Save.<ul><li><b>Customer order</b> opens a new order to fill in.</li><li><b>About an invoice</b> attaches the email to the invoice you choose, so you'll see it there.</li><li><b>Supplier invoice</b> either checks in a supplier order you logged (and adds it to inventory) or opens a new bill.</li><li><b>Supplier shipping</b> marks your supplier order "on the way" and saves the tracking number.</li></ul>Leave <b>Always sort</b> checked and the app remembers that sender. Next time it's suggested automatically, and spam or personal emails from the same sender get filed for you. It also remembers extra people for a customer (like a bookkeeper). See <b>What it's learned</b> to remove anything wrong.`],
   ["How do I find people asking for business in my email?", `Press <b>Check my email</b> on Home (or Sales → Orders → <b>Check email for orders</b>). The app looks through the last 60 days of Gmail for messages about trophies, plaques, engraving, badges, signs, quotes and prices. Each one says whether it's from an existing customer or a <b>New person</b>. Choose <b>Add as order</b>, <b>Add as new lead</b> (saves them to Customers), or <b>Not business</b> to hide it. Watch for scam "quote requests" that offer to overpay by check.`],
   ["How do I see which customers answered my emails?", `Go to <b>Email</b> → <b>Check for replies</b>. The app looks through your Gmail for anyone you've emailed from the app who wrote back, plus emails that bounced. For each one you can open it in Gmail, mark them <b>Interested</b> (adds a follow-up for tomorrow), <b>Not interested</b>, or <b>Done</b>. It also checks once a day by itself and shows new replies at the top of Home.`],
   ["How do I give a price quote?", `Sales → Estimates → New estimate. When they say yes, open it and press <b>Turn into invoice</b>.`]]],
@@ -992,7 +997,7 @@ VIEWS.help = () => { const q = (UI.q.help || "").toLowerCase().trim(), strip = h
   ${cats.length ? cats.map(([cat, items]) => `<section class="panel help" id="help-${HELP.findIndex(h => h[0] === cat)}"><h2 style="margin-bottom:6px">${esc(cat)}</h2>${items.map(([qq, a]) => `<details${q ? " open" : ""}><summary>${esc(qq)}</summary><div class="ans">${a}</div></details>`).join("")}</section>`).join("") : `<div class="panel">${empty("Nothing matched. Try a simpler word, or ask Claude in chat.")}</div>`}`; };
 
 VIEWS.more = () => `<div class="pagehead"><div><h1>More</h1></div></div><div class="panel morelist">
-  <a href="#/help"><b>Help: how do I…?</b> <span class="muted">›</span></a>  <a href="#/email">Email customers <span class="muted">›</span></a><a href="#/taxes">Taxes &amp; deadlines <span class="muted">›</span></a><a href="#/pay">Pay yourself, contractors &amp; tax estimate <span class="muted">›</span></a><a href="#/jobs">Jobs in progress <span class="muted">›</span></a><a href="#/mileage">Mileage log <span class="muted">›</span></a><a href="#/banking">Banking &amp; statement import <span class="muted">›</span></a><a href="#/inventory">Items &amp; inventory <span class="muted">›</span></a><a href="#/estimates">Estimates <span class="muted">›</span></a><a href="#/reports">Reports <span class="muted">›</span></a><a href="#/vendors">Vendors <span class="muted">›</span></a><a href="#/accounts">Chart of accounts <span class="muted">›</span></a><a href="#/payments">Payments received <span class="muted">›</span></a><a href="#/checks">Checks &amp; charges <span class="muted">›</span></a><a href="#/settings">Settings &amp; backup <span class="muted">›</span></a></div>`;
+  <a href="#/inbox"><b>Inbox: sort my email</b>${inboxWaiting() ? ` <span class="badge brass">${inboxWaiting()}</span>` : ""} <span class="muted">›</span></a><a href="#/help"><b>Help: how do I…?</b> <span class="muted">›</span></a>  <a href="#/email">Email customers <span class="muted">›</span></a><a href="#/taxes">Taxes &amp; deadlines <span class="muted">›</span></a><a href="#/pay">Pay yourself, contractors &amp; tax estimate <span class="muted">›</span></a><a href="#/jobs">Jobs in progress <span class="muted">›</span></a><a href="#/mileage">Mileage log <span class="muted">›</span></a><a href="#/banking">Banking &amp; statement import <span class="muted">›</span></a><a href="#/inventory">Items &amp; inventory <span class="muted">›</span></a><a href="#/estimates">Estimates <span class="muted">›</span></a><a href="#/reports">Reports <span class="muted">›</span></a><a href="#/vendors">Vendors <span class="muted">›</span></a><a href="#/accounts">Chart of accounts <span class="muted">›</span></a><a href="#/payments">Payments received <span class="muted">›</span></a><a href="#/checks">Checks &amp; charges <span class="muted">›</span></a><a href="#/settings">Settings &amp; backup <span class="muted">›</span></a></div>`;
 
 /* reports */
 const REPORTS = [["pl","Profit & Loss","Income, cost of goods and expenses for a period"],["bs","Balance Sheet","What the business owns and owes on a date"],["aging","A/R Aging","Unpaid invoices by how late they are"],["salescust","Sales by Customer","Who you sold to in a period"],["salesitem","Sales by Item","What sold, how many, and for how much"],["ap","Unpaid Bills","What you owe each vendor"],["invval","Inventory Valuation","Stock on hand and its value at cost"],["salestax","Sales Tax Liability","Tax collected by jurisdiction and what you owe each agency"],["gl","Transaction Journal","Every debit and credit in a period"]];
@@ -1653,6 +1658,109 @@ function repliesSection(limit){ const list = openReplies(), people = emailedPeop
     ${limit && list.length > limit ? `<a href="#/email" class="small">See all ${list.length} replies ›</a>` : ""}</section>`; }
 async function markReply(el, patch){ const c = byId("customers", el.dataset.id); if (!c) return; await put("customers", {...clone(c), ...patch(c), replies:(c.replies || []).map(r => r.threadId === el.dataset.thread ? {...r, done:true} : r)}); }
 
+
+/* ---------- inbox sorter: file each email, learn who's who ---------- */
+const MAILCATS = [["order","Customer: new order or request"],["invoice","Customer: about an invoice or payment"],["customer","Customer: other"],["lead","New potential customer"],["supplier_bill","Supplier: invoice or bill"],["supplier_ship","Supplier: order confirmation or shipping"],["supplier","Supplier: other"],["spam","Spam / junk"],["other","Personal / not business"]];
+const catLabel = k => (MAILCATS.find(c => c[0] === k) || ["", "Unsorted"])[1];
+const CUST_CATS = new Set(["order","invoice","customer"]), SUP_CATS = new Set(["supplier_bill","supplier_ship","supplier"]), QUIET_CATS = new Set(["spam","other","customer","supplier"]);
+const ruleId = k => "r_" + String(k).toLowerCase().replace(/[^a-z0-9@._-]/g, "_").slice(0, 150);
+const domainOf = e => (emailOf(e).split("@")[1] || "");
+function custForEmail(e){ e = emailOf(e); if (!e) return null; return S.customers.find(c => emailOf(c.email) === e || ccList(c.billingCc).includes(e) || (c.contacts || []).some(x => emailOf(x.email) === e)) || null; }
+function vendForEmail(e){ e = emailOf(e); const d = domainOf(e); if (!e) return null;
+  return S.vendors.find(v => emailOf(v.email) === e || (v.contacts || []).some(x => emailOf(x.email) === e)) || (!FREE_MAIL.test(e) && d ? S.vendors.find(v => (v.email && domainOf(v.email) === d) || (v.website && String(v.website).toLowerCase().includes(d))) : null) || null; }
+function ruleFor(e){ e = emailOf(e); return byId("mailrules", ruleId(e)) || (!FREE_MAIL.test(e) ? byId("mailrules", ruleId("@" + domainOf(e))) : null); }
+const TRACK_RX = /\b(1Z[0-9A-Z]{16}|9\d{19,21}|\d{12}|\d{15})\b/;
+function suggestMail(m){ const e = emailOf(m.from), text = (m.subject + " " + m.snippet).toLowerCase(), r = ruleFor(e);
+  const learned = r ? `you've sorted ${r.n > 1 ? r.n + " emails" : "an email"} from ${r.key.startsWith("@") ? "anyone " + r.key : "this sender"} before` : "";
+  if (r && !CUST_CATS.has(r.cat) && !SUP_CATS.has(r.cat)) return {cat:r.cat, why:learned, rule:r};
+  const c = (r && r.customerId && byId("customers", r.customerId)) || (!(r && r.vendorId) && custForEmail(e)), v = !c && ((r && r.vendorId && byId("vendors", r.vendorId)) || vendForEmail(e));
+  if (c) return {cat:/invoice|payment|paid|check|receipt|balance|remit/.test(text) ? "invoice" : /order|quote|need|trophy|trophies|plaque|award|medal|badge|engrav|sign/.test(text) ? "order" : "customer", customerId:c.id, why:learned || "this is " + c.name + "'s email"};
+  if (v) return {cat:/invoice|bill|statement|amount due|payment due|receipt/.test(text) ? "supplier_bill" : /ship|tracking|deliver|order confirm|your order|dispatched/.test(text) ? "supplier_ship" : "supplier", vendorId:v.id, why:learned || "this is from your supplier " + v.name};
+  if (/unsubscribe|newsletter|no-?reply|donotreply|%off|% off|sale ends|limited time|webinar|winner|crypto|bitcoin|seo service|rank your website|guest post/.test(text + " " + e)) return {cat:"spam", why:"looks like marketing or junk"};
+  if (/trophy|trophies|plaque|award|medal|badge|name tag|engrav|sign|quote|pricing|price|banquet|recognition|order/.test(text)) return {cat:"lead", why:"mentions things you sell"};
+  return {cat:"", why:""}; }
+function inboxWaiting(){ return (UI.inbox || []).filter(m => !byId("mail", m.id)).length; }
+async function scanInbox(quiet){
+  if (!MCP || UI.inboxBusy) return; UI.inboxBusy = true; UI.inboxMsg = ""; if (!quiet) render();
+  let err = "", auto = 0; const me = emailOf(S.company.email);
+  try {
+    const r = await MCP.callTool(GMAIL, "search_threads", {query:"in:inbox newer_than:30d -category:promotions -category:social -from:me", pageSize:40});
+    const list = [];
+    for (const t of ((r.payload && r.payload.threads) || [])) { if (byId("mail", t.id)) continue;
+      const msg = (t.messages || []).find(x => emailOf(x.sender) !== me) || (t.messages || [])[0]; if (!msg) continue;
+      const d = new Date(msg.date || ""); const m = {id:t.id, from:msg.sender || "", subject:msg.subject || "", snippet:String(msg.snippet || "").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").slice(0, 240), date:isNaN(d) ? "" : d.toISOString(), url:t.viewUrl || msg.viewUrl || ""};
+      m.s = suggestMail(m);
+      if (m.s.rule && m.s.rule.n >= 2 && (m.s.cat === "spam" || m.s.cat === "other")) { await fileMail(m, {cat:m.s.cat, customerId:m.s.customerId, vendorId:m.s.vendorId, auto:true}); auto++; continue; }
+      list.push(m); }
+    UI.inbox = list;
+    const old = new Date(Date.now() - 60 * 864e5).toISOString(); for (const x of S.mail.filter(x => (x.cat === "spam" || x.cat === "other") && (x.date || "") < old)) await remove("mail", x.id);
+  } catch(e) { err = mcpErrText(e).replace("refused the message", "refused the search"); }
+  await saveCompany({inboxChecked:new Date().toISOString()});
+  UI.inboxBusy = false; UI.inboxMsg = err || `${(UI.inbox || []).length ? (UI.inbox || []).length + " email" + ((UI.inbox || []).length > 1 ? "s" : "") + " to sort" : "Nothing new to sort"}${auto ? ` · ${auto} filed automatically` : ""}.`;
+  if (!quiet || err) toast(UI.inboxMsg); render(); }
+async function learnRule(key, cat, customerId, vendorId){ const id = ruleId(key), old = byId("mailrules", id);
+  await put("mailrules", {id, key, cat, customerId:customerId || "", vendorId:vendorId || "", n:old && old.cat === cat ? (old.n || 1) + 1 : 1, at:new Date().toISOString()}); }
+async function fileMail(m, o){ const rec = {id:m.id, from:m.from, email:emailOf(m.from), subject:m.subject, snippet:m.snippet, date:m.date, url:m.url, cat:o.cat, customerId:o.customerId || "", vendorId:o.vendorId || "", link:o.link || null, auto:!!o.auto, sortedAt:new Date().toISOString()};
+  await put("mail", rec); if (o.auto) { const r = ruleFor(m.from); if (r) await put("mailrules", {...clone(r), n:(r.n || 1) + 1}); } UI.inbox = (UI.inbox || []).filter(x => x.id !== m.id); }
+const mailRef = m => ({threadId:m.id, subject:m.subject, date:m.date, url:m.url, from:m.from});
+async function attachMail(col, id, m){ const r = byId(col, id); if (!r) return; if ((r.emails || []).some(x => x.threadId === m.id)) return; await put(col, {...clone(r), emails:[...(r.emails || []), mailRef(m)]}); }
+function nameFromSender(m){ const e = emailOf(m.from), disp = String(m.from).replace(/<.*>/, "").replace(/"/g, "").trim();
+  const org = FREE_MAIL.test(e) ? (disp || e) : domainOf(e).split(".")[0].replace(/[-_]/g, " ").replace(/\b\w/g, x => x.toUpperCase()); return {org, person:disp && disp !== e ? disp : ""}; }
+function mailCard(m){ const s = m.s || {}, cat = UI.mailCat[m.id] ?? s.cat ?? "", e = emailOf(m.from), c = byId("customers", UI.mailCust[m.id] ?? s.customerId ?? "") || custForEmail(e), v = byId("vendors", UI.mailVend[m.id] ?? s.vendorId ?? "") || vendForEmail(e);
+  const custSel = `<label class="f">Which customer?<select data-mail-cust="${m.id}">${opts([["__new", "+ New customer from this email"], ...S.customers.slice().sort(byName).map(x => [x.id, x.name])], c ? c.id : "", "Choose customer")}</select></label>`;
+  const vendSel = `<label class="f">Which supplier?<select data-mail-vend="${m.id}">${opts([["__new", "+ New supplier from this email"], ...S.vendors.slice().sort(byName).map(x => [x.id, x.name])], v ? v.id : "", "Choose supplier")}</select></label>`;
+  let extra = "";
+  if (CUST_CATS.has(cat)) { extra = custSel;
+    if (cat === "invoice" && c) { const invs = S.invoices.filter(i => i.customerId === c.id).sort((a, b) => (invStatus(a) === "paid") - (invStatus(b) === "paid") || (b.date || "").localeCompare(a.date || ""));
+      extra += `<label class="f">Attach to invoice<select data-mail-inv="${m.id}">${opts(invs.map(i => [i.id, "#" + i.num + " · " + fmtDate(i.date) + " · " + money(invTotals(i).total) + (invStatus(i) === "paid" ? " · paid" : " · owes " + money(invBalance(i)))]), (invs.find(i => String(i.num).length > 2 && (m.subject + " " + m.snippet).includes(String(i.num).replace(/^0+/, ""))) || invs[0] || {}).id || "", invs.length ? null : "No invoices yet")}</select></label>`; }
+    if (c && e && emailOf(c.email) !== e && !custForEmail(e)) extra += `<label class="check full"><input type="checkbox" data-mail-contact="${m.id}" checked> Remember ${esc(e)} as a contact for ${esc(c.name)}</label>`; }
+  if (SUP_CATS.has(cat)) { extra = vendSel;
+    if (v && (cat === "supplier_bill" || cat === "supplier_ship")) { const pos = S.pos.filter(o => o.vendorId === v.id && o.status !== "received").sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      extra += `<label class="f">${cat === "supplier_bill" ? "Is this for an order you logged?" : "Which order?"}<select data-mail-po="${m.id}">${opts(pos.map(o => [o.id, (o.orderNo ? "#" + o.orderNo + " · " : "") + fmtDate(o.date) + " · " + money(poTotal(o)) + " · " + (o.status === "shipped" ? "on the way" : "placed")]), (pos.find(o => o.orderNo && (m.subject + " " + m.snippet).includes(String(o.orderNo))) || pos[0] || {}).id || "", cat === "supplier_bill" ? "No: enter it as a new bill" : (pos.length ? null : "No open orders"))}</select></label>`; } }
+  const key = e, dom = domainOf(e);
+  return `<div class="item mailcard" style="cursor:default;align-items:start" data-mail="${m.id}"><div style="min-width:0">
+    <div class="t">${esc(m.subject || "(no subject)")}</div><div class="s">${esc(m.from)}${m.date ? " · " + fmtDate(iso0(new Date(m.date))) : ""}</div><div class="small" style="margin:4px 0 8px">${esc(m.snippet)}</div>
+    <div class="fields" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"><label class="f">What is this?<select data-mail-cat="${m.id}">${opts(MAILCATS, cat, "Choose…")}</select></label>${extra}</div>
+    ${s.why && cat === s.cat ? `<p class="small muted" style="margin:6px 0 0">Suggested because ${esc(s.why)}.</p>` : ""}
+    ${cat ? `<label class="check" style="margin-top:6px"><input type="checkbox" data-mail-learn="${m.id}" checked> Always sort ${!FREE_MAIL.test(e) && dom && (SUP_CATS.has(cat) || cat === "spam") ? `anything from <b>@${esc(dom)}</b>` : `emails from <b>${esc(key)}</b>`} this way</label>` : ""}
+    <div class="actions" style="margin-top:8px"><button class="btn small primary" data-act="fileMail" data-id="${m.id}" ${cat ? "" : "disabled"}>${cat === "order" ? "Save & add order" : cat === "invoice" ? "Save & attach" : cat === "lead" ? "Save & add lead" : cat === "supplier_bill" ? "Save & record it" : "Save"}</button>${m.url ? `<a class="btn small" href="${esc(m.url)}" target="_blank" rel="noopener noreferrer">Open in Gmail ↗</a>` : ""}<button class="btn small" data-act="skipMail" data-id="${m.id}">Skip for now</button></div></div></div>`; }
+VIEWS.inbox = () => { UI.mailCat = UI.mailCat || {}; UI.mailCust = UI.mailCust || {}; UI.mailVend = UI.mailVend || {};
+  const list = (UI.inbox || []).filter(m => !byId("mail", m.id) && !(UI.mailSkip || {})[m.id]); const tab = UI.inboxTab || "sort";
+  const sorted = S.mail.slice().sort((a, b) => (b.sortedAt || "").localeCompare(a.sortedAt || "")).slice(0, 60);
+  const linkTxt = x => x.link ? `<a href="#/${x.link.col === "invoices" ? "invoice/" + x.link.id : x.link.col === "customers" ? "customer/" + x.link.id : x.link.col === "orders" ? "orders" : x.link.col === "pos" ? "pos" : x.link.col === "bills" ? "bills" : "vendors"}">${esc(x.link.label || "open")}</a>` : x.customerId ? `<a href="#/customer/${x.customerId}">${esc(custName(x.customerId))}</a>` : x.vendorId ? esc(vendName(x.vendorId)) : "";
+  return `<div class="pagehead"><div><h1>Inbox</h1><p>Sort your email once and the app remembers who's who: customers, suppliers and junk.</p></div><div class="actions">${MCP ? `<button class="btn primary" data-act="scanInbox" ${UI.inboxBusy ? "disabled" : ""}>${UI.inboxBusy ? "Checking email…" : "Check my email"}</button>` : ""}</div></div>
+  <div class="seg"><a href="#/inbox" data-act="inboxTab" data-tab="sort" ${tab === "sort" ? 'aria-current="page"' : ""}>To sort${list.length ? " (" + list.length + ")" : ""}</a><a href="#/inbox" data-act="inboxTab" data-tab="sorted" ${tab === "sorted" ? 'aria-current="page"' : ""}>Sorted</a><a href="#/inbox" data-act="inboxTab" data-tab="rules" ${tab === "rules" ? 'aria-current="page"' : ""}>What it's learned (${S.mailrules.length})</a></div>
+  ${UI.inboxMsg ? `<p class="small" style="margin:0 0 10px">${esc(UI.inboxMsg)}</p>` : ""}
+  ${tab === "sort" ? `<section class="panel"><div class="list">${list.map(mailCard).join("") || empty(UI.inbox ? "All sorted. Nice work." : "Press Check my email to pull in the last 30 days of your inbox.")}</div></section>
+    <p class="small muted">Promotions and social tabs are skipped. Spam and personal emails you've sorted twice from the same sender get filed automatically. Watch for "quote requests" from strangers offering to overpay by check: a common scam aimed at engravers.</p>` : ""}
+  ${tab === "sorted" ? `<section class="panel"><div class="list">${sorted.map(x => `<div class="item" style="cursor:default"><div><div class="t">${esc(x.subject || "(no subject)")}</div><div class="s">${esc(x.from)} · ${fmtDate((x.date || "").slice(0, 10))}</div><div class="s"><span class="badge ${x.cat === "spam" ? "bad" : SUP_CATS.has(x.cat) ? "brass" : CUST_CATS.has(x.cat) || x.cat === "lead" ? "good" : ""}">${esc(catLabel(x.cat))}</span>${x.auto ? ' <span class="badge">auto</span>' : ""} ${linkTxt(x)}</div></div><div class="r"><button class="btn small" data-act="unfileMail" data-id="${x.id}">Re-sort</button></div></div>`).join("") || empty("Nothing sorted yet.")}</div></section>` : ""}
+  ${tab === "rules" ? `<section class="panel"><p class="muted" style="margin-top:0">Each time you sort an email with "Always sort" checked, the app remembers the sender. Remove one here if it's wrong.</p><div class="list">${S.mailrules.slice().sort((a, b) => (b.n || 0) - (a.n || 0)).map(r => `<div class="item" style="cursor:default"><div><div class="t">${esc(r.key.startsWith("@") ? "Anyone " + r.key : r.key)}</div><div class="s">${esc(catLabel(r.cat))}${r.customerId ? " · " + esc(custName(r.customerId)) : ""}${r.vendorId ? " · " + esc(vendName(r.vendorId)) : ""} · used ${r.n || 1}×</div></div><div class="r"><button class="btn small danger" data-act="delRule" data-id="${r.id}">Remove</button></div></div>`).join("") || empty("Nothing learned yet. Sort a few emails and it starts to recognize senders.")}</div></section>` : ""}`; };
+async function doFileMail(id){ const m = (UI.inbox || []).find(x => x.id === id); if (!m) return; const card = document.querySelector(`[data-mail="${CSS.escape(id)}"]`); if (!card) return;
+  const cat = card.querySelector("[data-mail-cat]").value; if (!cat) return toast("Choose what this email is.");
+  const e = emailOf(m.from), nm = nameFromSender(m), learn = card.querySelector("[data-mail-learn]")?.checked, dom = domainOf(e);
+  let customerId = card.querySelector("[data-mail-cust]")?.value || "", vendorId = card.querySelector("[data-mail-vend]")?.value || "", link = null, after = null;
+  if (CUST_CATS.has(cat)) { if (!customerId) return toast("Choose the customer.");
+    if (customerId === "__new") customerId = await put("customers", {name:nm.org, contact:nm.person, email:e, status:"active", terms:"Net 30", taxable:true, notes:[]});
+    const c = byId("customers", customerId);
+    if (card.querySelector("[data-mail-contact]")?.checked && !custForEmail(e)) await put("customers", {...clone(c), contacts:[...(c.contacts || []), {name:nm.person, email:e}]});
+    await attachMail("customers", customerId, m); link = {col:"customers", id:customerId, label:custName(customerId)};
+    if (cat === "invoice") { const iv = card.querySelector("[data-mail-inv]")?.value; if (iv) { await attachMail("invoices", iv, m); link = {col:"invoices", id:iv, label:"Invoice #" + byId("invoices", iv).num}; } }
+    if (cat === "order") { const oid = "gm-" + m.id; link = {col:"orders", id:oid, label:"Order"}; after = () => orderForm({id:oid, fresh:true, status:"new", customerId, from:m.from, subject:m.subject, details:m.snippet, threadId:m.id, viewUrl:m.url, due:""}); } }
+  if (cat === "lead") { customerId = await put("customers", {name:nm.org, contact:nm.person, email:e, status:"lead", terms:"Net 30", taxable:true, notes:[{at:new Date().toISOString(), text:"Reached out by email: " + m.subject + " — " + m.snippet.slice(0, 160)}], emails:[mailRef(m)]}); link = {col:"customers", id:customerId, label:nm.org}; }
+  if (SUP_CATS.has(cat)) { if (!vendorId) return toast("Choose the supplier.");
+    if (vendorId === "__new") vendorId = await put("vendors", {name:nm.org, contact:nm.person, email:e, terms:"Net 30", website:FREE_MAIL.test(e) ? "" : "https://" + dom});
+    await attachMail("vendors", vendorId, m); link = {col:"vendors", id:vendorId, label:vendName(vendorId)};
+    const po = card.querySelector("[data-mail-po]")?.value || "";
+    if (cat === "supplier_ship" && po) { const o = byId("pos", po), tr = (m.snippet.match(TRACK_RX) || [])[1] || ""; await put("pos", {...clone(o), status:o.status === "placed" ? "shipped" : o.status, shippedAt:o.shippedAt || todayISO(), tracking:o.tracking || tr, emails:[...(o.emails || []), mailRef(m)]}); link = {col:"pos", id:po, label:"Supplier order"}; toast("Order marked on the way" + (tr ? " · tracking saved" : "")); }
+    if (cat === "supplier_bill") { if (po) { await attachMail("pos", po, m); link = {col:"pos", id:po, label:"Supplier order"}; after = () => poReceiveForm(byId("pos", po)); }
+      else { link = {col:"bills", id:"", label:"New bill"}; after = () => billForm(null, vendorId); } } }
+  if (learn) { const k = !FREE_MAIL.test(e) && dom && (SUP_CATS.has(cat) || cat === "spam") ? "@" + dom : e; await learnRule(k, CUST_CATS.has(cat) || cat === "lead" ? "customer" : SUP_CATS.has(cat) ? "supplier" : cat, customerId, vendorId); }
+  await fileMail(m, {cat, customerId, vendorId, link}); render(); if (after) after(); else toast("Sorted: " + catLabel(cat)); }
+function vendCadence(v){ const ds = [...S.bills.filter(b => b.vendorId === v.id).map(b => b.date), ...S.expenses.filter(x => x.vendorId === v.id).map(x => x.date), ...S.pos.filter(o => o.vendorId === v.id).map(o => o.date)].filter(Boolean).sort();
+  const u = [...new Set(ds)]; if (u.length < 3) return ""; const gaps = []; for (let i = 1; i < u.length; i++) gaps.push(daysBetween(u[i - 1], u[i])); gaps.sort((a, b) => a - b);
+  const med = gaps[Math.floor(gaps.length / 2)]; if (!med) return ""; const next = addDays(u[u.length - 1], med);
+  return `Usually order about every ${med >= 14 ? Math.round(med / 7) + " weeks" : med + " days"} · next around ${fmtDate(next)}`; }
+
 function outreachSection(){
   const leads = S.customers.filter(c => c.outreach).sort(byName); if (!leads.length) return "";
   const live = c => c.outreach.status !== "sent" && c.outreach.status !== "skipped", ready = leads.filter(c => live(c) && validEmail(c.email) && !c.noEmail), need = leads.filter(c => live(c) && !validEmail(c.email)), sent = leads.filter(c => c.outreach.status === "sent"), skipped = leads.filter(c => c.outreach.status === "skipped");
@@ -1878,7 +1986,7 @@ VIEWS.repeat = () => {
 };
 
 /* ---------- orders from email ---------- */
-const byEmailExact = x => { const e = emailOf(x); return e ? S.customers.find(c => emailOf(c.email) === e || ccList(c.billingCc).includes(e)) : null; };
+const byEmailExact = x => custForEmail(x);
 const ORDER_Q = 'newer_than:60d -in:sent -category:promotions -category:social -from:(noreply OR no-reply OR donotreply OR mailer-daemon OR notifications) (order OR orders OR plaque OR plaques OR trophy OR trophies OR award OR awards OR engrave OR engraved OR engraving OR badge OR badges OR "name tag" OR "name tags" OR nameplate OR medal OR medals OR quote OR estimate OR pricing OR price OR sign OR signs OR signage OR banquet OR recognition OR plates OR "looking for" OR "do you make" OR "can you make")';
 const ORD = [["new","New"],["working","Working on it"],["invoiced","Invoiced"],["done","Done"]];
 const findCustByEmail = e => { e = (e || "").toLowerCase().replace(/.*</, "").replace(/>.*/, "").trim(); return S.customers.find(c => (c.email || "").toLowerCase() === e) || S.customers.find(c => e && c.email && e.split("@")[1] === c.email.toLowerCase().split("@")[1] && !/gmail|yahoo|aol|hotmail|outlook|icloud|comcast/.test(e)); };
@@ -2462,7 +2570,13 @@ document.addEventListener("submit", async e => {
 /* ---------- clicks & inputs ---------- */
 const ACT = {
   checkReplies(){ checkReplies(false); },
-  checkMyEmail(){ go("orders"); setTimeout(() => { ACT.checkOrderEmail(); checkReplies(true); }, 50); },
+  checkMyEmail(){ UI.inboxTab = "sort"; go("inbox"); setTimeout(() => { scanInbox(false); checkReplies(true); }, 50); },
+  scanInbox(){ scanInbox(false); },
+  inboxTab(el){ UI.inboxTab = el.dataset.tab; render(); },
+  fileMail(el){ doFileMail(el.dataset.id); },
+  skipMail(el){ UI.mailSkip = {...(UI.mailSkip || {}), [el.dataset.id]:true}; render(); },
+  async unfileMail(el){ const x = byId("mail", el.dataset.id); if (!x) return; await remove("mail", x.id); UI.inbox = [...(UI.inbox || []), {id:x.id, from:x.from, subject:x.subject, snippet:x.snippet, date:x.date, url:x.url, s:{cat:x.cat, customerId:x.customerId, vendorId:x.vendorId, why:"you sorted it this way before"}}]; UI.inboxTab = "sort"; render(); },
+  delRule(el){ confirmBox("Stop sorting this sender automatically?", "Remove", async () => { await remove("mailrules", el.dataset.id); }); },
   async inqLead(el){ const c = (UI.orderCands || []).find(x => x.id === el.dataset.id); if (!c) return; const m = c.messages[0], email = emailOf(m.sender);
     const name = (String(m.sender).replace(/<.*>/, "").replace(/"/g, "").trim()) || email;
     const dom = email.split("@")[1] || ""; const org = FREE_MAIL.test(email) ? name : dom.split(".")[0].replace(/[-_]/g, " ").replace(/\b\w/g, x => x.toUpperCase());
@@ -2708,6 +2822,10 @@ document.addEventListener("click", e => {
   if (e.target === $("#sheet")) closeSheet();
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); if (e.key === "Enter" && e.target.matches("tr[data-href]")) location.hash = e.target.dataset.href; });
+document.addEventListener("change", e => { const t = e.target; if (!t.dataset) return;
+  if (t.dataset.mailCat) { UI.mailCat = {...(UI.mailCat || {}), [t.dataset.mailCat]:t.value}; render(); }
+  else if (t.dataset.mailCust) { UI.mailCust = {...(UI.mailCust || {}), [t.dataset.mailCust]:t.value}; render(); }
+  else if (t.dataset.mailVend) { UI.mailVend = {...(UI.mailVend || {}), [t.dataset.mailVend]:t.value}; render(); } });
 document.addEventListener("input", e => {
   const t = e.target;
   if (t.dataset.q) { UI.q[t.dataset.q] = t.value; render(); return; }
