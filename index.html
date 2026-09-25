@@ -744,6 +744,8 @@ VIEWS.home = () => {
   taxDeadlines().filter(x => !x.filed && x.due <= addDays(t, 14)).forEach(x => todo.push(`<a class="item" href="#/taxes"><div><div class="t">${esc(x.title)} · ${esc(x.period.label)}</div><div class="s">${dueText(x.due)}</div></div><div class="r num">${x.amount ? money(x.amount) : ""}</div></a>`));
   S.pos.filter(o => o.status === "shipped" && (o.deliveredHint || (o.expected && o.expected <= addDays(t, 1)))).forEach(o => todo.push(`<a class="item" href="#/pos"><div><div class="t">Check in delivery from ${esc(vendName(o.vendorId) || "supplier")}</div><div class="s">${o.deliveredHint ? "Email says it was delivered" : "Expected " + fmtDate(o.expected)} · tap Received when it's here</div></div><div class="r muted">›</div></a>`));
   S.pos.filter(o => o.status === "placed" && daysBetween(o.date, t) >= 10).forEach(o => todo.push(`<a class="item" href="#/pos"><div><div class="t">Order from ${esc(vendName(o.vendorId) || "supplier")} hasn't shipped</div><div class="s">Placed ${fmtDate(o.date)}${o.orderNo ? " · order #" + esc(o.orderNo) : ""}</div></div><div class="r muted">›</div></a>`));
+  { const rr = openReplies().filter(r => r.kind === "real"); if (rr.length) todo.unshift(`<a class="item" href="#/email"><div><div class="t">${rr.length} customer${rr.length > 1 ? "s" : ""} replied to your emails</div><div class="s">${esc(rr.slice(0, 3).map(r => r.c.name).join(", "))}${rr.length > 3 ? "…" : ""}</div></div><div class="r"><span class="badge good">New</span></div></a>`); }
+  if (MCP && !UI.replyAuto && (!S.company.repliesChecked || S.company.repliesChecked.slice(0, 10) < t) && S.accounts.length) { UI.replyAuto = true; setTimeout(() => checkReplies(true), 4000); }
   const nb = S.banktx.filter(t => t.status === "new").length;
   if (nb) todo.push(`<a class="item" href="#/banking"><div><div class="t">Review ${nb} bank transaction${nb > 1 ? "s" : ""}</div><div class="s">Match or categorize imported statement lines</div></div><div class="r muted">›</div></a>`);
   low.filter(it => !onOrder(it.id)).forEach(it => todo.push(`<div class="item" data-act="reorderItem" data-id="${it.id}"><div><div class="t">Reorder ${esc(it.name)}</div><div class="s">${onHand(it)} on hand · reorder at ${esc(it.reorder)}</div></div><div class="r"><span class="badge warn">Low stock</span></div></div>`));
@@ -751,7 +753,7 @@ VIEWS.home = () => {
   const hour = new Date().getHours();
   return `
   <div class="pagehead"><div><h1>Good ${hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"}</h1><p>${new Date().toLocaleDateString("en-US", {weekday:"long", month:"long", day:"numeric"})}</p></div>
-    <div class="actions"><button class="btn primary" data-act="newInvoice">New invoice</button><button class="btn" data-act="receivePayment">Receive payment</button><button class="btn" data-act="newBill">Enter bill</button><button class="btn" data-act="newCustomer">New customer</button><button class="btn" data-act="newTrip">Log a trip</button>${MCP ? `<button class="btn" data-act="calSyncNow" ${UI.calBusy ? "disabled" : ""}>${UI.calBusy ? "Syncing calendar…" : "Sync to Google Calendar"}</button>` : ""}</div></div>
+    <div class="actions"><button class="btn primary" data-act="newInvoice">New invoice</button><button class="btn" data-act="receivePayment">Receive payment</button>${MCP ? `<button class="btn" data-act="checkMyEmail">Check my email</button>` : ""}<button class="btn" data-act="newBill">Enter bill</button><button class="btn" data-act="newCustomer">New customer</button><button class="btn" data-act="newTrip">Log a trip</button>${MCP ? `<button class="btn" data-act="calSyncNow" ${UI.calBusy ? "disabled" : ""}>${UI.calBusy ? "Syncing calendar…" : "Sync to Google Calendar"}</button>` : ""}</div></div>
   <div class="ledger"><div><span>Cash in bank</span><b>${money(cash)}</b></div><div><span>Customers owe you</span><b>${money(ar)}</b></div><div><span>You owe vendors</span><b>${money(ap)}</b></div><div><span>Sales this month</span><b>${money(monthSales)}</b></div></div>
   <div class="grid2">
     <section class="panel"><div class="panel-head"><h2>To do</h2><button class="btn small" data-act="newFollowup">Add follow-up</button></div>
@@ -805,6 +807,7 @@ VIEWS.customer = id => {
       ${c.address ? `<span>Address</span><div class="pre">${esc(c.address)}</div>` : ""}
       <span>Sales tax</span><div>${c.taxable === false ? "Tax exempt" : "Taxable · " + custTax(c) + "%" + (hasOwnRate(c) ? "" : " (default)")}</div>
     </div></section>
+    ${(c.replies || []).length ? `<section class="panel"><h2 style="margin-bottom:6px">Email replies</h2><div class="list">${(c.replies || []).slice().reverse().map(r => `<div class="item" style="cursor:default"><div><div class="t">${r.kind === "auto" ? "Auto-reply" : r.kind === "bounce" ? "Email bounced" : "Replied"} · ${fmtDate((r.date || "").slice(0, 10))}${r.done ? ' <span class="badge">Handled</span>' : ""}</div><div class="s">${esc(r.snippet)}</div></div><div class="r">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" class="small">Open ↗</a>` : ""}</div></div>`).join("")}</div></section>` : ""}
     <section class="panel"><div class="panel-head"><h2>Follow-ups</h2><button class="btn small" data-act="newFollowup" data-customer="${id}">Add follow-up</button></div>
       <div class="list">${fus.map(f => `<div class="item" data-act="openFollowup" data-id="${f.id}"><div><div class="t" ${f.done ? 'style="text-decoration:line-through;color:var(--muted)"' : ""}>${esc(f.text)}</div><div class="s">${f.done ? "Done" : f.due < todayISO() ? `<span class="neg">Due ${fmtDate(f.due)}</span>` : "Due " + fmtDate(f.due)}</div></div><div class="r">${f.done ? "" : `<button class="btn small" data-act="doneFollowup" data-id="${f.id}">Mark done</button>`}</div></div>`).join("") || empty("No follow-ups scheduled.")}</div></section>
   </div>
@@ -965,6 +968,8 @@ const HELP = [
  ["Orders, estimates and repeat customers", [
   ["What is \"Orders from email\"?", `Sales → Orders. Press <b>Check email for orders</b> and the app looks through recent Gmail for order requests. Add one as an order with a due date; when it's ready, open the order and press <b>Save &amp; make invoice</b>.`],
   ["What are yearly repeat orders?", `Sales → Repeat. The app notices customers who order around the same time every year and reminds you a few weeks ahead so you can email or text them first.`],
+  ["How do I find people asking for business in my email?", `Press <b>Check my email</b> on Home (or Sales → Orders → <b>Check email for orders</b>). The app looks through the last 60 days of Gmail for messages about trophies, plaques, engraving, badges, signs, quotes and prices. Each one says whether it's from an existing customer or a <b>New person</b>. Choose <b>Add as order</b>, <b>Add as new lead</b> (saves them to Customers), or <b>Not business</b> to hide it. Watch for scam "quote requests" that offer to overpay by check.`],
+  ["How do I see which customers answered my emails?", `Go to <b>Email</b> → <b>Check for replies</b>. The app looks through your Gmail for anyone you've emailed from the app who wrote back, plus emails that bounced. For each one you can open it in Gmail, mark them <b>Interested</b> (adds a follow-up for tomorrow), <b>Not interested</b>, or <b>Done</b>. It also checks once a day by itself and shows new replies at the top of Home.`],
   ["How do I give a price quote?", `Sales → Estimates → New estimate. When they say yes, open it and press <b>Turn into invoice</b>.`]]],
  ["Supplies and inventory", [
   ["I ordered supplies online. How do I track them?", `<ol><li><b>Expenses → Supplier orders → Log an order</b>. Pick the supplier, add what you ordered and how you paid.</li><li>When it ships, press <b>Shipped</b> and paste the tracking number.</li><li>When the box arrives, press <b>Received</b> and your inventory updates automatically.</li></ol>`],
@@ -1415,6 +1420,7 @@ VIEWS.email = () => {
   ${MCP ? "" : `<div class="notice">Sending needs Gmail, which is available when you open the app from your Claude link. You can still write and save emails here.</div>`}
   <div class="ledger" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><span>Customers with an email</span><b>${withEmail}</b></div><div><span>Missing an email</span><b>${S.customers.filter(c => !validEmail(c.email)).length}</b></div><div><span>Unsubscribed</span><b>${S.customers.filter(c => c.noEmail).length}</b></div></div>
   ${!S.company.mailingAddress ? `<div class="notice">Marketing emails are supposed to include a postal address. To keep your home address private, get a PO box or mailbox-service address and add it under Settings → Mailing address for marketing emails.</div>` : ""}
+  ${repliesSection()}
   ${outreachSection()}
   <section class="panel"><h2>Your emails</h2><div class="list">${rows.map(c => `<a class="item" href="#/campaign/${c.id}"><div><div class="t">${esc(c.subject || "(no subject)")}</div><div class="s">${c.status === "sent" ? `<span class="badge good">Sent</span> to ${(c.sentTo || []).length} on ${fmtDate((c.sentAt || "").slice(0, 10))}` : c.status === "drafts" ? `<span class="badge brass">Drafts in Gmail</span>` : (c.sentTo || []).length ? `<span class="badge warn">Partly sent</span> ${(c.sentTo || []).length} so far` : '<span class="badge">Draft</span>'}</div></div><div class="r muted">›</div></a>`).join("") || empty("No emails yet. Try a spring awards reminder to schools, or a thank-you to this year's customers.", '<button class="btn primary" data-act="newCampaign">Write your first email</button>')}</div></section>
   <p class="small muted">A regular Gmail account can send to about 500 people a day. Group emails include your business address and a way to unsubscribe, which U.S. law expects for marketing email. Mark people who unsubscribe on their customer record.</p>`;
@@ -1601,6 +1607,52 @@ function outreachPanel(c){
       <button type="button" class="btn" data-act="skipOutreach" data-id="${c.id}">Don't send</button><button type="button" class="btn" data-act="outreachSent" data-id="${c.id}">Mark as sent</button><button class="btn">Save</button></div></div>`}
   </form>`;
 }
+
+/* ---------- replies to your emails ---------- */
+const FREE_MAIL = /@(gmail|yahoo|hotmail|outlook|aol|icloud|me|msn|comcast|live|att|protonmail)\./i;
+const emailOf = x => String(x || "").toLowerCase().replace(/.*</, "").replace(/>.*/, "").trim();
+function emailedPeople(){ // everyone you've emailed from the app: email -> {c, since}
+  const m = new Map(), add = (email, c, at) => { email = emailOf(email); if (!validEmail(email) || !c) return; const o = m.get(email); if (!o || (at && at < o.since)) m.set(email, {c, since:at || ""}); };
+  for (const c of S.customers) { if (c.outreach && c.outreach.status === "sent") add(c.outreach.sentTo || c.email, c, c.outreach.sentAt);
+    for (const i of S.invoices) if (i.customerId === c.id && i.emailedAt && i.emailedTo) add(i.emailedTo, c, i.emailedAt); }
+  for (const cp of S.campaigns) for (const e of (cp.sentTo || [])) { const c = S.customers.find(x => emailOf(x.email) === emailOf(e)); add(e, c, cp.sentAt); }
+  return m; }
+const replyKind = (subj, snip) => /automatic reply|auto.?reply|out of (the )?office|away from (my|the) (desk|office)|on vacation|limited access to email|autoreply/i.test(subj + " " + snip) ? "auto" : "real";
+function allReplies(){ const out = []; for (const c of S.customers) for (const r of (c.replies || [])) out.push({...r, c}); return out.sort((a, b) => (b.date || "").localeCompare(a.date || "")); }
+const openReplies = () => allReplies().filter(r => !r.done);
+async function checkReplies(quiet){
+  if (!MCP || UI.replyBusy) return; UI.replyBusy = true; UI.replyMsg = ""; if (!quiet) render();
+  const people = emailedPeople(), emails = [...people.keys()]; let found = 0, bounced = 0, err = "";
+  try {
+    for (let i = 0; i < emails.length; i += 15) { const chunk = emails.slice(i, i + 15);
+      const r = await MCP.callTool(GMAIL, "search_threads", {query:`from:(${chunk.join(" OR ")}) newer_than:120d`, pageSize:25});
+      for (const t of ((r.payload && r.payload.threads) || [])) for (const msg of (t.messages || [])) {
+        const who = people.get(emailOf(msg.sender)); if (!who) continue;
+        const d = new Date(msg.date || 0); const iso = isNaN(d) ? "" : d.toISOString(); if (who.since && iso && iso < who.since) continue;
+        const c = byId("customers", who.c.id); const have = (c.replies || []).some(x => x.threadId === t.id);
+        if (have) continue;
+        const rec = {threadId:t.id, date:iso, from:msg.sender, subject:msg.subject || "", snippet:String(msg.snippet || "").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").slice(0, 300), kind:replyKind(msg.subject || "", msg.snippet || ""), url:t.viewUrl || msg.viewUrl || ""};
+        await put("customers", {...clone(c), replies:[...(c.replies || []), rec], lastReplyAt:iso}); found++; break; } }
+    const b = await MCP.callTool(GMAIL, "search_threads", {query:"from:(mailer-daemon OR postmaster) newer_than:120d", pageSize:25});
+    for (const t of ((b.payload && b.payload.threads) || [])) for (const msg of (t.messages || [])) {
+      const text = (msg.subject || "") + " " + (msg.snippet || ""); const hit = emails.find(e => text.toLowerCase().includes(e)); if (!hit) continue;
+      const c = byId("customers", people.get(hit).c.id); if ((c.replies || []).some(x => x.threadId === t.id)) continue;
+      await put("customers", {...clone(c), replies:[...(c.replies || []), {threadId:t.id, date:new Date(msg.date || Date.now()).toISOString(), from:"Mail delivery", subject:"Email didn't go through", snippet:hit + " bounced. The address may be wrong or no longer used.", kind:"bounce", url:t.viewUrl || ""}], emailBounced:hit}); bounced++; break; }
+  } catch(e) { err = mcpErrText(e).replace("refused the message", "refused the search"); }
+  await saveCompany({repliesChecked:new Date().toISOString()});
+  UI.replyBusy = false; UI.replyMsg = err || (found || bounced ? `Found ${found} new repl${found === 1 ? "y" : "ies"}${bounced ? ` and ${bounced} bounced email${bounced > 1 ? "s" : ""}` : ""}.` : `No new replies from the ${emails.length} people you've emailed.`);
+  if (!quiet || found || bounced || err) toast(UI.replyMsg); render(); }
+function repliesSection(limit){ const list = openReplies(), people = emailedPeople().size;
+  const row = r => `<div class="item" style="cursor:default;align-items:start"><div><div class="t"><a href="#/customer/${r.c.id}">${esc(r.c.name)}</a> ${r.kind === "auto" ? '<span class="badge">Auto-reply</span>' : r.kind === "bounce" ? '<span class="badge bad">Bounced</span>' : '<span class="badge good">Replied</span>'}</div>
+    <div class="s">${esc(r.from)}${r.date ? " · " + fmtDate(r.date.slice(0, 10)) : ""}${r.subject ? " · " + esc(r.subject) : ""}</div><div class="small" style="margin-top:4px">${esc(r.snippet)}</div>
+    <div class="actions" style="margin-top:8px">${r.url ? `<a class="btn small" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">Open in Gmail ↗</a>` : ""}${r.kind === "real" ? `<button class="btn small primary" data-act="replyHot" data-id="${r.c.id}" data-thread="${esc(r.threadId)}">Interested: follow up</button><button class="btn small" data-act="replyNo" data-id="${r.c.id}" data-thread="${esc(r.threadId)}">Not interested</button>` : ""}${r.kind !== "real" ? `<button class="btn small" data-act="editCustomer" data-id="${r.c.id}">Update contact</button>` : ""}<button class="btn small" data-act="replyDone" data-id="${r.c.id}" data-thread="${esc(r.threadId)}">Done</button></div></div></div>`;
+  return `<section class="panel"><div class="panel-head"><div><h2>Replies from customers</h2><p class="small muted" style="margin:2px 0 0">Checks Gmail for anyone you've emailed from this app (${people} people) who wrote back, plus emails that bounced.${S.company.repliesChecked ? " Last checked " + fmtDate(S.company.repliesChecked.slice(0, 10)) + "." : ""}</p></div>
+    ${MCP ? `<button class="btn primary" data-act="checkReplies" ${UI.replyBusy ? "disabled" : ""}>${UI.replyBusy ? "Checking email…" : "Check for replies"}</button>` : ""}</div>
+    ${UI.replyMsg ? `<p class="small" style="margin:0 0 8px">${esc(UI.replyMsg)}</p>` : ""}
+    <div class="list">${list.slice(0, limit || 50).map(row).join("") || empty("No replies waiting. Press Check for replies to look through your Gmail.")}</div>
+    ${limit && list.length > limit ? `<a href="#/email" class="small">See all ${list.length} replies ›</a>` : ""}</section>`; }
+async function markReply(el, patch){ const c = byId("customers", el.dataset.id); if (!c) return; await put("customers", {...clone(c), ...patch(c), replies:(c.replies || []).map(r => r.threadId === el.dataset.thread ? {...r, done:true} : r)}); }
+
 function outreachSection(){
   const leads = S.customers.filter(c => c.outreach).sort(byName); if (!leads.length) return "";
   const live = c => c.outreach.status !== "sent" && c.outreach.status !== "skipped", ready = leads.filter(c => live(c) && validEmail(c.email) && !c.noEmail), need = leads.filter(c => live(c) && !validEmail(c.email)), sent = leads.filter(c => c.outreach.status === "sent"), skipped = leads.filter(c => c.outreach.status === "skipped");
@@ -1826,7 +1878,8 @@ VIEWS.repeat = () => {
 };
 
 /* ---------- orders from email ---------- */
-const ORDER_Q = 'newer_than:45d -in:sent -category:promotions -category:social (order OR orders OR plaque OR plaques OR trophy OR trophies OR award OR awards OR engrave OR engraving OR badge OR badges OR medal OR medals OR quote OR sign OR signs)';
+const byEmailExact = x => { const e = emailOf(x); return e ? S.customers.find(c => emailOf(c.email) === e || ccList(c.billingCc).includes(e)) : null; };
+const ORDER_Q = 'newer_than:60d -in:sent -category:promotions -category:social -from:(noreply OR no-reply OR donotreply OR mailer-daemon OR notifications) (order OR orders OR plaque OR plaques OR trophy OR trophies OR award OR awards OR engrave OR engraved OR engraving OR badge OR badges OR "name tag" OR "name tags" OR nameplate OR medal OR medals OR quote OR estimate OR pricing OR price OR sign OR signs OR signage OR banquet OR recognition OR plates OR "looking for" OR "do you make" OR "can you make")';
 const ORD = [["new","New"],["working","Working on it"],["invoiced","Invoiced"],["done","Done"]];
 const findCustByEmail = e => { e = (e || "").toLowerCase().replace(/.*</, "").replace(/>.*/, "").trim(); return S.customers.find(c => (c.email || "").toLowerCase() === e) || S.customers.find(c => e && c.email && e.split("@")[1] === c.email.toLowerCase().split("@")[1] && !/gmail|yahoo|aol|hotmail|outlook|icloud|comcast/.test(e)); };
 VIEWS.orders = () => {
@@ -1834,8 +1887,8 @@ VIEWS.orders = () => {
   const cands = (UI.orderCands || []).filter(c => !byId("orders", "gm-" + c.id));
   return `<div class="pagehead"><div><h1>Sales</h1><p>Order requests from your email, with due dates, until they become invoices.</p></div><div class="actions">${MCP ? `<button class="btn primary" data-act="checkOrderEmail" ${UI.orderBusy ? "disabled" : ""}>${UI.orderBusy ? "Checking email…" : "Check email for orders"}</button>` : ""}<button class="btn" data-act="newOrder">Add an order</button></div></div>${salesSeg("orders")}
   ${UI.orderErr ? `<div class="notice">${esc(UI.orderErr)}</div>` : ""}
-  ${cands.length ? `<section class="panel"><div class="panel-head"><h2>Possible orders in your email</h2><button class="btn small" data-act="clearCands">Hide</button></div><div class="list">${cands.map(c => { const m = c.messages[0]; return `<div class="item" style="cursor:default;align-items:start"><div><div class="t">${esc(m.subject || "(no subject)")}</div><div class="s">${esc(m.sender)} · ${fmtDate((m.date || "").slice(0, 10))}</div><div class="s">${esc(m.snippet || "").slice(0, 220)}</div><div class="actions" style="margin-top:8px"><button class="btn small primary" data-act="takeOrder" data-id="${c.id}">Add as order</button><button class="btn small" data-act="notOrder" data-id="${c.id}">Not an order</button>${c.viewUrl ? `<a class="btn small" href="${esc(c.viewUrl)}" target="_blank" rel="noopener">Open in Gmail ↗</a>` : ""}</div></div></div>`; }).join("")}</div></section>` : ""}
-  <section class="panel"><h2 style="margin-bottom:8px">Open orders</h2><div class="list">${open.map(o => `<div class="item" data-act="editOrder" data-id="${o.id}"><div><div class="t">${esc(o.customerId ? custName(o.customerId) : o.fromName || o.from || "Unknown customer")}</div><div class="s">${esc(o.subject || "")}</div><div class="s">${o.due ? dueText(o.due) + " · " + fmtDate(o.due) : "No due date"}</div></div><div class="r"><span class="badge ${o.status === "invoiced" ? "good" : "brass"}">${esc((ORD.find(x => x[0] === o.status) || ORD[0])[1])}</span></div></div>`).join("") || empty(MCP ? "No open orders. Tap Check email for orders to scan the last 45 days." : "No open orders.")}</div></section>
+  ${cands.length ? `<section class="panel"><div class="panel-head"><h2>People asking for business</h2><button class="btn small" data-act="clearCands">Hide</button></div><div class="list">${cands.map(c => { const m = c.messages[0]; return `<div class="item" style="cursor:default;align-items:start"><div><div class="t">${esc(m.subject || "(no subject)")} ${(() => { const k = byEmailExact(m.sender); return k ? `<span class="badge good">Customer: ${esc(k.name)}</span>` : `<span class="badge brass">New person</span>`; })()}</div><div class="s">${esc(m.sender)} · ${(d => isNaN(d) ? "" : fmtDate(iso0(d)))(new Date(m.date || ""))}</div><div class="s">${esc(m.snippet || "").slice(0, 220)}</div><div class="actions" style="margin-top:8px"><button class="btn small primary" data-act="takeOrder" data-id="${c.id}">Add as order</button><button class="btn small" data-act="notOrder" data-id="${c.id}">Not business</button>${byEmailExact(m.sender) ? "" : `<button class="btn small" data-act="inqLead" data-id="${c.id}">Add as new lead</button>`}${c.viewUrl ? `<a class="btn small" href="${esc(c.viewUrl)}" target="_blank" rel="noopener">Open in Gmail ↗</a>` : ""}</div></div></div>`; }).join("")}</div></section>` : ""}
+  <section class="panel"><h2 style="margin-bottom:8px">Open orders</h2><div class="list">${open.map(o => `<div class="item" data-act="editOrder" data-id="${o.id}"><div><div class="t">${esc(o.customerId ? custName(o.customerId) : o.fromName || o.from || "Unknown customer")}</div><div class="s">${esc(o.subject || "")}</div><div class="s">${o.due ? dueText(o.due) + " · " + fmtDate(o.due) : "No due date"}</div></div><div class="r"><span class="badge ${o.status === "invoiced" ? "good" : "brass"}">${esc((ORD.find(x => x[0] === o.status) || ORD[0])[1])}</span></div></div>`).join("") || empty(MCP ? "No open orders. Tap Check email for orders to scan the last 60 days." : "No open orders.")}</div></section>
   <p class="small muted">Watch out for "quote requests" from people you don't know that ask for a large order and offer to pay by check or with extra for shipping; that's a common scam aimed at engravers.</p>`;
 };
 function orderForm(o){ o = o || {status:"new"};
@@ -2408,6 +2461,17 @@ document.addEventListener("submit", async e => {
 
 /* ---------- clicks & inputs ---------- */
 const ACT = {
+  checkReplies(){ checkReplies(false); },
+  checkMyEmail(){ go("orders"); setTimeout(() => { ACT.checkOrderEmail(); checkReplies(true); }, 50); },
+  async inqLead(el){ const c = (UI.orderCands || []).find(x => x.id === el.dataset.id); if (!c) return; const m = c.messages[0], email = emailOf(m.sender);
+    const name = (String(m.sender).replace(/<.*>/, "").replace(/"/g, "").trim()) || email;
+    const dom = email.split("@")[1] || ""; const org = FREE_MAIL.test(email) ? name : dom.split(".")[0].replace(/[-_]/g, " ").replace(/\b\w/g, x => x.toUpperCase());
+    const id = await put("customers", {name:org, contact:FREE_MAIL.test(email) ? "" : name, email, status:"lead", terms:"Net 30", taxable:true, notes:[{at:new Date().toISOString(), text:"Reached out by email: " + (m.subject || "") + " — " + String(m.snippet || "").slice(0, 200)}]});
+    toast(org + " added as a lead"); go("customer/" + id); },
+  async replyHot(el){ const c = byId("customers", el.dataset.id); await markReply(el, c => ({status:c.status === "past" || c.status === "inactive" || c.status === "lead" ? "lead" : c.status, hot:true, notes:[...(c.notes || []), {at:new Date().toISOString(), text:"Replied to email and sounds interested"}]}));
+    await put("followups", {text:"Follow up: " + c.name + " replied and is interested", customerId:c.id, due:addDays(todayISO(), 1), done:false}); toast("Added a follow-up for tomorrow"); },
+  async replyNo(el){ await markReply(el, c => ({notes:[...(c.notes || []), {at:new Date().toISOString(), text:"Replied: not interested right now"}]})); toast("Noted"); },
+  async replyDone(el){ await markReply(el, () => ({})); },
   syncNow(){ GSync.dirty = true; GSync.run().then(() => toast(GSync.err ? "Sync problem: " + GSync.err : "Synced with Google Drive")); },
   closeSheet, dismissLocal(){ UI.dismissLocal = true; render(); },
   confirmYes(){ const cb = confirmCb; confirmCb = null; closeSheet(); if (cb) cb(); },
@@ -2484,7 +2548,7 @@ const ACT = {
     const it = byId("items", el.dataset.item); row.querySelector("[name=itemId]").value = it.id; row.querySelector("[name=desc]").value = it.desc || it.name; row.querySelector("[name=qty]").value = el.dataset.qty; row.querySelector("[name=rate]").value = el.dataset.rate; const tx = row.querySelector("[name=taxable]"); if (tx) tx.checked = it.taxable !== false && +(f.elements.taxRate.value || 0) > 0; recalc(f); },
   async checkOrderEmail(){ UI.orderBusy = true; UI.orderErr = ""; render();
     try { const r = await MCP.callTool("Gmail", "search_threads", {query:ORDER_Q, pageSize:25}); const th = (r.payload && r.payload.threads) || [];
-      UI.orderCands = th.filter(x => x.messages && x.messages.length && !byId("orders", "gm-" + x.id)); if (!UI.orderCands.length) toast("No new order emails found in the last 45 days."); }
+      UI.orderCands = th.filter(x => x.messages && x.messages.length && !byId("orders", "gm-" + x.id) && !/mailer-daemon|postmaster|no-?reply|donotreply|notifications?@/i.test(x.messages[0].sender || "") && emailOf(x.messages[0].sender) !== emailOf(S.company.email)); if (!UI.orderCands.length) toast("No new order emails found in the last 45 days."); }
     catch(e) { UI.orderErr = mcpErrText(e).replace("refused the message", "refused the search"); }
     UI.orderBusy = false; render(); },
   clearCands(){ UI.orderCands = []; render(); },
