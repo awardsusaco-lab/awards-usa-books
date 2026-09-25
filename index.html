@@ -223,6 +223,11 @@ label.check{display:flex;gap:8px;align-items:center;font-size:14px}
   .kv{justify-content:start}
 }
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
+.help details{border-top:1px solid var(--line);padding:4px 0}.help details:first-of-type{border-top:0}
+.help summary{cursor:pointer;padding:10px 4px;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:10px}
+.help summary::-webkit-details-marker{display:none}.help summary::after{content:"+";color:var(--muted);font-weight:400;font-size:20px;line-height:1}
+.help details[open] summary::after{content:"–"}.help .ans{padding:0 4px 12px;line-height:1.55}.help .ans ol,.help .ans ul{margin:6px 0;padding-left:22px}.help .ans li{margin:3px 0}
+.help-cats{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}.help-cats a{text-decoration:none;color:inherit}
 .newitem{border:1px dashed var(--brass);border-radius:10px;padding:12px;margin:4px 0 8px;background:var(--brass-soft)}
 .newitem .fields{grid-template-columns:2fr 1fr 1fr 1.3fr}
 @media (max-width:860px){.newitem .fields{grid-template-columns:1fr 1fr}}
@@ -628,7 +633,7 @@ const UI = {q:{}, filter:{}};
 function route(){ const h = location.hash.replace(/^#\/?/, ""); const [view, id] = h.split("/"); return {view: view || "home", id: id ? decodeURIComponent(id) : ""}; }
 const go = h => { location.hash = "#/" + h; };
 
-const NAV_ALL = [["home","Home"],["customers","Customers"],["email","Email"],["sales","Sales"],["expenses","Expenses"],["banking","Banking"],["investments","Investments"],["taxes","Taxes"],["pay","Pay"],["inventory","Inventory"],["reports","Reports"],["accounts","Chart of accounts"],["settings","Settings"]];
+const NAV_ALL = [["home","Home"],["customers","Customers"],["email","Email"],["sales","Sales"],["expenses","Expenses"],["banking","Banking"],["investments","Investments"],["taxes","Taxes"],["pay","Pay"],["inventory","Inventory"],["reports","Reports"],["accounts","Chart of accounts"],["settings","Settings"],["help","Help"]];
 const SECTION = {pos:"expenses", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"sales", estimate:"sales", bills:"expenses", checks:"expenses", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
 const ICONS = {
   home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
@@ -690,12 +695,12 @@ function printSheet(doc, kind){ const label = (kind === "estimate" ? "Estimate "
   openSheet("Print " + label, `<p>This window can't open your printer directly. Save the ${kind} as a PDF, then print the PDF:</p>
   <ul class="small"><li><b>Computer:</b> open the saved PDF, then press <b>Ctrl+P</b> (Windows) or <b>⌘P</b> (Mac).</li><li><b>iPhone / iPad:</b> open the PDF, tap the <b>Share</b> button, then <b>Print</b>.</li></ul>
   <div class="actions"><button class="btn primary" data-act="${kind === "estimate" ? "pdfEstimate" : "pdfInvoice"}" data-id="${doc.id}">Save PDF to print</button></div>`); }
-function gmailCompose(to, subject, body){ const me = String(S.company.email || ""); return "https://mail.google.com/mail/?view=cm&fs=1" + (/@gmail\.com$/i.test(me) ? "&authuser=" + encodeURIComponent(me) : "") + "&to=" + encodeURIComponent(to) + "&su=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body); }
-function manualEmail(inv, to, subject, body, ask, why){ const fname = pdfName(inv); saveFile(fname, docPDF(inv));
-  const mailto = "mailto:" + encodeURIComponent(to) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+function gmailCompose(to, subject, body, cc){ const me = String(S.company.email || ""); return "https://mail.google.com/mail/?view=cm&fs=1" + (/@gmail\.com$/i.test(me) ? "&authuser=" + encodeURIComponent(me) : "") + "&to=" + encodeURIComponent(to) + (cc && cc.length ? "&cc=" + encodeURIComponent(cc.join(",")) : "") + "&su=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body); }
+function manualEmail(inv, to, subject, body, ask, why, cc){ cc = cc || []; const fname = pdfName(inv); saveFile(fname, docPDF(inv));
+  const mailto = "mailto:" + encodeURIComponent(to) + "?" + (cc.length ? "cc=" + encodeURIComponent(cc.join(",")) + "&" : "") + "subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   openSheet("Email invoice #" + inv.num, `${why ? `<div class="notice">Couldn't send it automatically: ${esc(why)}</div>` : ""}
-  <ol style="padding-left:20px;margin:0 0 14px;line-height:1.7"><li>The PDF <b>${esc(fname)}</b> is saving to your computer.</li><li>Press <b>Open in Gmail</b>. The message to ${esc(to)} is already written.</li><li>Click the paperclip in Gmail, attach the PDF, and press Send.</li></ol>
-  <div class="actions"><a class="btn primary" href="${esc(gmailCompose(to, subject, body))}" target="_blank" rel="noopener noreferrer" data-manual-sent="${inv.id}" data-to="${esc(to)}" data-ask="${ask ? 1 : ""}">Open in Gmail</a><a class="btn" href="${esc(mailto)}" target="_blank" rel="noopener noreferrer" data-manual-sent="${inv.id}" data-to="${esc(to)}" data-ask="${ask ? 1 : ""}">Use another email app</a><button class="btn" data-act="pdfInvoice" data-id="${inv.id}">Save the PDF again</button></div>
+  <ol style="padding-left:20px;margin:0 0 14px;line-height:1.7"><li>The PDF <b>${esc(fname)}</b> is saving to your computer.</li><li>Press <b>Open in Gmail</b>. The message to ${esc(to)}${cc.length ? " (CC " + esc(cc.join(", ")) + ")" : ""} is already written.</li><li>Click the paperclip in Gmail, attach the PDF, and press Send.</li></ol>
+  <div class="actions"><a class="btn primary" href="${esc(gmailCompose(to, subject, body, cc))}" target="_blank" rel="noopener noreferrer" data-manual-sent="${inv.id}" data-to="${esc(to)}" data-ask="${ask ? 1 : ""}">Open in Gmail</a><a class="btn" href="${esc(mailto)}" target="_blank" rel="noopener noreferrer" data-manual-sent="${inv.id}" data-to="${esc(to)}" data-ask="${ask ? 1 : ""}">Use another email app</a><button class="btn" data-act="pdfInvoice" data-id="${inv.id}">Save the PDF again</button></div>
   <p class="small muted" style="margin-top:12px">The invoice gets a SENT stamp once you open the email.</p>`, true); }
 function coRate(){ const r = S.company.taxRate; return r === "" || r == null || isNaN(+r) ? 7.5 : +r; }
 function hasOwnRate(c){ return !!c && c.taxRate !== undefined && c.taxRate !== null && c.taxRate !== "" && !isNaN(+c.taxRate); }
@@ -795,6 +800,7 @@ VIEWS.customer = id => {
     <section class="panel"><h2>Contact</h2><div class="contact">
       ${c.contact ? `<span>Contact</span><div>${esc(c.contact)}</div>` : ""}
       ${c.email ? `<span>Email</span><div><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>` : ""}
+      ${c.billingCc ? `<span>CC on invoices</span><div>${esc(c.billingCc)}</div>` : ""}
       ${c.phone ? `<span>Phone</span><div><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></div>` : ""}
       ${c.address ? `<span>Address</span><div class="pre">${esc(c.address)}</div>` : ""}
       <span>Sales tax</span><div>${c.taxable === false ? "Tax exempt" : "Taxable · " + custTax(c) + "%" + (hasOwnRate(c) ? "" : " (default)")}</div>
@@ -890,7 +896,7 @@ VIEWS.invoice = id => {
   <div class="actions">${st !== "paid" ? `<button class="btn primary" data-act="receivePayment" data-customer="${inv.customerId}" data-invoice="${id}">Receive payment</button>` : ""}<button class="btn" data-act="editInvoice" data-id="${id}">Edit</button><button class="btn" data-act="emailInvoice" data-id="${id}">Email invoice</button><button class="btn" data-act="pdfInvoice" data-id="${id}">Save PDF</button><button class="btn" data-act="printDoc" data-id="${id}" data-kind="invoice">Print</button>${st !== "paid" && !inv.emailedAt && !inv.sentAt ? `<button class="btn" data-act="markSent" data-id="${id}">Mark as sent</button>` : ""}<button class="btn" data-act="copyInvoice" data-id="${id}">Duplicate</button><button class="btn" data-act="askReview" data-id="${id}">Ask for review</button></div></div>
   ${jobBar(inv)}
   ${inv.reviewAskedAt ? `<p class="small muted">Review requested ${fmtDate(inv.reviewAskedAt.slice(0, 10))}.</p>` : ""}
-  ${inv.emailedAt ? `<p class="small muted">Emailed to ${esc(inv.emailedTo)} on ${fmtDate(inv.emailedAt.slice(0, 10))}.</p>` : ""}${invoiceDoc(inv)}
+  ${inv.emailedAt ? `<p class="small muted">Emailed to ${esc(inv.emailedTo)}${inv.emailedCc ? " (CC " + esc(inv.emailedCc) + ")" : ""} on ${fmtDate(inv.emailedAt.slice(0, 10))}.</p>` : ""}${invoiceDoc(inv)}
   `;
 };
 
@@ -934,8 +940,54 @@ VIEWS.inventory = () => {
   </tbody></table></div></div>`;
 };
 
+
+const HELP = [
+ ["Getting started", [
+  ["What goes where in this app?", `<ul><li><b>Home</b>: your to-do list, money at a glance and quick buttons (New invoice, Receive payment, etc.).</li><li><b>Customers</b>: everyone you sell to, plus leads. Tap a name for their history, notes and past prices.</li><li><b>Sales</b>: invoices, estimates, payments, orders from email and yearly repeat orders.</li><li><b>Expenses</b>: bills, checks and card charges, suppliers, supplier orders and mileage.</li><li><b>Inventory</b>: your items, how many you have and what's running low.</li><li><b>Reports</b>, <b>Taxes</b>, <b>Banking</b> and <b>Settings</b> are in the side menu (or <b>More</b> on your phone).</li></ul>`],
+  ["Where is my work saved?", `On the device you're using <b>and</b> in a private file in your Google Drive. The bottom of the side menu shows "Synced to Google Drive" with the time. Your phone and computer pick up each other's changes within a minute or two. If it says "Changes waiting to sync", tap <b>Reconnect</b> at the top of the page.`],
+  ["It says \"Reconnect Google\" at the top. What do I do?", `Just tap <b>Reconnect</b> and choose your Google account. Google only lets the app stay signed in for about an hour at a time, so this is normal. Nothing you entered is lost; it's saved on the device and syncs as soon as you reconnect. About once a week Google may ask you to approve the app again. Click <b>Continue</b> when it does.`],
+  ["How do I put the app on my phone or computer?", `<b>iPhone:</b> open the app's address in <b>Safari</b> → tap the Share button → <b>Add to Home Screen</b>. Open it from the new icon and tap <b>Connect Google</b>.<br><b>Computer:</b> open it in Chrome → click the install icon at the right of the address bar (or ⋮ → Cast, save and share → Install page as app).`]]],
+ ["Invoices", [
+  ["How do I make an invoice?", `<ol><li>Tap <b>New invoice</b> (Home or Sales).</li><li>Pick the customer. New customer? Choose "+ Add a new customer" at the top of the list.</li><li>Add lines: pick an item (or "+ New item"), type a description, quantity and price. The customer's past prices show on the right.</li><li>Check the tax rate. It fills in from the customer's file (7.5% for Lakewood, 0 for tax-exempt).</li><li>Press <b>Save</b>.</li></ol>`],
+  ["How do I email an invoice?", `Open the invoice → <b>Email invoice</b>. The customer's email and anyone saved as "CC on invoices" are filled in. Check the message and press <b>Send</b>. It goes from your Gmail with the PDF attached, and the invoice gets a blue <b>SENT</b> stamp.<br>If Google isn't connected, the app saves the PDF and opens a ready-to-go Gmail message instead; attach the PDF and send.`],
+  ["How do I copy someone (like a bookkeeper) on a customer's invoices?", `Two ways:<ol><li>Open the customer → <b>Edit</b> → type their email in <b>CC on invoices</b> → Save.</li><li>Or when emailing an invoice, type it in the <b>CC</b> box and leave "Always CC these people" checked.</li></ol>From then on they're copied on every invoice you email that customer. Use commas for more than one person.`],
+  ["How do I print or save a PDF?", `Open the invoice → <b>Save PDF</b> to keep a copy, or <b>Print</b>. If the print window doesn't open, the app offers to save the PDF; open it and press Ctrl+P (computer) or Share → Print (iPhone).`],
+  ["What do the PAID and SENT stamps mean?", `<b>SENT</b> (blue) = you emailed it or pressed "Mark as sent". <b>PAID</b> (green) = payments cover the full amount; it shows the date and check number. The stamps also appear on the PDF.`],
+  ["How do I fix a mistake on an invoice?", `Open it → <b>Edit</b>, change it, press Save. If a payment was already recorded and the new total is lower, edit the payment first.`],
+  ["How do I find an old invoice?", `<b>Sales</b> → Invoices. Use the search box, the year menu and the filters (Unpaid, Paid, Schools, Tax-exempt…). "Save these as PDFs" downloads everything showing as one zip file for your records.`]]],
+ ["Getting paid", [
+  ["A customer paid me. How do I record it?", `<b>Receive payment</b> (Home) → pick the customer (people who owe you are at the top) → enter the amount, date, method (check, Square, Venmo…) and check number → tick which invoice(s) it pays → Save. The invoice turns PAID.`],
+  ["Who owes me money?", `Home shows "Customers owe you" at the top and overdue invoices in To do. For a full list: <b>Reports</b> → A/R aging.`]]],
+ ["Customers", [
+  ["How do I add or change a customer?", `<b>Customers</b> → <b>New customer</b>, or open one and press <b>Edit</b>. Fill in the contact, email, type (School, Nonprofit…), payment terms, tax, and "CC on invoices" if someone else pays the bills.`],
+  ["How do I set a customer's sales tax?", `Edit the customer. Uncheck <b>Charge sales tax</b> for tax-exempt schools, government and nonprofits (keep their exemption certificate on file). Leave the rate blank to use Lakewood's 7.5%. Only change it if you deliver outside Lakewood, because Colorado taxes by delivery address. Changing the rate on an invoice also saves it to the customer.`],
+  ["How do I see what I charged someone before?", `Open the customer to see their full history. While making an invoice, their past prices for each item show up next to the lines.`]]],
+ ["Orders, estimates and repeat customers", [
+  ["What is \"Orders from email\"?", `Sales → Orders. Press <b>Check email for orders</b> and the app looks through recent Gmail for order requests. Add one as an order with a due date; when it's ready, open the order and press <b>Save &amp; make invoice</b>.`],
+  ["What are yearly repeat orders?", `Sales → Repeat. The app notices customers who order around the same time every year and reminds you a few weeks ahead so you can email or text them first.`],
+  ["How do I give a price quote?", `Sales → Estimates → New estimate. When they say yes, open it and press <b>Turn into invoice</b>.`]]],
+ ["Supplies and inventory", [
+  ["I ordered supplies online. How do I track them?", `<ol><li><b>Expenses → Supplier orders → Log an order</b>. Pick the supplier, add what you ordered and how you paid.</li><li>When it ships, press <b>Shipped</b> and paste the tracking number.</li><li>When the box arrives, press <b>Received</b> and your inventory updates automatically.</li></ol>`],
+  ["How do I know what's running low?", `Home lists low-stock items. Set a "reorder at" number on each item (Inventory → the item → Edit) so the app knows when to warn you.`]]],
+ ["Expenses, banking and taxes", [
+  ["How do I enter a bill or a purchase?", `Bill you'll pay later: <b>Enter bill</b> on Home. Something already paid by card or check: Expenses → <b>Write check / card charge</b>. Pick the right category so your taxes come out right.`],
+  ["How do I bring in my bank statement?", `Download a CSV from Navy Federal, then Banking → <b>Import statement</b>. Match or categorize each line. Rules you create sort similar lines automatically next time.`],
+  ["How do I file Colorado and Lakewood sales tax?", `<b>Taxes</b> shows each deadline with the amount owed. Colorado DOR gets the state, RTD, cultural district and Jefferson County share; the City of Lakewood gets its 3% separately. When you pay, press <b>Record payment &amp; mark filed</b> next to it.`],
+  ["How do I send everything to my accountant?", `<b>Reports</b> → <b>Send to my accountant</b>. Pick the dates, then email it to the accountant saved in Settings, or press <b>Download as ZIP</b> to keep a copy.`]]],
+ ["Backups and problems", [
+  ["How do I make a backup?", `Settings → <b>Download backup</b>. Do it once a month and keep the file with your business records. <b>Restore from backup</b> brings one back.`],
+  ["Something looks wrong or won't work", `<ol><li>Tap <b>Reconnect</b> if it's showing at the top.</li><li>Close the app and open it again.</li><li>Check the bottom of the side menu for a sync message.</li><li>Still stuck? Ask Claude and describe what you pressed and what happened. A screenshot helps.</li></ol>`],
+  ["Can I get a new feature or change something?", `Yes. Ask Claude in chat what you'd like. Claude builds the update and tells you how to put it on the app (usually dragging one file onto GitHub).`]]]
+];
+VIEWS.help = () => { const q = (UI.q.help || "").toLowerCase().trim(), strip = h => h.replace(/<[^>]+>/g, " ");
+  const cats = HELP.map(([cat, items]) => [cat, items.filter(([qq, a]) => !q || (qq + " " + strip(a) + " " + cat).toLowerCase().includes(q))]).filter(([, items]) => items.length);
+  return `<div class="pagehead"><div><h1>Help</h1><p>Tap a question to see the answer.</p></div></div>
+  <input id="helpSearch" class="search" style="max-width:none;width:100%;margin-bottom:14px" type="search" data-q="help" value="${esc(UI.q.help || "")}" placeholder="Search help, e.g. print, CC, sales tax, backup">
+  ${q ? "" : `<div class="help-cats">${HELP.map(([cat], i) => `<a class="chip" href="#help-${i}" onclick="event.preventDefault();document.getElementById('help-${i}').scrollIntoView({behavior:'smooth'})">${esc(cat)}</a>`).join("")}</div>`}
+  ${cats.length ? cats.map(([cat, items]) => `<section class="panel help" id="help-${HELP.findIndex(h => h[0] === cat)}"><h2 style="margin-bottom:6px">${esc(cat)}</h2>${items.map(([qq, a]) => `<details${q ? " open" : ""}><summary>${esc(qq)}</summary><div class="ans">${a}</div></details>`).join("")}</section>`).join("") : `<div class="panel">${empty("Nothing matched. Try a simpler word, or ask Claude in chat.")}</div>`}`; };
+
 VIEWS.more = () => `<div class="pagehead"><div><h1>More</h1></div></div><div class="panel morelist">
-  <a href="#/email">Email customers <span class="muted">›</span></a><a href="#/taxes">Taxes &amp; deadlines <span class="muted">›</span></a><a href="#/pay">Pay yourself, contractors &amp; tax estimate <span class="muted">›</span></a><a href="#/jobs">Jobs in progress <span class="muted">›</span></a><a href="#/mileage">Mileage log <span class="muted">›</span></a><a href="#/banking">Banking &amp; statement import <span class="muted">›</span></a><a href="#/inventory">Items &amp; inventory <span class="muted">›</span></a><a href="#/estimates">Estimates <span class="muted">›</span></a><a href="#/reports">Reports <span class="muted">›</span></a><a href="#/vendors">Vendors <span class="muted">›</span></a><a href="#/accounts">Chart of accounts <span class="muted">›</span></a><a href="#/payments">Payments received <span class="muted">›</span></a><a href="#/checks">Checks &amp; charges <span class="muted">›</span></a><a href="#/settings">Settings &amp; backup <span class="muted">›</span></a></div>`;
+  <a href="#/help"><b>Help: how do I…?</b> <span class="muted">›</span></a>  <a href="#/email">Email customers <span class="muted">›</span></a><a href="#/taxes">Taxes &amp; deadlines <span class="muted">›</span></a><a href="#/pay">Pay yourself, contractors &amp; tax estimate <span class="muted">›</span></a><a href="#/jobs">Jobs in progress <span class="muted">›</span></a><a href="#/mileage">Mileage log <span class="muted">›</span></a><a href="#/banking">Banking &amp; statement import <span class="muted">›</span></a><a href="#/inventory">Items &amp; inventory <span class="muted">›</span></a><a href="#/estimates">Estimates <span class="muted">›</span></a><a href="#/reports">Reports <span class="muted">›</span></a><a href="#/vendors">Vendors <span class="muted">›</span></a><a href="#/accounts">Chart of accounts <span class="muted">›</span></a><a href="#/payments">Payments received <span class="muted">›</span></a><a href="#/checks">Checks &amp; charges <span class="muted">›</span></a><a href="#/settings">Settings &amp; backup <span class="muted">›</span></a></div>`;
 
 /* reports */
 const REPORTS = [["pl","Profit & Loss","Income, cost of goods and expenses for a period"],["bs","Balance Sheet","What the business owns and owes on a date"],["aging","A/R Aging","Unpaid invoices by how late they are"],["salescust","Sales by Customer","Who you sold to in a period"],["salesitem","Sales by Item","What sold, how many, and for how much"],["ap","Unpaid Bills","What you owe each vendor"],["invval","Inventory Valuation","Stock on hand and its value at cost"],["salestax","Sales Tax Liability","Tax collected by jurisdiction and what you owe each agency"],["gl","Transaction Journal","Every debit and credit in a period"]];
@@ -1337,6 +1389,7 @@ const merge = (t, c) => String(t || "").replace(/\{contact\}/g, firstName(c)).re
 const oneLineAddr = () => (S.company.mailingAddress || "").split("\n").map(x => x.trim()).filter(Boolean).join(", ");
 const emailFooter = () => `\n\n--\n${S.company.name}${S.company.tagline ? "\n" + S.company.tagline : ""}${oneLineAddr() ? "\n" + oneLineAddr() : ""}\n${S.company.phone ? "\n" + S.company.phone : ""}\nDon't want these emails? Reply "unsubscribe" and I'll take you off the list.`;
 const validEmail = e => /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(String(e || "").trim());
+const ccList = s => String(s || "").split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
 function mcpErrText(e){
   const c = e && e.code;
   if (c === "needs_reauth") return "Your Google sign-in needs a refresh. Press Reconnect at the top of the page, then try again.";
@@ -1982,6 +2035,7 @@ function customerForm(c){ c = c || {status:"active", terms:"Net 30", taxable:tru
   <label class="f">Type<select name="type">${opts(CUST_TYPES.map(t => [t, t]), c.type, "Choose type")}</select></label>
   <label class="f">Email<input name="email" type="email" value="${esc(c.email)}"></label>
   <label class="f">Phone<input name="phone" inputmode="tel" value="${esc(c.phone)}"></label>
+  <label class="f full">CC on invoices (billing / accounts payable)<input name="billingCc" type="text" inputmode="email" autocapitalize="off" value="${esc(c.billingCc || "")}" placeholder="e.g. treasurer@example.org"><span class="small muted" style="font-weight:400">Copied on every invoice you email this customer. Separate more than one with commas.</span></label>
   <label class="f full">Billing address<textarea name="address">${esc(c.address)}</textarea></label>
   <label class="f">Status<select name="status">${opts([["active","Active customer"],["lead","Lead"],["past","Past customer"],["inactive","Inactive"]], c.status)}</select></label>
   <label class="f">Payment terms<select name="terms">${opts(Object.keys(TERMS).map(t => [t, t]), c.terms)}</select></label>
@@ -2184,7 +2238,7 @@ function billpayView(bp){
 /* form submission */
 const FORMS = {
   async customer(f){ const id = f.dataset.id, old = id ? byId("customers", id) : {};
-    await put("customers", {...clone(old || {}), id:id || undefined, name:val(f, "name"), contact:val(f, "contact"), type:val(f, "type"), email:val(f, "email"), phone:val(f, "phone"), address:val(f, "address"), status:val(f, "status"), terms:val(f, "terms"), taxable:f.elements.taxable.checked, taxRate:(v => v === "" || isNaN(+v) || Math.abs(+v - coRate()) < 0.0005 ? "" : +v)(f.elements.custTaxRate.value.trim()), noEmail:f.elements.noEmail.checked, notes:old?.notes || []}).then(nid => { if (!id) go("customer/" + nid); });
+    await put("customers", {...clone(old || {}), id:id || undefined, name:val(f, "name"), contact:val(f, "contact"), type:val(f, "type"), email:val(f, "email"), phone:val(f, "phone"), address:val(f, "address"), status:val(f, "status"), terms:val(f, "terms"), taxable:f.elements.taxable.checked, taxRate:(v => v === "" || isNaN(+v) || Math.abs(+v - coRate()) < 0.0005 ? "" : +v)(f.elements.custTaxRate.value.trim()), noEmail:f.elements.noEmail.checked, billingCc:ccList(f.elements.billingCc.value).join(", "), notes:old?.notes || []}).then(nid => { if (!id) go("customer/" + nid); });
     toast(id ? "Customer saved" : "Customer added"); },
   async vendor(f){ const id = f.dataset.id; await put("vendors", {...clone(byId("vendors", id) || {}), id:id || undefined, name:val(f, "name"), contact:val(f, "contact"), phone:val(f, "phone"), email:val(f, "email"), terms:val(f, "terms"), defaultAcct:val(f, "defaultAcct") || (f.elements.contractor.checked ? "a6060" : ""), address:val(f, "address"), website:normUrl(val(f, "website")), contractor:f.elements.contractor.checked, w9:f.elements.w9.checked}); toast("Saved"); },
   async item(f){ const id = f.dataset.id, type = val(f, "type");
@@ -2245,16 +2299,18 @@ const FORMS = {
     const kw = val(f, "kw"); if (f.elements.remember.checked && kw) { const ex = S.bankrules.find(r => r.text.toLowerCase() === kw.toLowerCase()); await put("bankrules", {...(ex ? clone(ex) : {}), text:kw, acct, vendorId}); }
     toast("Added"); },
   async reconcile(f){ const a = byId("accounts", f.dataset.id); await put("accounts", {...clone(a), recon:{date:val(f, "date"), balance:num(f, "balance")}}); return "keep"; },
-  async sendInvoice(f){ const inv = byId("invoices", f.dataset.id), to = val(f, "to");
+  async sendInvoice(f){ const inv = byId("invoices", f.dataset.id), to = val(f, "to"), cc = ccList(f.elements.cc ? f.elements.cc.value : "");
     if (!validEmail(to)) return formErr(f, "Enter a valid email address.");
+    if (cc.some(x => !validEmail(x))) return formErr(f, "Check the CC email address.");
+    { const cu = byId("customers", inv.customerId); if (cu && f.elements.saveCc && f.elements.saveCc.checked && cc.join(", ") !== (cu.billingCc || "")) await put("customers", {...clone(cu), billingCc:cc.join(", ")}); }
     const ask = f.elements.askReview && f.elements.askReview.checked, rlink = f.elements.reviewLink ? val(f, "reviewLink") : "";
     if (ask && !S.company.reviewLink && !rlink) return formErr(f, "Paste your Google review link, or uncheck the review request.");
     if (ask && rlink) { await saveCompany({reviewLink:rlink}); f.elements.body.value = f.elements.body.value.replace("[your Google review link]", rlink); }
     const pdf = docPDF(inv), fname = pdfName(inv);
-    if (!MCP) return manualEmail(inv, to, val(f, "subject"), f.elements.body.value, ask);
-    try { await gmailSend({to:[to], subject:val(f, "subject"), body:f.elements.body.value, attachments:[{content:b64bytes(pdf), filename:fname, mimeType:"application/pdf"}]});
-      await put("invoices", {...clone(inv), emailedAt:new Date().toISOString(), emailedTo:to, ...(ask ? {reviewAskedAt:new Date().toISOString()} : {})}); toast("Invoice sent to " + to); }
-    catch(e) { return manualEmail(inv, to, val(f, "subject"), f.elements.body.value, ask, mcpErrText(e)); } },
+    if (!MCP) return manualEmail(inv, to, val(f, "subject"), f.elements.body.value, ask, "", cc);
+    try { await gmailSend({to:[to], ...(cc.length ? {cc} : {}), subject:val(f, "subject"), body:f.elements.body.value, attachments:[{content:b64bytes(pdf), filename:fname, mimeType:"application/pdf"}]});
+      await put("invoices", {...clone(inv), emailedAt:new Date().toISOString(), emailedTo:to, emailedCc:cc.join(", "), ...(ask ? {reviewAskedAt:new Date().toISOString()} : {})}); toast("Invoice sent to " + to + (cc.length ? " (CC " + cc.join(", ") + ")" : "")); }
+    catch(e) { return manualEmail(inv, to, val(f, "subject"), f.elements.body.value, ask, mcpErrText(e), cc); } },
   async po(f){ const id = f.dataset.id || undefined, lines = readLines(f), vid = val(f, "vendorId");
     if (!vid || vid === "__newvend") return formErr(f, "Choose the supplier.");
     if (!lines.length) return formErr(f, "Add at least one line."); if (lines.some(l => !l.ref)) return formErr(f, "Choose an item or account on each line.");
@@ -2534,6 +2590,8 @@ ${text}`, {modelTier:"default"});
     const bal = invBalance(inv), t = invTotals(inv);
     openSheet("Email invoice #" + inv.num, `<form data-form="sendInvoice" data-id="${inv.id}"><div class="fields">
     <label class="f full">To<input name="to" type="email" required value="${esc(c.email || "")}"></label>
+    <label class="f full">CC<input name="cc" type="text" inputmode="email" autocapitalize="off" value="${esc(c.billingCc || "")}" placeholder="Optional"></label>
+    <label class="check full"><input type="checkbox" name="saveCc" checked> Always CC these people on this customer's invoices</label>
     <label class="f full">Subject<input name="subject" value="${esc("Invoice #" + inv.num + " from " + S.company.name)}"></label>
     <label class="f full">Message<textarea name="body" style="min-height:160px">${esc(`Hi ${firstName(c)},
 
