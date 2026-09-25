@@ -404,6 +404,7 @@ const daysBetween = (a, b) => Math.round((pd(b) - pd(a)) / 864e5);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const clone = o => JSON.parse(JSON.stringify(o));
 
+const BULK_CAP = 40;
 const COLS = ["customers","vendors","items","invoices","estimates","payments","bills","billpays","expenses","journals","adjustments","accounts","followups","banktx","bankrules","taxfilings","payruns","campaigns","trips","orders","history","holdings","pos","mail","mailrules"];
 const S = {}; COLS.forEach(c => S[c] = []);
 const TAX_AGENCIES = {dor:{name:"Colorado Dept. of Revenue", acct:"a2100"}, lakewood:{name:"City of Lakewood", acct:"a2110"}, other:{name:"Other agency", acct:"a2100"}};
@@ -803,7 +804,7 @@ VIEWS.customer = id => {
   <div class="grid2">
     <section class="panel"><h2>Contact</h2><div class="contact">
       ${c.contact ? `<span>Contact</span><div>${esc(c.contact)}</div>` : ""}
-      ${c.email ? `<span>Email</span><div><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>` : ""}
+      ${c.email ? `<span>Email</span><div><a href="mailto:${esc(c.email)}">${esc(c.email)}</a>${isBounced(c) ? ' <span class="badge bad">Bounced: find a new email</span>' : ""}</div>` : ""}
       ${c.billingCc ? `<span>CC on invoices</span><div>${esc(c.billingCc)}</div>` : ""}
       ${(c.contacts || []).length ? `<span>Other contacts</span><div>${(c.contacts || []).map(x => esc((x.name ? x.name + " · " : "") + x.email)).join("<br>")}</div>` : ""}
       ${c.phone ? `<span>Phone</span><div><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></div>` : ""}
@@ -972,6 +973,7 @@ const HELP = [
  ["Orders, estimates and repeat customers", [
   ["What is \"Orders from email\"?", `Sales → Orders. Press <b>Check email for orders</b> and the app looks through recent Gmail for order requests. Add one as an order with a due date; when it's ready, open the order and press <b>Save &amp; make invoice</b>.`],
   ["What are yearly repeat orders?", `Sales → Repeat. The app notices customers who order around the same time every year and reminds you a few weeks ahead so you can email or text them first.`],
+  ["Some of my emails bounced or were blocked. Why?", `Usually the address is old: the person left, or the school or company changed email systems. Gmail sends back "Address not found" or "Message blocked / Access denied". Press <b>Check for replies</b> on the Email page: bounced addresses get a red <b>Bounced</b> tag and are skipped next time. Find the new contact and edit the customer's email.<br>To keep your Gmail in good standing, the app sends at most ${BULK_CAP} marketing emails a day, about one every 30 seconds. Sending hundreds at once to old addresses is what gets a Gmail account flagged.`],
   ["How do I sort my email into customers, suppliers and junk?", `Open <b>Inbox</b> (or press <b>Check my email</b> on Home). For each email pick what it is: a customer order, a customer asking about an invoice, a new potential customer, a supplier invoice, a supplier shipping notice, spam, or personal. Then pick who it's from and press Save.<ul><li><b>Customer order</b> opens a new order to fill in.</li><li><b>About an invoice</b> attaches the email to the invoice you choose, so you'll see it there.</li><li><b>Supplier invoice</b> either checks in a supplier order you logged (and adds it to inventory) or opens a new bill.</li><li><b>Supplier shipping</b> marks your supplier order "on the way" and saves the tracking number.</li></ul>Leave <b>Always sort</b> checked and the app remembers that sender. Next time it's suggested automatically, and spam or personal emails from the same sender get filed for you. It also remembers extra people for a customer (like a bookkeeper). See <b>What it's learned</b> to remove anything wrong.`],
   ["How do I find people asking for business in my email?", `Press <b>Check my email</b> on Home (or Sales → Orders → <b>Check email for orders</b>). The app looks through the last 60 days of Gmail for messages about trophies, plaques, engraving, badges, signs, quotes and prices. Each one says whether it's from an existing customer or a <b>New person</b>. Choose <b>Add as order</b>, <b>Add as new lead</b> (saves them to Customers), or <b>Not business</b> to hide it. Watch for scam "quote requests" that offer to overpay by check.`],
   ["How do I see which customers answered my emails?", `Go to <b>Email</b> → <b>Check for replies</b>. The app looks through your Gmail for anyone you've emailed from the app who wrote back, plus emails that bounced. For each one you can open it in Gmail, mark them <b>Interested</b> (adds a follow-up for tomorrow), <b>Not interested</b>, or <b>Done</b>. It also checks once a day by itself and shows new replies at the top of Home.`],
@@ -1415,14 +1417,20 @@ function mcpErrText(e){
 const b64 = str => { const bytes = new TextEncoder().encode(str); let bin = ""; bytes.forEach(b => bin += String.fromCharCode(b)); return btoa(bin); };
 async function gmailSend(args, draft){ const r = await MCP.callTool(GMAIL, draft ? "create_draft" : "send_message", args); return r.payload || {}; }
 
+const isBounced = x => !!x.emailBounced && emailOf(x.emailBounced) === emailOf(x.email);
+function bulkLeft(){ const l = S.company.bulkLog || {}; return BULK_CAP - (l.date === todayISO() ? (+l.n || 0) : 0); }
+async function bulkCount(k){ const l = S.company.bulkLog || {}; const n = (l.date === todayISO() ? (+l.n || 0) : 0) + k; await saveCompany({bulkLog:{date:todayISO(), n}}); }
+async function paceWait(){ const ms = 25000 + Math.random() * 20000, end = Date.now() + ms;
+  while (Date.now() < end) { if (SENDING && SENDING.stop) return; const st = $("#sendStatus"); if (st && SENDING) { const t = SENDING.msg.replace(/ · next in \d+s$/, "") + " · next in " + Math.ceil((end - Date.now()) / 1000) + "s"; SENDING.msg = t; if (st.firstChild) st.firstChild.textContent = t + " "; } await new Promise(r => setTimeout(r, 1000)); } }
 function audience(c){ const f = c.filter || {};
-  return S.customers.filter(x => validEmail(x.email) && !x.noEmail && (!f.types || !f.types.length || f.types.includes(x.type || "")) && (!f.statuses || !f.statuses.length || f.statuses.includes(x.status || "active")) && (!f.balance || S.invoices.some(i => i.customerId === x.id && invBalance(i) > 0.004)))
+  return S.customers.filter(x => validEmail(x.email) && !x.noEmail && !isBounced(x) && (!f.types || !f.types.length || f.types.includes(x.type || "")) && (!f.statuses || !f.statuses.length || f.statuses.includes(x.status || "active")) && (!f.balance || S.invoices.some(i => i.customerId === x.id && invBalance(i) > 0.004)))
     .filter(x => !(c.exclude || []).includes(x.id)).sort(byName); }
 VIEWS.email = () => {
   const rows = S.campaigns.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const withEmail = S.customers.filter(c => validEmail(c.email) && !c.noEmail).length;
   return `<div class="pagehead"><div><h1>Email</h1><p>Write an email once, personalize it for each customer, and send it from your Gmail.</p></div><div class="actions"><button class="btn primary" data-act="newCampaign">New email</button></div></div>
   ${MCP ? "" : `<div class="notice">Sending needs Gmail, which is available when you open the app from your Claude link. You can still write and save emails here.</div>`}
+  <p class="small muted" style="margin:0 0 10px">To protect your Gmail, the app sends at most ${BULK_CAP} marketing emails a day, about one every 30 seconds, and skips addresses that bounced. ${bulkLeft()} left today.</p>
   <div class="ledger" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><span>Customers with an email</span><b>${withEmail}</b></div><div><span>Missing an email</span><b>${S.customers.filter(c => !validEmail(c.email)).length}</b></div><div><span>Unsubscribed</span><b>${S.customers.filter(c => c.noEmail).length}</b></div></div>
   ${!S.company.mailingAddress ? `<div class="notice">Marketing emails are supposed to include a postal address. To keep your home address private, get a PO box or mailbox-service address and add it under Settings → Mailing address for marketing emails.</div>` : ""}
   ${repliesSection()}
@@ -1468,20 +1476,21 @@ VIEWS.campaign = id => {
 };
 async function runCampaign(id, draft){
   const c = byId("campaigns", id); if (!c || SENDING) return;
-  const sent = new Set(c.sentTo || []), todo = audience(c).filter(x => !sent.has(x.email.trim().toLowerCase()));
+  const sent = new Set(c.sentTo || []), left = draft ? 9999 : bulkLeft(); if (left <= 0) { toast(`You've sent ${BULK_CAP} today. The rest wait until tomorrow so Gmail doesn't flag you.`); return; }
+  const todo = audience(c).filter(x => !sent.has(x.email.trim().toLowerCase())).slice(0, left);
   SENDING = {id, stop:false, msg:"Starting…"}; render();
   const sentTo = [...sent], failed = (c.failed || []).slice(); let n = 0, lastError = "";
   const save = async extra => { await put("campaigns", {...clone(byId("campaigns", id)), sentTo, failed, lastError, ...extra}); };
   for (const x of todo) {
     if (SENDING.stop) { lastError = "Stopped. " + n + " sent this time."; break; }
     SENDING.msg = `${draft ? "Creating draft" : "Sending"} ${n + 1} of ${todo.length}: ${x.name}…`; const st = $("#sendStatus"); if (st) st.textContent = SENDING.msg;
-    try { await gmailSend({to:[x.email.trim()], subject:merge(c.subject, x), body:merge(c.body, x) + emailFooter()}, draft); sentTo.push(x.email.trim().toLowerCase()); n++; }
+    try { await gmailSend({to:[x.email.trim()], subject:merge(c.subject, x), body:merge(c.body, x) + emailFooter()}, draft); sentTo.push(x.email.trim().toLowerCase()); n++; if (!draft) await bulkCount(1); }
     catch(e) {
       if (e && e.code === "tool_error") { failed.push({email:x.email, err:e.message || ""}); continue; }
       lastError = mcpErrText(e) + (n ? ` ${n} went out before this.` : ""); break;
     }
     if (n % 10 === 0) await save({});
-    await new Promise(r => setTimeout(r, 1200));
+    if (draft) await new Promise(r => setTimeout(r, 1200)); else if (n < todo.length) await paceWait();
   }
   const allDone = audience(byId("campaigns", id)).every(x => sentTo.includes(x.email.trim().toLowerCase()));
   await save(allDone && !lastError ? {status:draft ? "drafts" : "sent", sentAt:new Date().toISOString()} : {});
@@ -1778,13 +1787,14 @@ async function sendOneOutreach(c){
 }
 async function runOutreach(){
   if (SENDING) return; UI.outreachErr = "";
-  const todo = S.customers.filter(c => c.outreach && c.outreach.status !== "sent" && c.outreach.status !== "skipped" && validEmail(c.email) && !c.noEmail).sort(byName).slice(0, 40);
+  const left = bulkLeft(); if (left <= 0) { UI.outreachErr = `You've sent ${BULK_CAP} today. To keep Gmail from flagging you, the rest wait until tomorrow.`; render(); return; }
+  const todo = S.customers.filter(c => c.outreach && c.outreach.status !== "sent" && c.outreach.status !== "skipped" && validEmail(c.email) && !c.noEmail && !isBounced(c)).sort(byName).slice(0, left);
   SENDING = {id:"outreach", stop:false, msg:"Starting…"}; render(); let n = 0;
   for (const c of todo) {
     if (SENDING.stop) { UI.outreachErr = "Stopped after " + n + "."; break; }
     SENDING.msg = `Sending ${n + 1} of ${todo.length}: ${c.name}…`; const st = $("#sendStatus"); if (st) st.firstChild.textContent = SENDING.msg + " ";
-    try { await sendOneOutreach(c); n++; } catch(e) { if (e && e.code === "tool_error") continue; UI.outreachErr = mcpErrText(e) + (n ? ` ${n} went out before this.` : ""); break; }
-    await new Promise(r => setTimeout(r, 1500));
+    try { await sendOneOutreach(c); n++; await bulkCount(1); } catch(e) { if (e && e.code === "tool_error") continue; UI.outreachErr = mcpErrText(e) + (n ? ` ${n} went out before this.` : ""); break; }
+    if (n < todo.length) await paceWait();
   }
   SENDING = null; toast(n + " personal emails sent"); render();
 }
