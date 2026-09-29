@@ -422,6 +422,7 @@ const partsRate = parts => Math.round((parts || []).reduce((s, p) => s + (+p.rat
 S.company = {...COMPANY_DEFAULTS};
 const byId = (col, id) => S[col].find(x => x.id === id);
 const numFmt = n => String(n).padStart(+S.company.invoiceDigits || 0, "0");
+function nextInvNum(){ let n = +S.company.nextInvoice || 1001; for (const i of S.invoices) { const v = parseInt(String(i.num).replace(/\D/g, ""), 10); if (isFinite(v) && v >= n && v < n + 100000) n = v + 1; } const used = new Set(S.invoices.map(i => String(i.num))); while (used.has(numFmt(n))) n++; return numFmt(n); }
 
 const TERMS = {"Due on receipt":0, "Net 10":10, "Net 15":15, "Net 30":30, "Net 45":45, "Net 60":60};
 const CUST_TYPES = ["School","Business","Club / league","Nonprofit","Government","Individual"];
@@ -970,6 +971,7 @@ const HELP = [
   ["How do I put the app on my phone or computer?", `<b>iPhone:</b> open the app's address in <b>Safari</b> → tap the Share button → <b>Add to Home Screen</b>. Open it from the new icon and tap <b>Connect Google</b>.<br><b>Computer:</b> open it in Chrome → click the install icon at the right of the address bar (or ⋮ → Cast, save and share → Install page as app).`]]],
  ["Invoices", [
   ["How do I make an invoice?", `<ol><li>Tap <b>New invoice</b> (Home or Sales).</li><li>Pick the customer. New customer? Choose "+ Add a new customer" at the top of the list.</li><li>Add lines: pick an item (or "+ New item"), type a description, quantity and price. The customer's past prices show on the right.</li><li>Check the tax rate. It fills in from the customer's file (7.5% for Lakewood, 0 for tax-exempt).</li><li>Press <b>Save</b>.</li></ol>`],
+  ["How are invoice numbers and due dates set?", `New invoices automatically get the next number after your highest invoice, even if you made one on your phone. If a number is already used, the app picks the next free one. The due date fills in from the customer's payment terms. To change it, pick a date or tap <b>On receipt</b>, <b>15 days</b>, <b>30 days</b> or <b>45 days</b> under Due date. The due date prints on the invoice. "Needed by" is separate: it's the customer's event date, for your own scheduling.`],
   ["How do I email an invoice?", `Open the invoice → <b>Email invoice</b>. The customer's email and anyone saved as "CC on invoices" are filled in. Check the message and press <b>Send</b>. It goes from your Gmail with the PDF attached, and the invoice gets a blue <b>SENT</b> stamp.<br>If Google isn't connected, the app saves the PDF and opens a ready-to-go Gmail message instead; attach the PDF and send.`],
   ["How do I copy someone (like a bookkeeper) on a customer's invoices?", `Two ways:<ol><li>Open the customer → <b>Edit</b> → type their email in <b>CC on invoices</b> → Save.</li><li>Or when emailing an invoice, type it in the <b>CC</b> box and leave "Always CC these people" checked.</li></ol>From then on they're copied on every invoice you email that customer. Use commas for more than one person.`],
   ["How do I print or save a PDF?", `Open the invoice → <b>Save PDF</b> to keep a copy, or <b>Print</b>. If the print window doesn't open, the app offers to save the PDF; open it and press Ctrl+P (computer) or Share → Print (iPhone).`],
@@ -2315,14 +2317,14 @@ function taxHint(){ const parts = S.company.taxParts || [];
 function invoiceForm(inv, customerId, kind, fromEstimate){
   const est = kind === "estimate", word = est ? "estimate" : "invoice";
   const isNew = !inv || !inv.id;
-  if (!inv) { const c = byId("customers", customerId); inv = {customerId, date:todayISO(), terms:c?.terms || "Net 30", num:est ? "E" + (S.company.nextEstimate || 1001) : numFmt(S.company.nextInvoice || 1001), taxRate:custTax(c), lines:[], memo:S.company.defaultMemo ?? "Thank you for your business!", jobStatus:"new"}; if (est) inv.due = addDays(inv.date, 30); }
+  if (!inv) { const c = byId("customers", customerId); inv = {customerId, date:todayISO(), terms:c?.terms || "Net 30", num:est ? "E" + (S.company.nextEstimate || 1001) : nextInvNum(), taxRate:custTax(c), lines:[], memo:S.company.defaultMemo ?? "Thank you for your business!", jobStatus:"new"}; if (est) inv.due = addDays(inv.date, 30); }
   if (!S.customers.length) { toast("Add a customer first."); customerForm(); return; }
   openSheet(isNew ? "New " + word : "Edit " + word + " #" + inv.num, `<form data-form="${est ? "estimate" : "invoice"}" data-id="${inv.id || ""}" data-from-estimate="${fromEstimate || ""}" data-from-order="${inv.fromOrder || ""}"><div class="fields">
   <label class="f">Customer<select name="customerId" required data-act-change="invCustomer"><option value="__newcust">+ Add a new customer…</option>${opts(S.customers.filter(c => c.status !== "inactive" || c.id === inv.customerId).sort(byName).map(c => [c.id, c.name]), inv.customerId, "Choose customer")}</select></label>
   <label class="f">${est ? "Estimate" : "Invoice"} no.<input name="num" required value="${esc(inv.num)}"></label>
   <label class="f">Date<input name="date" type="date" required value="${esc(inv.date)}" ${est ? "" : 'data-act-change="invTerms"'}></label>
   <label class="f">Terms<select name="terms" ${est ? "" : 'data-act-change="invTerms"'}>${opts(Object.keys(TERMS).map(t => [t, t]), inv.terms)}</select></label>
-  <label class="f">${est ? "Valid until" : "Due date"}<input name="due" type="date" value="${esc(inv.due || addDays(inv.date, termDays(inv.terms)))}"></label>
+  <label class="f">${est ? "Valid until" : "Due date"}<input name="due" type="date" value="${esc(inv.due || addDays(inv.date, termDays(inv.terms)))}">${est ? "" : `<span class="chips" style="margin-top:4px">${[["0","On receipt"],["15","15 days"],["30","30 days"],["45","45 days"]].map(([d, l]) => `<button type="button" class="chip" style="padding:2px 9px;font-size:12.5px" data-act="dueQuick" data-days="${d}">${l}</button>`).join("")}</span>`}</label>
   <label class="f">P.O. no.<input name="po" value="${esc(inv.po)}"></label>
   <label class="f">Needed by (event date)<input name="neededBy" type="date" value="${esc(inv.neededBy || "")}"></label>
   <label class="f">Sales tax rate (%)<input name="taxRate" type="number" step="0.001" min="0" value="${esc(inv.taxRate)}"></label>
@@ -2435,7 +2437,7 @@ const FORMS = {
   async invoice(f){ const id = f.dataset.id, lines = readLines(f);
     if (!lines.length) return formErr(f, "Add at least one line.");
     if (lines.some(l => !l.itemId && !l.desc)) return formErr(f, "Each line needs an item or a description.");
-    const numv = val(f, "num"); if (S.invoices.some(i => i.id !== id && String(i.num) === numv)) return formErr(f, "Invoice #" + numv + " already exists. Use a different number.");
+    let numv = val(f, "num"); if (S.invoices.some(i => i.id !== id && String(i.num) === numv)) { if (id) return formErr(f, "Invoice #" + numv + " already exists. Use a different number."); const nn = nextInvNum(); toast("#" + numv + " was already used, so this is #" + nn); numv = nn; f.elements.num.value = nn; }
     const inv = {...clone(byId("invoices", id) || {}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due") || addDays(val(f, "date"), termDays(val(f, "terms"))), po:val(f, "po"), neededBy:val(f, "neededBy"), jobStatus:(byId("invoices", id) || {}).jobStatus || "new", taxRate:num(f, "taxRate"), memo:val(f, "memo"), lines};
     inv.taxParts = Math.abs(inv.taxRate - partsRate(S.company.taxParts)) < 0.0005 ? clone(S.company.taxParts || []) : [];
     if (id && invPaid(id) - invTotals(inv).total > 0.004) return formErr(f, "Payments on this invoice are more than the new total. Edit the payment first.");
@@ -2547,7 +2549,7 @@ Answer with JSON only: {"subject": "...", "body": "..."}`;
     const o = {...clone(byId("orders", id) || {}), id, customerId:val(f, "customerId"), due:val(f, "due"), from:val(f, "from"), subject:val(f, "subject"), details:f.elements.details.value, status:val(f, "status"), threadId:val(f, "threadId"), viewUrl:val(f, "viewUrl")};
     const oid = await put("orders", o); toast("Order saved");
     if (f.dataset.toInvoice) { const cust = byId("customers", o.customerId); if (!cust) { toast("Choose or add the customer first."); return "keep"; }
-      closeSheet(); invoiceForm({customerId:cust.id, date:todayISO(), terms:cust.terms || "Net 30", num:numFmt(S.company.nextInvoice || 1001), taxRate:custTax(cust), neededBy:o.due, memo:S.company.defaultMemo ?? "Thank you for your business!", jobStatus:"new", lines:[{qty:1, desc:(o.details || o.subject || "").slice(0, 300), taxable:cust.taxable !== false}], fromOrder:oid}); return "keep"; } },
+      closeSheet(); invoiceForm({customerId:cust.id, date:todayISO(), terms:cust.terms || "Net 30", num:nextInvNum(), taxRate:custTax(cust), neededBy:o.due, memo:S.company.defaultMemo ?? "Thank you for your business!", jobStatus:"new", lines:[{qty:1, desc:(o.details || o.subject || "").slice(0, 300), taxable:cust.taxable !== false}], fromOrder:oid}); return "keep"; } },
   async holding(f){ const id = f.dataset.id || undefined, old = byId("holdings", id) || {};
     const price = f.elements.price.value === "" ? old.price : num(f, "price");
     await put("holdings", {id, symbol:val(f, "symbol").toUpperCase(), name:val(f, "name"), shares:+f.elements.shares.value || 0, price, priced:price !== old.price ? todayISO() : (old.priced || todayISO()), cost:num(f, "cost")}); toast("Saved"); },
@@ -2594,6 +2596,7 @@ document.addEventListener("submit", async e => {
 /* ---------- clicks & inputs ---------- */
 const ACT = {
   budClear(){ UI.bud = {}; render(); },
+  dueQuick(el){ const f = el.closest("form"); if (!f) return; const d = +el.dataset.days; f.elements.due.value = addDays(f.elements.date.value || todayISO(), d); const t = d === 0 ? "Due on receipt" : "Net " + d; if (TERMS[t] !== undefined) f.elements.terms.value = t; },
   checkReplies(){ checkReplies(false); },
   checkMyEmail(){ UI.inboxTab = "sort"; go("inbox"); setTimeout(() => { scanInbox(false); checkReplies(true); }, 50); },
   scanInbox(){ scanInbox(false); },
@@ -2622,7 +2625,7 @@ const ACT = {
   newFollowup: el => followupForm(null, el.dataset.customer), openFollowup: el => followupForm(clone(byId("followups", el.dataset.id))),
   async doneFollowup(el){ const f = byId("followups", el.dataset.id); await put("followups", {...clone(f), done:true}); toast("Marked done"); },
   newInvoice: el => invoiceForm(null, el.dataset.customer), editInvoice: el => invoiceForm(clone(byId("invoices", el.dataset.id))),
-  copyInvoice(el){ const o = clone(byId("invoices", el.dataset.id)); delete o.id; o.num = numFmt(S.company.nextInvoice || 1001); o.date = todayISO(); o.due = ""; invoiceForm(o); },
+  copyInvoice(el){ const o = clone(byId("invoices", el.dataset.id)); delete o.id; o.num = nextInvNum(); o.date = todayISO(); o.due = ""; invoiceForm(o); },
   receivePayment: el => paymentForm(null, el.dataset.customer, el.dataset.invoice), editPayment: el => paymentForm(clone(byId("payments", el.dataset.id))),
   newBill: () => { if (!S.vendors.length) { toast("Add a vendor first."); vendorForm(); return; } billForm(); }, editBill: el => billForm(clone(byId("bills", el.dataset.id))),
   payBills: el => payBillsForm(el.dataset.vendor), viewBillpay: el => billpayView(byId("billpays", el.dataset.id)),
@@ -2668,7 +2671,7 @@ const ACT = {
   editEstimate: el => invoiceForm(clone(byId("estimates", el.dataset.id)), null, "estimate"),
   async estStatus(el){ await put("estimates", {...clone(byId("estimates", el.dataset.id)), status:el.dataset.val}); toast("Estimate marked " + el.dataset.val); },
   estToInvoice(el){ const e = byId("estimates", el.dataset.id), c = byId("customers", e.customerId);
-    invoiceForm({customerId:e.customerId, date:todayISO(), terms:c?.terms || e.terms || "Net 30", num:numFmt(S.company.nextInvoice || 1001), po:e.po, neededBy:e.neededBy || "", jobStatus:"new", taxRate:e.taxRate, memo:e.memo, lines:clone(e.lines || [])}, null, "invoice", e.id); },
+    invoiceForm({customerId:e.customerId, date:todayISO(), terms:c?.terms || e.terms || "Net 30", num:nextInvNum(), po:e.po, neededBy:e.neededBy || "", jobStatus:"new", taxRate:e.taxRate, memo:e.memo, lines:clone(e.lines || [])}, null, "invoice", e.id); },
   delEstimate(el){ confirmBox("Delete this estimate?", "Delete estimate", async () => { await remove("estimates", el.dataset.id); go("estimates"); toast("Estimate deleted"); }); },
   downloadEstimate(el){ const e = byId("estimates", el.dataset.id); saveFile(("Estimate-" + e.num + "-" + custName(e.customerId)).replace(/[^\w-]+/g, "-") + ".html", standaloneDoc("Estimate " + e.num, invoiceDoc(e, true, "estimate"))); },
   statement(el){ const c = byId("customers", el.dataset.id), t = todayISO(), co = S.company;
@@ -2715,7 +2718,7 @@ ${text}`, {modelTier:"default"});
     openSheet("Reminder to " + c.name, `<form data-form="remindSend" data-id="${c.id}" data-key="${el.dataset.key}"><div class="fields"><label class="f full">To<input name="to" type="email" value="${esc(c.email)}"></label><label class="f full">Subject<input name="subject" value="${esc("Getting your " + new Date().getFullYear() + " order started")}"></label><label class="f full">Message<textarea name="body" style="min-height:180px">${esc(body)}</textarea></label></div>${foot(null, "Send")}</form>`, true); },
   async remindDone(el){ const c = byId("customers", el.dataset.id); await put("customers", {...clone(c), reminded:{...(c.reminded || {}), [el.dataset.key]:new Date().toISOString()}}); toast("Marked contacted"); },
   repeatInvoice(el){ const c = byId("customers", el.dataset.id), [d, n] = el.dataset.last.split("|"), o = customerOrders(c.id).find(x => x.date === d && String(x.num) === n);
-    invoiceForm({customerId:c.id, date:todayISO(), terms:c.terms || "Net 30", num:numFmt(S.company.nextInvoice || 1001), taxRate:custTax(c), memo:S.company.defaultMemo ?? "Thank you for your business!", jobStatus:"new", lines:(o ? o.lines : []).map(l => ({itemId:l.itemId && byId("items", l.itemId) ? l.itemId : "", desc:l.desc || l.name, qty:l.qty, rate:l.rate, taxable:c.taxable !== false}))}); },
+    invoiceForm({customerId:c.id, date:todayISO(), terms:c.terms || "Net 30", num:nextInvNum(), taxRate:custTax(c), memo:S.company.defaultMemo ?? "Thank you for your business!", jobStatus:"new", lines:(o ? o.lines : []).map(l => ({itemId:l.itemId && byId("items", l.itemId) ? l.itemId : "", desc:l.desc || l.name, qty:l.qty, rate:l.rate, taxable:c.taxable !== false}))}); },
   accountantPack(){ const y = todayISO().slice(0, 4), acc = S.company.accountantEmail || byId("vendors", "v-lowell-hegg")?.email || "";
     openSheet("Send to my accountant", `<form data-form="acctPack"><div class="fields">
     <label class="f">Period<select name="period">${opts([["ytd", "This year so far"], ["last", "Last year (" + (y - 1) + ")"], ["q", "Last full quarter"]], "ytd")}</select></label>
