@@ -939,12 +939,25 @@ VIEWS.vendors = () => {
 VIEWS.inventory = () => {
   const f = UI.filter.item || "all";
   const q = (UI.q.item || "").toLowerCase();
-  const rows = S.items.filter(it => (f === "all" || (f === "low" ? isLow(it) : it.type === f)) && (!q || [it.name, it.sku, it.desc].join(" ").toLowerCase().includes(q))).sort(byName);
+  const B = UI.bud = UI.bud || {}, bn = k => { const v = parseFloat(String(B[k] || "").replace(/[$,]/g, "")); return isFinite(v) && v > 0 ? v : 0; };
+  const bTotal = bn("total"), bQty = Math.max(1, Math.round(bn("qty")) || 1), bMin = bn("min"), bMax = bn("max"), taxF = B.tax ? 1 + coRate() / 100 : 1;
+  const eachCap = bTotal ? r2(bTotal / bQty / taxF) : 0, budgetOn = !!(bTotal || bMin || bMax);
+  const fits = it => { const pr = +it.price || 0; if (!budgetOn) return true; if (!(pr > 0)) return false; if (bMin && pr < bMin) return false; if (bMax && pr > bMax) return false; if (eachCap && pr > eachCap + 0.004) return false; return true; };
+  const rows = S.items.filter(it => (f === "all" || (f === "low" ? isLow(it) : it.type === f)) && (!q || [it.name, it.sku, it.desc].join(" ").toLowerCase().includes(q)) && fits(it)).sort(budgetOn ? (a, b) => (+b.price || 0) - (+a.price || 0) || byName(a, b) : byName);
+  const bIn = (k, ph, w) => `<input id="bud-${k}" class="search" style="width:${w}px;max-width:${w}px;min-width:0;flex:none;padding:6px 8px" inputmode="decimal" data-bud="${k}" value="${esc(B[k] || "")}" placeholder="${ph}">`;
+  const budgetBar = `<div class="budgetbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px;padding:10px 12px;border:1px dashed var(--brass);border-radius:10px;background:var(--brass-soft)">
+    <b style="margin-right:4px">Fit a budget:</b> $${bIn("total", "Total budget", 120)} <span class="small">for</span> ${bIn("qty", "How many", 95)} <span class="small">pieces</span>
+    <span class="small muted" style="margin:0 4px">or price each</span> $${bIn("min", "Min", 70)} <span class="small">to</span> $${bIn("max", "Max", 70)}
+    <label class="check small"><input type="checkbox" data-bud-tax ${B.tax ? "checked" : ""}> Include ${coRate()}% sales tax</label>
+    ${budgetOn ? `<button class="btn small" data-act="budClear">Clear</button>` : ""}
+    ${eachCap ? `<div class="small" style="flex-basis:100%">Up to <b>${money(eachCap)}</b> each${B.tax ? " before tax" : ""} for ${bQty} piece${bQty > 1 ? "s" : ""}. ${rows.length} item${rows.length === 1 ? "" : "s"} fit, nicest first.</div>` : budgetOn ? `<div class="small" style="flex-basis:100%">${rows.length} item${rows.length === 1 ? "" : "s"} in that price range, highest price first.</div>` : ""}</div>`;
   const value = S.items.filter(it => it.type === "inventory").reduce((s, it) => s + Math.max(0, onHand(it)) * (+it.cost || 0), 0);
   return `<div class="pagehead"><div><h1>Items &amp; inventory</h1><p>Stock on hand is worth ${money(value)} at cost</p></div><div class="actions"><button class="btn primary" data-act="newItem">New item</button><button class="btn" data-act="adjustStock">Adjust stock</button><button class="btn" data-act="exportItems">Export CSV</button></div></div>
   <div class="panel"><div class="toolbar"><input class="search" id="searchItem" type="search" placeholder="Search name or SKU" value="${esc(UI.q.item || "")}" data-q="item" aria-label="Search items"><div class="chips">${[["all","All"],["inventory","Stocked"],["low","Low stock"],["noninventory","Non-stocked"],["service","Services"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="item" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
-  <div class="tbl"><table><thead><tr><th>Item</th><th>SKU</th><th>Type</th><th class="num">On hand</th><th class="num">Reorder at</th><th class="num">Cost</th><th class="num">Price</th></tr></thead><tbody>
-  ${rows.map(it => { const oh = onHand(it), oo = onOrder(it.id); return `<tr class="click" data-act="editItem" data-id="${it.id}"><td><b>${esc(it.name)}</b>${isLow(it) ? ' <span class="badge warn">Low</span>' : ""}${oo ? ` <span class="badge brass">${oo} on order</span>` : isLow(it) ? ` <button class="btn small" data-act="reorderItem" data-id="${it.id}">Order more</button>` : ""}${it.desc && it.desc !== it.name ? `<div class="small muted">${esc(it.desc)}</div>` : ""}${it.vendorId ? `<div class="small muted">From ${esc(vendName(it.vendorId))}</div>` : ""}</td><td>${esc(it.sku || "")}</td><td>${it.type === "inventory" ? "Stocked" : it.type === "service" ? "Service" : "Non-stocked"}</td><td class="num ${oh < 0 ? "neg" : ""}">${oh == null ? "—" : oh}</td><td class="num">${it.type === "inventory" && it.reorder !== "" && it.reorder != null ? esc(it.reorder) : "—"}</td><td class="num">${it.cost ? money(it.cost) : "—"}</td><td class="num">${it.price ? money(it.price) : "—"}</td></tr>`; }).join("") || `<tr><td colspan="7">${empty(S.items.length ? "No items match." : "Add the products and services you sell: plaques, trophies, name badges, engraving.", S.items.length ? "" : '<button class="btn primary" data-act="newItem">Add an item</button>')}</td></tr>`}
+  ${budgetBar}
+  <div class="tbl"><table><thead><tr><th>Item</th><th>SKU</th><th>Type</th><th class="num">On hand</th><th class="num">Reorder at</th><th class="num">Cost</th><th class="num">Price</th>${eachCap ? `<th class="num">${bQty} pcs${B.tax ? " + tax" : ""}</th>` : ""}</tr></thead><tbody>
+  ${rows.length ? "" : `<tr><td colspan="8">${empty(budgetOn ? "Nothing in your items fits that budget. Try a lower quantity or a wider price range." : "No items match.")}</td></tr>`}
+  ${rows.map(it => { const oh = onHand(it), oo = onOrder(it.id); return `<tr class="click" data-act="editItem" data-id="${it.id}"><td><b>${esc(it.name)}</b>${isLow(it) ? ' <span class="badge warn">Low</span>' : ""}${oo ? ` <span class="badge brass">${oo} on order</span>` : isLow(it) ? ` <button class="btn small" data-act="reorderItem" data-id="${it.id}">Order more</button>` : ""}${it.desc && it.desc !== it.name ? `<div class="small muted">${esc(it.desc)}</div>` : ""}${it.vendorId ? `<div class="small muted">From ${esc(vendName(it.vendorId))}</div>` : ""}</td><td>${esc(it.sku || "")}</td><td>${it.type === "inventory" ? "Stocked" : it.type === "service" ? "Service" : "Non-stocked"}</td><td class="num ${oh < 0 ? "neg" : ""}">${oh == null ? "—" : oh}</td><td class="num">${it.type === "inventory" && it.reorder !== "" && it.reorder != null ? esc(it.reorder) : "—"}</td><td class="num">${it.cost ? money(it.cost) : "—"}</td><td class="num">${it.price ? money(it.price) : "—"}</td>${eachCap ? `<td class="num"><b>${money(r2((+it.price || 0) * bQty * taxF))}</b>${oh !== null && it.type === "inventory" && oh < bQty ? `<div class="small neg">only ${Math.max(0, oh)} in stock</div>` : ""}</td>` : ""}</tr>`; }).join("") || `<tr><td colspan="7">${empty(S.items.length ? "No items match." : "Add the products and services you sell: plaques, trophies, name badges, engraving.", S.items.length ? "" : '<button class="btn primary" data-act="newItem">Add an item</button>')}</td></tr>`}
   </tbody></table></div></div>`;
 };
 
@@ -980,6 +993,7 @@ const HELP = [
   ["How do I give a price quote?", `Sales → Estimates → New estimate. When they say yes, open it and press <b>Turn into invoice</b>.`]]],
  ["Supplies and inventory", [
   ["I ordered supplies online. How do I track them?", `<ol><li><b>Expenses → Supplier orders → Log an order</b>. Pick the supplier, add what you ordered and how you paid.</li><li>When it ships, press <b>Shipped</b> and paste the tracking number.</li><li>When the box arrives, press <b>Received</b> and your inventory updates automatically.</li></ol>`],
+  ["How do I find items that fit a customer's budget?", `Go to <b>Inventory</b>. In the gold <b>Fit a budget</b> bar, type their total budget and how many pieces they need (for example $300 for 12 medals). You'll see the most you can charge each, and only the items that fit, nicest first, with the total for all the pieces. Check <b>Include sales tax</b> if they aren't tax-exempt. You can also set a price range each (like $10 to $25). Items with low stock show "only N in stock". Press <b>Clear</b> to see everything again.`],
   ["How do I know what's running low?", `Home lists low-stock items. Set a "reorder at" number on each item (Inventory → the item → Edit) so the app knows when to warn you.`]]],
  ["Expenses, banking and taxes", [
   ["How do I enter a bill or a purchase?", `Bill you'll pay later: <b>Enter bill</b> on Home. Something already paid by card or check: Expenses → <b>Write check / card charge</b>. Pick the right category so your taxes come out right.`],
@@ -2579,6 +2593,7 @@ document.addEventListener("submit", async e => {
 
 /* ---------- clicks & inputs ---------- */
 const ACT = {
+  budClear(){ UI.bud = {}; render(); },
   checkReplies(){ checkReplies(false); },
   checkMyEmail(){ UI.inboxTab = "sort"; go("inbox"); setTimeout(() => { scanInbox(false); checkReplies(true); }, 50); },
   scanInbox(){ scanInbox(false); },
@@ -2833,11 +2848,13 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); if (e.key === "Enter" && e.target.matches("tr[data-href]")) location.hash = e.target.dataset.href; });
 document.addEventListener("change", e => { const t = e.target; if (!t.dataset) return;
+  if (t.dataset.budTax !== undefined) { UI.bud = {...(UI.bud || {}), tax:t.checked}; render(); return; }
   if (t.dataset.mailCat) { UI.mailCat = {...(UI.mailCat || {}), [t.dataset.mailCat]:t.value}; render(); }
   else if (t.dataset.mailCust) { UI.mailCust = {...(UI.mailCust || {}), [t.dataset.mailCust]:t.value}; render(); }
   else if (t.dataset.mailVend) { UI.mailVend = {...(UI.mailVend || {}), [t.dataset.mailVend]:t.value}; render(); } });
 document.addEventListener("input", e => {
   const t = e.target;
+  if (t.dataset && t.dataset.bud) { UI.bud = {...(UI.bud || {}), [t.dataset.bud]:t.value}; render(); return; }
   if (t.dataset.q) { UI.q[t.dataset.q] = t.value; render(); return; }
   const of = t.closest && t.closest("form[data-form=outreach]");
   if (of) { clearTimeout(UI.outTimer); UI.outTimer = setTimeout(() => { const c = byId("customers", of.dataset.id); if (c && document.contains(of)) put("customers", {...clone(c), outreach:{...clone(c.outreach), subject:of.elements.subject.value, body:of.elements.body.value}}); }, 1200); return; }
