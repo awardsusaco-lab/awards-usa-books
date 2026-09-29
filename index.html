@@ -971,6 +971,7 @@ const HELP = [
   ["How do I put the app on my phone or computer?", `<b>iPhone:</b> open the app's address in <b>Safari</b> → tap the Share button → <b>Add to Home Screen</b>. Open it from the new icon and tap <b>Connect Google</b>.<br><b>Computer:</b> open it in Chrome → click the install icon at the right of the address bar (or ⋮ → Cast, save and share → Install page as app).`]]],
  ["Invoices", [
   ["How do I make an invoice?", `<ol><li>Tap <b>New invoice</b> (Home or Sales).</li><li>Pick the customer. New customer? Choose "+ Add a new customer" at the top of the list.</li><li>Add lines: pick an item (or "+ New item"), type a description, quantity and price. The customer's past prices show on the right.</li><li>Check the tax rate. It fills in from the customer's file (7.5% for Lakewood, 0 for tax-exempt).</li><li>Press <b>Save</b>.</li></ol>`],
+  ["Is shipping taxed?", `No. Any line for shipping, delivery, freight or postage is saved without sales tax, even if the Tax box was checked. Colorado doesn't tax delivery charges when they're on their own line and the customer could have picked up instead. So always put shipping on a separate line. Lakewood is a home-rule city with its own tax rules, so confirm with your accountant.`],
   ["How are invoice numbers and due dates set?", `New invoices automatically get the next number after your highest invoice, even if you made one on your phone. If a number is already used, the app picks the next free one. The due date fills in from the customer's payment terms. To change it, pick a date or tap <b>On receipt</b>, <b>15 days</b>, <b>30 days</b> or <b>45 days</b> under Due date. The due date prints on the invoice. "Needed by" is separate: it's the customer's event date, for your own scheduling.`],
   ["How do I email an invoice?", `Open the invoice → <b>Email invoice</b>. The customer's email and anyone saved as "CC on invoices" are filled in. Check the message and press <b>Send</b>. It goes from your Gmail with the PDF attached, and the invoice gets a blue <b>SENT</b> stamp.<br>If Google isn't connected, the app saves the PDF and opens a ready-to-go Gmail message instead; attach the PDF and send.`],
   ["How do I copy someone (like a bookkeeper) on a customer's invoices?", `Two ways:<ol><li>Open the customer → <b>Edit</b> → type their email in <b>CC on invoices</b> → Save.</li><li>Or when emailing an invoice, type it in the <b>CC</b> box and leave "Always CC these people" checked.</li></ol>From then on they're copied on every invoice you email that customer. Use commas for more than one person.`],
@@ -1538,7 +1539,7 @@ async function saveInlineItem(box){
   $$("select[name=itemId]", form).forEach(sel => { const v = sel.value; sel.outerHTML; const tmp = document.createElement("div"); tmp.innerHTML = itemSelect(v); sel.innerHTML = tmp.firstElementChild.innerHTML; sel.value = v; });
   const sel = row.querySelector("select[name=itemId]"); sel.value = id;
   row.querySelector("[name=desc]").value = it.desc; row.querySelector("[name=rate]").value = it.price || "";
-  const tx = row.querySelector("[name=taxable]"); if (tx) tx.checked = it.taxable && +(form.elements.taxRate?.value || 0) > 0;
+  const tx = row.querySelector("[name=taxable]"); if (tx) tx.checked = it.taxable && +(form.elements.taxRate?.value || 0) > 0; shipRowCheck(row);
   box.remove(); recalc(form); toast(name + " added to your items");
 }
 
@@ -1954,11 +1955,21 @@ function salesLines(customerId){ const out = [];
   (histIndex().get(customerId) || []).forEach(h => out.push(h));
   return out.sort((a, b) => a.date < b.date ? 1 : -1); }
 function lastPrice(customerId, itemId, name){ return salesLines(customerId).find(l => (itemId && l.itemId === itemId) || (!itemId && name && (l.name || "").toLowerCase() === name.toLowerCase())); }
+const SHIP_RX = /\b(shipping|ship|s&h|delivery|deliver|freight|postage|ups|fedex|usps)\b/i;
+function isShipLine(l){ const it = l.itemId && byId("items", l.itemId); return !!((it && (it.incomeAcct === "a4090" || SHIP_RX.test(it.name + " " + (it.desc || "")))) || (!it && SHIP_RX.test(l.desc || ""))); }
+function shipRowCheck(row){ if (!row) return; const l = {itemId:row.querySelector("[name=itemId]")?.value, desc:row.querySelector("[name=desc]")?.value}; const tx = row.querySelector("[name=taxable]"); if (tx && isShipLine(l)) { tx.checked = false; tx.title = "Shipping isn't taxed"; } }
+function addPastLine(f, l){ const box = $(".lines", f);
+  let row = $$(".line", box).find(r => { const v = r.querySelector("[name=itemId]").value; return (!v || v === "__new") && !r.querySelector("[name=desc]").value && !r.querySelector("[name=rate]").value; });
+  if (!row) { box.querySelector(".rows").insertAdjacentHTML("beforeend", LINE.inv()); row = $$(".line", box).pop(); }
+  const it = l.itemId && byId("items", l.itemId); const sel = row.querySelector("[name=itemId]"); sel.value = it ? it.id : "";
+  row.querySelector("[name=desc]").value = l.desc || (it && (it.desc || it.name)) || l.name || ""; row.querySelector("[name=qty]").value = l.qty || 1; row.querySelector("[name=rate]").value = l.rate || "";
+  const tx = row.querySelector("[name=taxable]"); if (tx) tx.checked = (!it || it.taxable !== false) && +(f.elements.taxRate.value || 0) > 0; shipRowCheck(row); }
 function renderPriceRef(f){
   const box = $(".priceref", f); if (!box) return; const cid = f.elements.customerId.value; if (!cid || cid === "__newcust") { box.innerHTML = ""; return; }
   const seen = new Map(); salesLines(cid).forEach(l => { const k = l.itemId || (l.name || "").toLowerCase(); if (k && !seen.has(k)) seen.set(k, l); });
-  const list = [...seen.values()].slice(0, 12);
-  box.innerHTML = list.length ? `<details ${list.length <= 4 ? "open" : ""}><summary class="small" style="cursor:pointer;color:var(--primary);font-weight:600">What ${esc(custName(cid))} paid before (${list.length} item${list.length === 1 ? "" : "s"})</summary><div class="tbl" style="margin-top:6px"><table><thead><tr><th>Item</th><th>Last ordered</th><th class="num">Qty</th><th class="num">Price</th><th></th></tr></thead><tbody>${list.map(l => `<tr><td>${esc(l.name)}</td><td>${fmtDate(l.date)}${l.num ? " · #" + esc(l.num) : ""}</td><td class="num">${l.qty}</td><td class="num">${money(l.rate)}</td><td>${l.itemId && byId("items", l.itemId) ? `<button type="button" class="btn small" data-act="addFromHistory" data-item="${l.itemId}" data-qty="${l.qty}" data-rate="${l.rate}">Add</button>` : ""}</td></tr>`).join("")}</tbody></table></div></details>` : `<p class="small muted" style="margin:0">No past orders for this customer yet.</p>`;
+  const list = [...seen.values()].slice(0, 12); f._ref = list;
+  const all = salesLines(cid), lastDate = all.length ? all[0].date : "", lastNum = all.length ? all[0].num : "", lastLines = all.filter(l => l.date === lastDate && l.num === lastNum); f._last = lastLines;
+  box.innerHTML = list.length ? `<details ${list.length <= 4 ? "open" : ""}><summary class="small" style="cursor:pointer;color:var(--primary);font-weight:600">What ${esc(custName(cid))} ordered before (${list.length} item${list.length === 1 ? "" : "s"})</summary>${lastLines.length > 1 ? `<div style="margin:6px 0 0"><button type="button" class="btn small" data-act="addLastOrder">+ Add their whole last order${lastNum ? " (#" + esc(lastNum) + ", " + fmtDate(lastDate) + ")" : " (" + fmtDate(lastDate) + ")"} · ${lastLines.length} lines</button></div>` : ""}<div class="tbl" style="margin-top:6px"><table><thead><tr><th>Item</th><th>Last ordered</th><th class="num">Qty</th><th class="num">Price</th><th></th></tr></thead><tbody>${list.map(l => `<tr><td>${esc(l.name)}</td><td>${fmtDate(l.date)}${l.num ? " · #" + esc(l.num) : ""}</td><td class="num">${l.qty}</td><td class="num">${money(l.rate)}</td><td class="num"><button type="button" class="btn small primary" data-act="addFromHistory" data-i="${list.indexOf(l)}">+ Add</button></td></tr>`).join("")}</tbody></table></div></details>` : `<p class="small muted" style="margin:0">No past orders for this customer yet.</p>`;
 }
 
 function orderHistoryPanel(c){
@@ -2434,7 +2445,7 @@ const FORMS = {
   async account(f){ const id = f.dataset.id, old = byId("accounts", id) || {};
     await put("accounts", {...clone(old), id:id || undefined, number:val(f, "number"), name:val(f, "name"), type:SYSTEM_IDS.has(id) ? old.type : val(f, "type"), openBal:num(f, "openBal"), openDate:val(f, "openDate")}); toast("Account saved"); },
   async followup(f){ const id = f.dataset.id; await put("followups", {...clone(byId("followups", id) || {}), id:id || undefined, text:val(f, "text"), customerId:val(f, "customerId"), due:val(f, "due"), done:f.elements.done ? f.elements.done.checked : false}); toast("Follow-up saved"); },
-  async invoice(f){ const id = f.dataset.id, lines = readLines(f);
+  async invoice(f){ const id = f.dataset.id, lines = readLines(f).map(l => isShipLine(l) ? {...l, taxable:false} : l);
     if (!lines.length) return formErr(f, "Add at least one line.");
     if (lines.some(l => !l.itemId && !l.desc)) return formErr(f, "Each line needs an item or a description.");
     let numv = val(f, "num"); if (S.invoices.some(i => i.id !== id && String(i.num) === numv)) { if (id) return formErr(f, "Invoice #" + numv + " already exists. Use a different number."); const nn = nextInvNum(); toast("#" + numv + " was already used, so this is #" + nn); numv = nn; f.elements.num.value = nn; }
@@ -2446,7 +2457,7 @@ const FORMS = {
     const fromOrd = f.dataset.fromOrder; if (fromOrd && byId("orders", fromOrd)) await put("orders", {...clone(byId("orders", fromOrd)), status:"invoiced", invoiceId:nid});
     const fromEst = f.dataset.fromEstimate; if (fromEst && byId("estimates", fromEst)) await put("estimates", {...clone(byId("estimates", fromEst)), status:"invoiced", invoiceId:nid});
     toast(id ? "Invoice saved" : "Invoice #" + numv + " created"); go("invoice/" + nid); },
-  async estimate(f){ const id = f.dataset.id, lines = readLines(f);
+  async estimate(f){ const id = f.dataset.id, lines = readLines(f).map(l => isShipLine(l) ? {...l, taxable:false} : l);
     if (!lines.length) return formErr(f, "Add at least one line.");
     const numv = val(f, "num"); if (S.estimates.some(e => e.id !== id && String(e.num) === numv)) return formErr(f, "Estimate #" + numv + " already exists.");
     const e = {...clone(byId("estimates", id) || {status:"open"}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due"), po:val(f, "po"), neededBy:val(f, "neededBy"), taxRate:num(f, "taxRate"), memo:val(f, "memo"), lines};
@@ -2685,9 +2696,8 @@ const ACT = {
       ${co.footer ? `<p class="muted" style="margin-top:18px">${esc(co.footer)}</p>` : ""}</div>`;
     saveFile(("Statement-" + c.name + "-" + t).replace(/[^\w-]+/g, "-") + ".html", standaloneDoc("Statement – " + c.name, body)); },
   saveInlineCustomer(el){ saveInlineCustomer(el.closest(".newcust")); }, cancelInlineCustomer(el){ el.closest(".newcust").remove(); },
-  addFromHistory(el){ const f = el.closest("form"), box = $(".lines", f); let row = $$(".line", box).find(r => !r.querySelector("[name=itemId]").value && !r.querySelector("[name=desc]").value);
-    if (!row) { box.querySelector(".rows").insertAdjacentHTML("beforeend", LINE.inv()); row = $$(".line", box).pop(); }
-    const it = byId("items", el.dataset.item); row.querySelector("[name=itemId]").value = it.id; row.querySelector("[name=desc]").value = it.desc || it.name; row.querySelector("[name=qty]").value = el.dataset.qty; row.querySelector("[name=rate]").value = el.dataset.rate; const tx = row.querySelector("[name=taxable]"); if (tx) tx.checked = it.taxable !== false && +(f.elements.taxRate.value || 0) > 0; recalc(f); },
+  addFromHistory(el){ const f = el.closest("form"), l = (f._ref || [])[+el.dataset.i]; if (!l) return; addPastLine(f, l); recalc(f); toast("Added " + (l.name || l.desc || "item")); },
+  addLastOrder(el){ const f = el.closest("form"); (f._last || []).forEach(l => addPastLine(f, l)); recalc(f); toast("Added " + (f._last || []).length + " lines from their last order"); },
   async checkOrderEmail(){ UI.orderBusy = true; UI.orderErr = ""; render();
     try { const r = await MCP.callTool("Gmail", "search_threads", {query:ORDER_Q, pageSize:25}); const th = (r.payload && r.payload.threads) || [];
       UI.orderCands = th.filter(x => x.messages && x.messages.length && !byId("orders", "gm-" + x.id) && !/mailer-daemon|postmaster|no-?reply|donotreply|notifications?@/i.test(x.messages[0].sender || "") && emailOf(x.messages[0].sender) !== emailOf(S.company.email)); if (!UI.orderCands.length) toast("No new order emails found in the last 45 days."); }
@@ -2851,6 +2861,7 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); if (e.key === "Enter" && e.target.matches("tr[data-href]")) location.hash = e.target.dataset.href; });
 document.addEventListener("change", e => { const t = e.target; if (!t.dataset) return;
+  if (t.name === "desc" && t.closest(".line.inv")) { shipRowCheck(t.closest(".line")); const ff = t.closest("form"); if (ff) recalc(ff); }
   if (t.dataset.budTax !== undefined) { UI.bud = {...(UI.bud || {}), tax:t.checked}; render(); return; }
   if (t.dataset.mailCat) { UI.mailCat = {...(UI.mailCat || {}), [t.dataset.mailCat]:t.value}; render(); }
   else if (t.dataset.mailCust) { UI.mailCust = {...(UI.mailCust || {}), [t.dataset.mailCust]:t.value}; render(); }
@@ -2888,7 +2899,7 @@ document.addEventListener("change", async e => {
     if (!t.checked && i >= 0) { const start = ta.value.lastIndexOf("\n\n", i), end = ta.value.indexOf("\n", ta.value.indexOf("\n", i) + 1); ta.value = ta.value.slice(0, start) + (end >= 0 ? ta.value.slice(end) : ""); }
     return; }
   if (t.name === "itemId" && t.value === "__new") { openInlineItem(t.closest(".line")); t.value = ""; return; }
-  if (t.name === "itemId" && t.closest(".line.inv")) { const it = byId("items", t.value), row = t.closest(".line"); if (it) { const lp = f.elements.customerId && f.elements.customerId.value ? lastPrice(f.elements.customerId.value, it.id) : null; row.querySelector("[name=desc]").value = it.desc || it.name; row.querySelector("[name=rate]").value = lp ? lp.rate : (it.price || ""); if (lp && lp.rate !== +it.price) toast(`Using ${custName(f.elements.customerId.value)}’s last price: ${money(lp.rate)} (list ${money(it.price)})`); row.querySelector("[name=taxable]").checked = it.taxable !== false && +(f.elements.taxRate?.value || 0) > 0; } recalc(f); }
+  if (t.name === "itemId" && t.closest(".line.inv")) { const it = byId("items", t.value), row = t.closest(".line"); if (it) { const lp = f.elements.customerId && f.elements.customerId.value ? lastPrice(f.elements.customerId.value, it.id) : null; row.querySelector("[name=desc]").value = it.desc || it.name; row.querySelector("[name=rate]").value = lp ? lp.rate : (it.price || ""); if (lp && lp.rate !== +it.price) toast(`Using ${custName(f.elements.customerId.value)}’s last price: ${money(lp.rate)} (list ${money(it.price)})`); row.querySelector("[name=taxable]").checked = it.taxable !== false && +(f.elements.taxRate?.value || 0) > 0; shipRowCheck(row); } recalc(f); }
   if (t.name === "ref" && t.closest(".line.buy") && t.value.startsWith("i:")) { const it = byId("items", t.value.slice(2)), row = t.closest(".line"); if (it && !row.querySelector("[name=rate]").value) row.querySelector("[name=rate]").value = it.cost || ""; if (it && !row.querySelector("[name=memo]").value) row.querySelector("[name=memo]").value = it.name; recalc(f); }
   if (act === "itemType") toggleItemType();
   if (act === "invTerms" && f.elements.due) { f.elements.due.value = addDays(f.elements.date.value || todayISO(), termDays(f.elements.terms.value)); }
