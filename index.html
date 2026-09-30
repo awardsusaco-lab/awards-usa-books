@@ -95,6 +95,9 @@ a.btn.primary{color:var(--primary-ink)}
 .ledger b{font-family:'Barlow Condensed',system-ui,sans-serif;font-size:26px;font-weight:600;font-variant-numeric:tabular-nums}
 
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.dropzone{display:flex;flex-direction:column;gap:4px;align-items:center;text-align:center;border:2px dashed var(--line);border-radius:12px;padding:22px 16px;margin-bottom:18px;cursor:pointer;background:var(--surface);color:var(--muted, #667)}
+.dropzone b{color:var(--ink, inherit);font-size:16px}.dropzone:hover,body.dragging .dropzone{border-color:var(--brand, #1e3a5f);background:rgba(30,58,95,.06)}
+body.dragging::after{content:"Drop statement to import";position:fixed;inset:12px;border:3px dashed var(--brand, #1e3a5f);border-radius:16px;background:rgba(30,58,95,.08);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--brand, #1e3a5f);z-index:9999;pointer-events:none}
 .board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
 .bcol{background:var(--bg, rgba(0,0,0,.03));border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0}
 .bcol-h{display:flex;justify-content:space-between;gap:6px;align-items:baseline;margin-bottom:8px;font-size:13.5px}
@@ -264,7 +267,7 @@ label.check{display:flex;gap:8px;align-items:center;font-size:14px}
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="restoreFile" accept=".json,application/json" hidden>
-<input type="file" id="bankFile" accept=".csv,.ofx,.qfx,.qbo,.txt,text/csv" hidden>
+<input type="file" id="bankFile" accept=".pdf,.csv,.ofx,.qfx,.qbo,.txt,text/csv,application/pdf" multiple hidden>
 
 <script>
 /* ===== Awards USA Books — Google connection (standalone app) ===== */
@@ -1008,7 +1011,7 @@ async function cardQuickCat(sel){ const v = sel.value;
   if (!v) return;
   if (sel.dataset.tx) { const t = byId("banktx", sel.dataset.tx); if (!t) return; await txCreate(t, v.slice(2), "", t.desc); toast("Added to " + refName(v)); return; }
   const e = byId("expenses", sel.dataset.exp); if (!e) return; const l = (e.lines || [])[0] || {qty:1, rate:0};
-  await put("expenses", {...clone(e), lines:[{...l, ref:v}]}); toast("Category: " + refName(v)); }
+  await put("expenses", {...clone(e), lines:[{...l, ref:v}]}); if (v.startsWith("a:")) learnCat(e.payee || vendName(e.vendorId), v.slice(2)).catch(() => {}); toast("Category: " + refName(v)); }
 VIEWS.card = id => {
   const cards = cardAccts(); const acct = byId("accounts", id)?.type === "ccard" ? id : (UI.cardAcct && byId("accounts", UI.cardAcct)?.type === "ccard" ? UI.cardAcct : cards[0]?.id); UI.cardAcct = acct;
   const a = byId("accounts", acct);
@@ -1125,6 +1128,8 @@ const HELP = [
   ["How do I find items that fit a customer's budget?", `Go to <b>Inventory</b>. In the gold <b>Fit a budget</b> bar, type their total budget and how many pieces they need (for example $300 for 12 medals). You'll see the most you can charge each, and only the items that fit, nicest first, with the total for all the pieces. Check <b>Include sales tax</b> if they aren't tax-exempt. You can also set a price range each (like $10 to $25). Items with low stock show "only N in stock". Press <b>Clear</b> to see everything again.`],
   ["How do I know what's running low?", `Home lists low-stock items. Set a "reorder at" number on each item (Inventory → the item → Edit) so the app knows when to warn you.`]]],
  ["Expenses, banking and taxes", [
+  ["How do I bring in my Navy Federal statements (PDF)?", `Go to <b>Banking</b> and drag the statement PDF onto the box that says "Drop Navy Federal statements here" (or tap it to pick files). You can drop several at once. The app:<ol><li>Reads every line and checks that they add up to the statement's beginning and ending balance.</li><li>Puts a checking statement into checking and a card statement into the credit card automatically.</li><li>Matches lines to things already in your books, records deposits that match an invoice from that customer, and sorts merchants it has learned.</li><li>Balances against the statement and shows <b>Everything is in order ✓</b>, or exactly what still needs you.</li></ol>`],
+  ["How does the app learn my categories?", `Every time you put a bank or card line in a category, the app remembers that merchant. After you've picked the same category for a merchant <b>twice</b>, new lines from them are sorted automatically when you import a statement. Seen only once, it's shown as a suggestion you can accept with one tap. If you change your mind, just pick a different category a few times and it learns the new one.`],
   ["My cash in bank doesn't match Navy Federal. How do I fix it?", `Banking → <b>Balance the books</b> (or tap <b>Balance</b> next to Cash in bank on Home).<ol><li>Type the balance Navy Federal shows and the date.</li><li>The app shows the difference and the likely reasons: imported transactions you haven't added yet, a possible duplicate, something entered backwards, or an amount that exactly matches the difference. Tap a name to open and fix it.</li><li>Still can't find it? <b>Adjust my books</b> adds one adjustment so the numbers match. Use this for small leftovers, and tell your accountant about big ones.</li></ol>For a thorough check, open <b>Tick off each transaction</b> and tick everything that's on your statement. Anything left unticked (like a check that hasn't been cashed) explains the rest. This works for the credit card too.`],
   ["How do I itemize credit card charges into categories?", `Expenses → <b>Credit card</b>.<ul><li>Each charge has a <b>Category</b> box. Pick where the money went (Shop Supplies, Office Supplies, Advertising, Owner's Draw for personal, etc.).</li><li>One receipt covering several things? Tap <b>Itemize</b> (or choose "Split into several categories…"). Add a line per category with its amount. The app shows how much is left to assign and won't save until it adds up to the charge.</li><li>Imported your card statement? New charges show under <b>To categorize</b> at the top. Pick a category or tap <b>Split…</b>.</li><li>Need a new category? Inside Itemize, open "Need a category that isn't listed?" and add it.</li><li><b>Where the money went</b> at the bottom totals your card spending by category for this month, last month, this year or last year.</li></ul>`],
   ["How do I pay my credit card or add notes to card charges?", `Go to Expenses → <b>Credit card</b>. You'll see what you owe and every charge, refund and payment.<ul><li><b>Pay card</b>: records a payment from checking to the card. It only records it in your books. Make the actual payment on Navy Federal's website or app.</li><li><b>Add a charge</b>: something you bought with the card. Pick the category so your taxes come out right.</li><li><b>Note</b>: write what a charge was for (for example, which order or event it was for). Notes show in the list and can be searched.</li><li><b>✓</b>: mark a line once you've checked it against your statement. Use the <b>Not checked</b> filter to see what's left.</li></ul>Paid the card from Banking instead? Categorize that bank line to the card account and it shows here as a payment.`],
@@ -1336,6 +1341,137 @@ function parseStatement(text){
   });
   return {kind:"csv", tx, balance:null, signedByIndicator:ind >= 0};
 }
+/* ----- PDF statements ----- */
+let PDFJS = null;
+const PDFJS_BASES = ["https://cdn.jsdelivr.net/npm/pdfjs-dist@5.7.284/legacy/build/", "https://unpkg.com/pdfjs-dist@5.7.284/legacy/build/"];
+async function loadPdfJs(){ if (PDFJS) return PDFJS; let last;
+  for (const b of PDFJS_BASES) { try { const m = await import(b + "pdf.min.mjs"); m.GlobalWorkerOptions.workerSrc = b + "pdf.worker.min.mjs"; PDFJS = m; return m; } catch(e) { last = e; } }
+  console.error(last); throw new Error("Couldn't load the PDF reader. Check your internet connection and try again."); }
+async function pdfLines(buf){ const pdfjs = await loadPdfJs(); let doc;
+  try { doc = await pdfjs.getDocument({data:new Uint8Array(buf), isEvalSupported:false}).promise; }
+  catch(e) { if (/password/i.test(e && (e.name + e.message))) throw new Error("This PDF is password-protected. Download it again without a password, or use the CSV download."); throw new Error("Couldn't open that PDF."); }
+  const lines = [];
+  for (let p = 1; p <= doc.numPages; p++) { const pg = await doc.getPage(p), tc = await pg.getTextContent(), rows = [];
+    for (const it of tc.items) { if (!it.str || !it.str.trim()) continue; const x = it.transform[4], y = it.transform[5]; let r = rows.find(r => Math.abs(r.y - y) < 3); if (!r) rows.push(r = {y, items:[]}); r.items.push({x, s:it.str, w:it.width || 0}); }
+    rows.sort((a, b) => b.y - a.y);
+    for (const r of rows) { r.items.sort((a, b) => a.x - b.x); let out = "", end = null; for (const it of r.items) { if (end !== null) { const gap = it.x - end; out += gap > 12 ? "   " : gap > 1.2 ? " " : ""; } out += it.s; end = it.x + it.w; } const t = out.replace(/\s+$/, "").trim(); if (t) lines.push(t); } }
+  return lines; }
+const MONEY_RX = /(\(?-?\$?\s?\d{1,3}(?:,\d{3})*\.\d{2}\)?)(\s?-(?!\d)|\s?CR\b|\s?DR\b)?/g;
+function moneyTok(m){ const raw = m[1], suf = (m[2] || "").trim().toUpperCase(); let v = parseFloat(raw.replace(/[^\d.]/g, "")); const neg = /^\(|^-|-\s?\$/.test(raw.trim()) || /\)$/.test(raw.trim()) || suf === "-" || suf === "DR"; return {v:neg ? -v : v, neg, cr:suf === "CR"}; }
+function parsePdfText(lines){
+  const text = lines.join("\n"), isCard = /minimum payment|credit limit|payment due date|new balance/i.test(text) && !/beginning balance/i.test(text);
+  const full = []; text.replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/g, (m0, a, b, c) => { const y = c.length === 2 ? "20" + c : c; if (+a <= 12 && +b <= 31) full.push(`${y}-${a.padStart(2, "0")}-${b.padStart(2, "0")}`); });
+  let from = "", to = "";
+  const per = /(\d{1,2}\/\d{1,2}\/\d{2,4})\s*(?:-|–|to|through|thru)\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i.exec(text);
+  if (per) { from = parseDateAny(per[1]); to = parseDateAny(per[2]); }
+  const cd = /(?:closing|statement|ending)\s+date[:\s]+(\d{1,2}\/\d{1,2}\/\d{2,4})/i.exec(text); if (!to && cd) to = parseDateAny(cd[1]);
+  if (!to && full.length) to = full.slice().sort().pop();
+  const yr = to ? +to.slice(0, 4) : new Date().getFullYear();
+  const mkDate = (mo, d, y) => { if (y) { y = String(y).length === 2 ? "20" + y : String(y); return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`; } let dt = `${yr}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`; if (to && dt > addDays(to, 7)) dt = `${yr - 1}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`; return dt; };
+  const sections = []; let sec = null, last = null;
+  const newSec = i => { let name = ""; for (let k = i; k >= Math.max(0, i - 10); k--) if (/checking|savings|money market|credit card|visa|mastercard|business|account/i.test(lines[k]) && !/balance/i.test(lines[k]) && lines[k].length < 80) { name = lines[k].replace(/\s{2,}/g, " ").trim(); break; } sec = {name:name || "Statement", tx:[], begin:null, end:null}; sections.push(sec); last = null; };
+  const DATE_RX = /^(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2,4}))?\s+(.+)$/;
+  const SKIP_RX = /^(page\s+\d|date\s|trans(action)?\s+date|continued|total|subtotal|summary|average|statement|member|account number|www\.|call\s|p\.?o\.? box)/i;
+  lines.forEach((ln, i) => {
+    const toks = [...ln.matchAll(MONEY_RX)].map(moneyTok);
+    if (/(beginning|previous|opening|starting)\s+balance|balance\s+forward/i.test(ln) && toks.length) { if (!sec || sec.tx.length || sec.begin !== null) newSec(i); sec.begin = Math.abs(toks[toks.length - 1].v) * (toks[toks.length - 1].neg && !isCard ? -1 : 1); return; }
+    if (/(ending|new|closing)\s+balance/i.test(ln) && toks.length) { if (!sec) newSec(i); if (sec.end === null) sec.end = Math.abs(toks[toks.length - 1].v) * (toks[toks.length - 1].neg && !isCard ? -1 : 1); return; }
+    const m = DATE_RX.exec(ln);
+    if (m && +m[1] >= 1 && +m[1] <= 12 && +m[2] >= 1 && +m[2] <= 31 && toks.length) {
+      if (!sec) newSec(i);
+      let rest = m[4].replace(/^\d{1,2}[\/-]\d{1,2}(?:[\/-]\d{2,4})?\s+/, "");
+      rest = rest.replace(MONEY_RX, " ").replace(/(^|\s)\d{10,}/g, " ").replace(/\b(?=[A-Z0-9]*\d{6})[A-Z0-9]{12,}\b/g, " ").replace(/\s{2,}/g, " ").trim();
+      if (/^(beginning|ending|previous|new) balance/i.test(rest)) return;
+      const amtTok = toks.length >= 2 && !isCard ? toks[toks.length - 2] : toks[toks.length - 1], balTok = toks.length >= 2 && !isCard ? toks[toks.length - 1] : null;
+      const chk = /\bcheck\s*#?\s*(\d{3,6})/i.exec(rest);
+      last = {date:mkDate(m[1], m[2], m[3]), abs:Math.abs(amtTok.v), neg:amtTok.neg, cr:amtTok.cr, bal:balTok ? balTok.v : null, desc:rest, check:chk ? chk[1] : ""}; sec.tx.push(last); return; }
+    if (last && !toks.length && !m && ln.length < 70 && !SKIP_RX.test(ln) && !/balance|page \d|checking|savings|money market|credit card|account/i.test(ln) && !last.more) { last.desc = (last.desc + " " + ln.replace(/\s{2,}/g, " ")).trim(); last.more = true; return; }
+    if (toks.length || SKIP_RX.test(ln)) last = null;
+  });
+  const IN_RX = isCard ? /payment|credit|refund|return|reversal/i : /deposit|credit|transfer from|xfer from|refund|interest|dividend|payout|cashout|cash out|square inc|venmo|zelle from|mobile dep|reversal/i;
+  sections.forEach(sc => { let prev = sc.begin;
+    sc.tx.forEach(t => { let sign = null;
+      if (!isCard && t.bal !== null && prev !== null && Math.abs(Math.abs(r2(t.bal - prev)) - t.abs) < 0.01) sign = t.bal - prev >= 0 ? 1 : -1;
+      if (sign === null && (t.neg || t.cr)) sign = isCard ? 1 : (t.cr ? 1 : -1);
+      if (sign === null) sign = IN_RX.test(t.desc) ? 1 : -1;
+      if (t.bal !== null) prev = t.bal;
+      t.amount = r2(sign * t.abs); });
+    sc.tx = sc.tx.filter(t => t.abs > 0).map(t => ({date:t.date, amount:t.amount, desc:t.desc, fitid:"", check:t.check}));
+    const sum = r2(sc.tx.reduce((s, t) => s + t.amount, 0));
+    sc.adds = sc.begin !== null && sc.end !== null ? Math.abs(r2((isCard ? -(sc.end - sc.begin) : (sc.end - sc.begin)) - sum)) < 0.01 : null;
+    sc.off = sc.begin !== null && sc.end !== null ? r2((isCard ? -(sc.end - sc.begin) : (sc.end - sc.begin)) - sum) : null; });
+  const good = sections.filter(sc => sc.tx.length);
+  if (!good.length) throw new Error("Couldn't find transactions in this PDF. If it's a scanned picture, download the statement again from Navy Federal online, or use the CSV or Quicken download.");
+  return good.map(sc => { const ds = sc.tx.map(t => t.date).sort(); const f = from || ds[0], tt = to || ds[ds.length - 1];
+    return {kind:"pdf", isCard, name:sc.name, tx:sc.tx, balance:sc.end !== null ? {amount:isCard ? -sc.end : sc.end, date:tt} : null, stmt:{from:f, to:tt, begin:sc.begin, end:sc.end, adds:sc.adds, off:sc.off}}; }); }
+async function readStatementFile(file){
+  if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") return parsePdfText(await pdfLines(await file.arrayBuffer()));
+  const p = parseStatement(await file.text()); const ds = p.tx.map(t => t.date).sort();
+  if (!p.tx.length) throw new Error("No transactions found in " + file.name + ".");
+  return [{...p, name:file.name, stmt:{from:ds[0], to:p.balance?.date || ds[ds.length - 1], begin:null, end:p.balance ? (p.isCard ? -p.balance.amount : p.balance.amount) : null}}]; }
+async function handleStatementFiles(files){
+  files = [...files].filter(f => /\.(pdf|csv|ofx|qfx|qbo|txt)$/i.test(f.name) || /pdf|csv|text/.test(f.type)); if (!files.length) { toast("Drop a PDF, CSV or Quicken (QFX) statement file."); return; }
+  toast("Reading " + (files.length > 1 ? files.length + " statements" : files[0].name) + "…");
+  let parts = [];
+  for (const f of files) { try { parts = parts.concat((await readStatementFile(f)).map(p => ({...p, file:f.name}))); } catch(e) { toast(f.name + ": " + (e.message || "couldn't read it")); if (files.length === 1) return; } }
+  if (!parts.length) return;
+  let acct = UI.bankAcct && byId("accounts", UI.bankAcct) ? UI.bankAcct : SYS.CHK;
+  if (parts.some(p => p.kind === "pdf")) { const wantCard = parts.filter(p => p.kind === "pdf").every(p => p.isCard), cur = byId("accounts", acct);
+    if (wantCard !== (cur?.type === "ccard")) { const alt = bankAccts().find(a => (a.type === "ccard") === wantCard); if (alt) { acct = alt.id; toast("This looks like a " + (wantCard ? "credit card" : "bank") + " statement, so it goes into " + alt.name + "."); } } }
+  UI.bankAcct = acct; PENDING_PARTS = parts; stageParts(parts.length > 1 && new Set(parts.map(p => p.file)).size === 1 ? [parts.reduce((bi, p, i) => p.tx.length > parts[bi].tx.length ? i : bi, 0)] : parts.map((_, i) => i), acct); }
+let PENDING_PARTS = null;
+function stageParts(pick, acct){ const parts = pick.map(i => PENDING_PARTS[i]);
+  const tx = parts.flatMap(p => p.tx), st = parts.map(p => p.stmt).filter(Boolean).sort((a, b) => (a.to || "") < (b.to || "") ? -1 : 1);
+  const stmt = st.length ? {from:st.map(x => x.from).filter(Boolean).sort()[0], to:st[st.length - 1].to, begin:st[0].begin, end:st[st.length - 1].end, adds:st.every(x => x.adds === true) ? true : st.some(x => x.adds === false) ? false : null, off:r2(st.reduce((s, x) => s + (x.off || 0), 0))} : null;
+  const last = parts.slice().sort((a, b) => (a.stmt?.to || "") < (b.stmt?.to || "") ? -1 : 1).pop();
+  stageImport({kind:parts[0].kind, tx, balance:last?.balance || null, stmt, pick, sections:PENDING_PARTS.map(p => p.name + (p.file ? " (" + p.file + ")" : "") + " · " + p.tx.length)}, acct); }
+
+/* ----- learning what is what ----- */
+function merchantKey(d){ return String(d || "").toLowerCase().replace(/\b(pos|debit|card|purchase|recurring|pre-?auth(orized)?|checkcard|ach|electronic|online|withdrawal|paid|to|from|point|of|sale|visa|transaction|trans|pmt)\b/g, " ").replace(/^[\s:-]+/, "").replace(/^(sq|tst|sp|pp|paypal|in)\s?\*\s?/, "$1 ").replace(/[#*]\S*/g, " ").replace(/\d+/g, " ").replace(/\b(co|ca|tx|ny|fl|az|ut|wa|or|il|ga|us|usa|lakewood|denver|golden|arvada|aurora|littleton|www|com|inc|llc)\b/g, " ").replace(/[^a-z& ]/g, " ").replace(/\s+/g, " ").trim().split(" ").filter(w => w.length > 1).slice(0, 2).join(" "); }
+async function learnCat(desc, acct){ const k = merchantKey(desc); if (!k || !acct) return; const L = {...(S.company.catLearn || {})}; const m = {...(L[k] || {})}; m[acct] = (m[acct] || 0) + 1; L[k] = m;
+  const keys = Object.keys(L); if (keys.length > 1500) delete L[keys[0]]; await saveCompany({catLearn:L}); }
+function learnedFor(desc){ const k = merchantKey(desc); const m = k && (S.company.catLearn || {})[k]; if (!m) return null; const tot = Object.values(m).reduce((s, n) => s + n, 0), best = Object.entries(m).sort((a, b) => b[1] - a[1])[0];
+  if (!best || !byId("accounts", best[0])) return null; return {acct:best[0], vendorId:"", n:best[1], sure:best[1] >= 2 && best[1] / tot >= 0.75, learned:true}; }
+
+/* ----- scan & balance ----- */
+async function autoBalance(acct, stmt){
+  const a = byId("accounts", acct), rep = {acct, stmt, matched:0, ruled:0, invoices:0, left:0, at:Date.now()};
+  const inPer = t => (!stmt?.from || t.date >= addDays(stmt.from, -3)) && (!stmt?.to || t.date <= addDays(stmt.to, 3));
+  const J = journal().filter(l => l.acct === acct), used = linkedKeys(acct);
+  for (const t of S.banktx.filter(t => t.acct === acct && t.status === "new" && inPer(t)).sort((x, y) => x.date < y.date ? -1 : 1)) {
+    const c = J.filter(l => Math.abs(l.amt - t.amount) < 0.005 && Math.abs(daysBetween(l.date, t.date)) <= 10 && !used.has(l.src + ":" + l.srcId)).filter((l, i, arr) => arr.findIndex(x => x.srcId === l.srcId) === i).sort((x, y) => Math.abs(daysBetween(x.date, t.date)) - Math.abs(daysBetween(y.date, t.date)));
+    if (c.length === 1 || (c.length > 1 && Math.abs(daysBetween(c[0].date, t.date)) < Math.abs(daysBetween(c[1].date, t.date)))) { const l = c[0]; used.add(l.src + ":" + l.srcId); await put("banktx", {...clone(t), status:"matched", link:{src:l.src, srcId:l.srcId}, reviewedAt:Date.now(), auto:true}); rep.matched++; continue; }
+    if (t.amount > 0 && a.type === "bank") { const inv = S.invoices.filter(i => Math.abs(invBalance(i) - t.amount) < 0.005); const cn = inv.length === 1 ? (custName(inv[0].customerId) || "").toLowerCase().split(/\s+/).filter(w => w.length > 3) : [];
+      if (inv.length === 1 && cn.some(w => (t.desc || "").toLowerCase().includes(w))) { const pid = await put("payments", {customerId:inv[0].customerId, date:t.date, method:"ACH / bank transfer", ref:"", depositTo:t.acct, applied:[{invoiceId:inv[0].id, amount:t.amount}]}); await put("banktx", {...clone(byId("banktx", t.id)), status:"added", link:{src:"Payment", srcId:pid, created:true, col:"payments"}, reviewedAt:Date.now(), auto:true}); used.add("Payment:" + pid); rep.invoices++; continue; } }
+    const sg = txSuggest(t);
+    if (sg.rule && (!sg.rule.learned || sg.rule.sure) && t.amount < 0) { await txCreate(t, sg.rule.acct, sg.rule.vendorId, t.desc, true); rep.ruled++; continue; }
+    rep.left++; }
+  // tick everything the statement shows
+  const a2 = byId("accounts", acct), cl = {...(a2.cleared || {})};
+  S.banktx.filter(t => t.acct === acct && t.link && (t.status === "matched" || t.status === "added") && inPer(t)).forEach(t => cl[t.link.src + "|" + t.link.srcId] = 1);
+  const upd = {...clone(a2), cleared:cl}; if (stmt?.end !== null && stmt?.end !== undefined && stmt.to) upd.recon = {date:stmt.to, balance:r2(stmt.end)};
+  await put("accounts", upd);
+  if (stmt?.to && stmt.end !== null && stmt.end !== undefined) UI.balSt = {...(UI.balSt || {}), [acct]:{date:stmt.to, bal:String(r2(stmt.end))}};
+  if (stmt?.from && stmt.begin !== null && stmt.begin !== undefined) { const bb = shown(byId("accounts", acct), balances(null, addDays(stmt.from, -1))[acct]); rep.beginOff = r2(stmt.begin - bb); }
+  UI.autoRep = {...(UI.autoRep || {}), [acct]:rep}; UI.balFull = false; return rep; }
+function autoRepHTML(acct){ const rep = (UI.autoRep || {})[acct]; if (!rep) return "";
+  const a = byId("accounts", acct), st = balSt(acct), books = shown(a, balances(null, st.date)[acct]), bank = st.bal === "" ? null : +st.bal, diff = bank === null ? null : r2(bank - books);
+  const items = acctItems(acct).filter(x => x.date <= st.date && (!rep.stmt?.from || x.date >= rep.stmt.from)), cleared = a.cleared || {}, notOn = items.filter(x => x.src !== "Opening balance" && !cleared[x.key]);
+  const pendT = S.banktx.filter(t => t.acct === acct && t.status === "new"), pend = pendT.length, ok = diff !== null && Math.abs(diff) < 0.005 && !pend;
+  const pendSum = r2(pendT.filter(t => t.date <= st.date).reduce((s2, t) => s2 + t.amount, 0) * (a.type === "ccard" ? -1 : 1)), pendExplains = pend && diff !== null && Math.abs(diff - pendSum) < 0.005;
+  const li = (good, h) => `<li style="list-style:none;margin:4px 0"><span style="display:inline-block;width:1.4em;color:${good ? "var(--good)" : "var(--bad, #b3261e)"};font-weight:700">${good ? "✓" : "!"}</span>${h}</li>`;
+  return `<section class="panel" style="margin-bottom:18px;border-width:2px;border-color:${ok ? "var(--good)" : "var(--brass, #a07a2f)"}"><div class="panel-head"><h2>${ok ? "Everything is in order ✓" : "Scan results"}</h2><button class="linkbtn small" data-act="autoRepClose" data-id="${acct}">Hide</button></div>
+  ${rep.stmt?.from ? `<p class="small muted" style="margin-top:0">Statement ${fmtDate(rep.stmt.from)} to ${fmtDate(rep.stmt.to)}${rep.stmt.end !== null && rep.stmt.end !== undefined ? " · ending " + (a.type === "ccard" ? "balance owed " : "balance ") + money(rep.stmt.end) : ""}</p>` : ""}
+  <ul style="margin:0;padding:0">
+  ${rep.matched ? li(true, `${rep.matched} statement line${rep.matched > 1 ? "s" : ""} matched to entries already in your books`) : ""}
+  ${rep.invoices ? li(true, `${rep.invoices} deposit${rep.invoices > 1 ? "s" : ""} recorded as payment on the matching invoice`) : ""}
+  ${rep.ruled ? li(true, `${rep.ruled} added to categories the app has learned`) : ""}
+  ${pend ? li(false, `${pend} line${pend > 1 ? "s" : ""} need you to pick a category (new merchants). <a href="#/${a.type === "ccard" ? "card" : "banking"}/${acct}">Sort them now</a>. The app remembers your choice next time.`) : li(true, "Nothing left to categorize")}
+  ${rep.stmt?.adds === false ? li(false, `The PDF lines didn't add up to the statement totals (off by ${money(Math.abs(rep.stmt.off || 0))}). A line may not have been read. Compare with the statement.`) : rep.stmt?.adds ? li(true, "Every line on the statement was read and adds up to the statement totals") : ""}
+  ${rep.beginOff !== undefined && Math.abs(rep.beginOff) >= 0.005 ? li(false, `Your books were already off by ${money(rep.beginOff)} at the start of this statement, so part of the problem is in an earlier month.`) : ""}
+  ${notOn.length ? li(false, `${notOn.length} entr${notOn.length > 1 ? "ies are" : "y is"} in your books for this period but not on the statement (checks not cashed yet, duplicates, or mistakes). See the unticked list below.`) : ""}
+  ${diff === null ? "" : Math.abs(diff) < 0.005 ? li(true, `Your books match the statement: ${money(books)}`) : pendExplains ? li(true, `The ${money(Math.abs(diff))} difference is exactly the ${pend} line${pend > 1 ? "s" : ""} waiting for a category. Sort ${pend > 1 ? "them" : "it"} and your books will balance to ${money(bank)}.`) : li(false, `Your books are ${money(books)}, the statement says ${money(bank)}. Difference ${money(diff)}${pend ? ` (${money(pendSum)} of it is the lines waiting for a category)` : ""}. See below.`)}
+  </ul></section>`; }
 function txId(acct, t, n){ return acct + "-" + (t.fitid ? "f" + hashStr(t.fitid) : hashStr([t.date, t.amount, t.desc, n].join("|"))); }
 let PENDING_IMPORT = null;
 function stageImport(parsed, acct){
@@ -1346,18 +1482,21 @@ function stageImport(parsed, acct){
   const ins = PENDING_IMPORT.fresh.filter(t => t.amount > 0).length;
   openSheet("Import into " + a.name, `<form data-form="bankimport">
     <p>${parsed.tx.length} transactions from ${fmtDate(dates[0])} to ${fmtDate(dates[dates.length - 1])}. <b>${PENDING_IMPORT.fresh.length} new</b>${parsed.tx.length - PENDING_IMPORT.fresh.length ? `, ${parsed.tx.length - PENDING_IMPORT.fresh.length} already imported and skipped` : ""}.</p>
-    <div class="tbl"><table><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th></tr></thead><tbody>${PENDING_IMPORT.fresh.slice(0, 6).map(t => `<tr><td>${fmtDate(t.date)}</td><td>${esc(t.desc)}</td><td class="num ${t.amount < 0 ? "neg" : ""}">${money(t.amount)}</td></tr>`).join("")}</tbody></table></div>
+    ${parsed.sections && parsed.sections.length > 1 ? `<label class="f">This file has more than one account. Which one goes into ${esc(a.name)}?<select data-act-change="impSection">${parsed.sections.map((n, i) => `<option value="${i}" ${(parsed.pick || []).length === 1 && parsed.pick[0] === i ? "selected" : ""}>${esc(n)}</option>`).join("")}<option value="all" ${(parsed.pick || []).length > 1 ? "selected" : ""}>All of them</option></select></label>` : ""}
+    ${parsed.stmt && parsed.stmt.begin !== null && parsed.stmt.begin !== undefined && parsed.stmt.end !== null ? `<p class="small" style="font-weight:600;color:${parsed.stmt.adds ? "var(--good)" : "var(--bad, #b3261e)"}">${parsed.stmt.adds ? "✓ Every line was read and adds up to the statement: " + money(parsed.stmt.begin) + " → " + money(parsed.stmt.end) + "." : "These lines are off from the statement totals by " + money(Math.abs(parsed.stmt.off || 0)) + ". A line may not have been read, or a sign is backwards. Check the list before importing."}</p>` : ""}
+    <div class="tbl" style="max-height:340px;overflow:auto"><table><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th></tr></thead><tbody>${PENDING_IMPORT.fresh.slice(0, 400).map(t => `<tr><td>${fmtDate(t.date)}</td><td>${esc(t.desc)}</td><td class="num ${t.amount < 0 ? "neg" : ""}">${money(t.amount)}</td></tr>`).join("")}</tbody></table></div>
     <p class="small muted">${card ? "On a card, charges should show as negative and payments as positive." : "Money going out should show as negative and deposits as positive."} ${ins} of the new ones are positive.</p>
     <label class="check"><input type="checkbox" name="flip"> The signs are backwards; flip them</label>
+    <label class="check"><input type="checkbox" name="autobal" checked> Then scan and balance my books against this statement</label>
     ${foot(null, "Import " + PENDING_IMPORT.fresh.length + " transactions")}</form>`);
 }
-const linkedKeys = () => new Set(S.banktx.filter(t => t.link).map(t => t.link.src + ":" + t.link.srcId));
+const linkedKeys = acct => new Set(S.banktx.filter(t => t.link && (!acct || t.acct === acct)).map(t => t.link.src + ":" + t.link.srcId));
 function txSuggest(t){
-  const used = linkedKeys(), out = {};
+  const used = linkedKeys(t.acct), out = {};
   out.matches = journal().filter(l => l.acct === t.acct && Math.abs(l.amt - t.amount) < 0.005 && Math.abs(daysBetween(l.date, t.date)) <= 10 && !used.has(l.src + ":" + l.srcId))
     .filter((l, i, arr) => arr.findIndex(x => x.srcId === l.srcId) === i).slice(0, 2);
   if (t.amount > 0 && byId("accounts", t.acct)?.type === "bank") out.invoices = S.invoices.filter(i => Math.abs(invBalance(i) - t.amount) < 0.005).slice(0, 2);
-  const d = (t.desc || "").toLowerCase(); out.rule = S.bankrules.find(r => r.text && d.includes(r.text.toLowerCase()));
+  const d = (t.desc || "").toLowerCase(); out.rule = S.bankrules.find(r => r.text && d.includes(r.text.toLowerCase())) || (t.amount < 0 ? learnedFor(t.desc) : null);
   return out;
 }
 const SRC_ACT = {"Check":"editExpense", "Card charge":"editExpense", "Bill payment":"viewBillpay", "Journal entry":"editJournal", "Payment":"editPayment"};
@@ -1394,7 +1533,8 @@ VIEWS.balance = id => {
   }
   const unt = items.filter(x => !isClr(x)), rows = (showAll ? items : unt).slice().reverse();
   const recs = (a.recons || []).slice(-5).reverse();
-  return `<div class="pagehead"><div><h1>Balance the books</h1><p>Make the app's ${card ? "card balance" : "cash in bank"} match what Navy Federal shows.</p></div><div class="actions"><a class="btn" href="#/banking/${acct}">Banking</a></div></div>
+  return `<div class="pagehead"><div><h1>Balance the books</h1><p>Make the app's ${card ? "card balance" : "cash in bank"} match what Navy Federal shows.</p></div><div class="actions"><button class="btn primary" data-act="scanNow" data-id="${acct}">Scan &amp; balance for me</button><button class="btn" data-act="bankImport">Import statement</button></div></div>
+  ${autoRepHTML(acct)}
   <nav class="seg" aria-label="Accounts">${accts.map(x => `<a href="#/balance/${x.id}" ${x.id === acct ? 'aria-current="page"' : ""}>${esc(x.name)}</a>`).join("")}</nav>
   <section class="panel"><h2 style="margin-bottom:6px">1. What does the bank say?</h2><p class="small muted" style="margin-top:0">Look at Navy Federal online or your statement. Enter the ${card ? "balance you owe" : "balance"} and the date it's for.</p>
   <div class="fields"><label class="f">Date<input type="date" id="balDate" data-bal="date" value="${esc(st.date)}"></label><label class="f">${card ? "Balance owed" : "Bank balance"}<input type="number" step="0.01" id="balAmt" data-bal="bal" value="${esc(st.bal)}" placeholder="0.00"></label></div></section>
@@ -1402,8 +1542,8 @@ VIEWS.balance = id => {
   ${diff === null ? "" : Math.abs(diff) < 0.005 ? `<section class="panel" style="margin-top:18px"><p style="margin:0;color:var(--good);font-weight:600">Your books match the bank on ${fmtDate(st.date)}.</p><div class="formfoot"><div class="right"><button class="btn primary" data-act="balSave" data-id="${acct}">Save: balanced on ${fmtDate(st.date)}</button></div></div></section>` : `
   <section class="panel" style="margin-top:18px"><h2 style="margin-bottom:6px">2. Where the ${money(Math.abs(diff))} might be coming from</h2><p class="small muted" style="margin-top:0">Your books are ${money(Math.abs(diff))} ${diff < 0 ? "higher" : "lower"} than the bank. Check these first:</p>
   <ul style="margin:0 0 4px 18px;padding:0;line-height:1.6">${hints.map(h => `<li>${h}</li>`).join("")}</ul></section>
-  <section class="panel" style="margin-top:18px"><h2 style="margin-bottom:6px">3. Can't find it? Make the books match</h2><p class="small muted" style="margin-top:0">This adds one adjustment of ${money(diff)} dated ${fmtDate(st.date)} to a "Reconciliation Discrepancies" account, so your ${card ? "card balance" : "cash in bank"} matches the bank. Don't use it for checks that just haven't cleared yet. It's fine for small leftovers, but tell your accountant about big ones.</p>
-  <div class="formfoot"><div class="right"><button class="btn primary" data-act="balAdjust" data-id="${acct}" data-diff="${diff}">Adjust my books by ${money(diff)}</button></div></div></section>`}
+  ${unrev.length ? `<section class="panel" style="margin-top:18px"><h2 style="margin-bottom:6px">3. Sort the waiting lines first</h2><p class="small muted" style="margin-top:0">${unrev.length} imported line${unrev.length > 1 ? "s haven't" : " hasn't"} been added to your books yet. Sort ${unrev.length > 1 ? "them" : "it"} first. That usually closes the gap, and anything the app has learned is already done.</p><div class="formfoot"><div class="right"><a class="btn primary" href="#/${card ? "card" : "banking"}/${acct}">Sort ${unrev.length} line${unrev.length > 1 ? "s" : ""}</a></div></div></section>` : `<section class="panel" style="margin-top:18px"><h2 style="margin-bottom:6px">3. Can't find it? Make the books match</h2><p class="small muted" style="margin-top:0">This adds one adjustment of ${money(diff)} dated ${fmtDate(st.date)} to a "Reconciliation Discrepancies" account, so your ${card ? "card balance" : "cash in bank"} matches the bank. Don't use it for checks that just haven't cleared yet. It's fine for small leftovers, but tell your accountant about big ones.</p>
+  <div class="formfoot"><div class="right"><button class="btn primary" data-act="balAdjust" data-id="${acct}" data-diff="${diff}">Adjust my books by ${money(diff)}</button></div></div></section>`}`}
   <details class="panel" style="margin-top:18px" ${full ? "open" : ""} data-act-toggle="balFull"><summary style="cursor:pointer;font-weight:600">Tick off each transaction (full check, like QuickBooks reconcile)</summary>
   <p class="small muted">Tick each item that appears on your statement up to ${fmtDate(st.date)}. Items left unticked are ones the bank hasn't seen yet (like checks not cashed) or shouldn't be in your books.</p>
   <div class="ledger" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><span>Ticked balance</span><b>${money(clearedBal)}</b></div><div><span>Bank says</span><b>${bank === null ? "—" : money(bank)}</b></div><div><span>Left to find</span><b style="color:${fdiff !== null && Math.abs(fdiff) < 0.005 ? "var(--good)" : "inherit"}">${fdiff === null ? "—" : Math.abs(fdiff) < 0.005 ? "0.00 ✓" : money(fdiff)}</b></div></div>
@@ -1433,7 +1573,8 @@ VIEWS.banking = id => {
   return `<div class="pagehead"><div><h1>Banking</h1><p>Import statements from Navy Federal, then match or categorize each transaction.</p></div><div class="actions"><button class="btn primary" data-act="bankImport">Import statement file</button><a class="btn" href="#/balance/${acct}">Balance the books</a></div></div>
   <nav class="seg" aria-label="Accounts">${accts.map(x => `<a href="#/banking/${x.id}" ${x.id === acct ? 'aria-current="page"' : ""}>${esc(x.name)}</a>`).join("")}</nav>
   <div class="ledger" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><span>${a.type === "ccard" ? "Card balance owed" : "Balance in your books"}</span><b>${money(bal)}</b></div><div><span>To review</span><b>${review.length}</b></div><div><span>Last statement check</span><b style="font-size:20px">${rec.date ? fmtDate(rec.date) : "Not yet"}</b></div></div>
-  <section class="panel"><div class="panel-head"><h2>To review</h2></div><div class="list">${review.map(row).join("") || empty(txs.length ? "Everything is reviewed." : "Download transactions from Navy Federal online banking (CSV, or the Quicken/QuickBooks format), then use Import statement file.", txs.length ? "" : '<button class="btn primary" data-act="bankImport">Import statement file</button>')}</div></section>
+  <div class="dropzone" data-act="bankImport" role="button" tabindex="0"><b>Drop Navy Federal statements here</b><span>PDF, CSV or Quicken (QFX) · or tap to choose files · goes into ${esc(a.name)}</span><span class="small">The app reads it, matches it to your books, sorts what it has learned and balances against the statement.</span></div>
+  <section class="panel"><div class="panel-head"><h2>To review</h2>${review.length ? `<button class="btn small" data-act="scanNow" data-id="${acct}">Scan &amp; sort for me</button>` : ""}</div><div class="list">${review.map(row).join("") || empty(txs.length ? "Everything is reviewed." : "Download transactions from Navy Federal online banking (CSV, or the Quicken/QuickBooks format), then use Import statement file.", txs.length ? "" : '<button class="btn primary" data-act="bankImport">Import statement file</button>')}</div></section>
   <div class="grid2">
   <form class="panel" data-form="reconcile" data-id="${acct}"><h2 style="margin-bottom:6px">Reconcile</h2><p class="small muted" style="margin-top:0">Enter the ending balance from your statement. The app compares it with your books on that date.</p>
     <div class="fields"><label class="f">Statement date<input type="date" name="date" required value="${esc(rec.date || todayISO())}"></label><label class="f">${a.type === "ccard" ? "Balance owed" : "Ending balance"}<input type="number" step="0.01" name="balance" required value="${esc(rec.balance ?? "")}"></label></div>
@@ -1452,8 +1593,8 @@ function txCategorizeForm(t){ const out = t.amount < 0, sg = txSuggest(t);
   <label class="f">Memo<input name="memo" value="${esc(t.desc)}"></label>
   <label class="check full"><input type="checkbox" name="remember" ${kw ? "checked" : ""}> Remember: descriptions containing <input name="kw" value="${esc(kw)}" style="padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);width:12em"></label>
   </div><p class="small muted">${out ? "Paying off the card from checking? Choose the card account as the category." : "Money in from a customer invoice? Close this and use the payment button on the transaction instead."}</p>${foot(null, "Add transaction")}</form>`, true); }
-async function txCreate(t, acct, vendorId, memo){
-  let src, srcId;
+async function txCreate(t, acct, vendorId, memo, auto){
+  let src, srcId; if (!auto && t.amount < 0) learnCat(t.desc, acct).catch(() => {});
   if (t.amount < 0) { srcId = await put("expenses", {fromAcct:t.acct, date:t.date, vendorId:vendorId || "", payee:vendorId ? "" : (t.desc || "Bank transaction").slice(0, 60), ref:t.check || "", lines:[{ref:"a:" + acct, qty:1, rate:Math.abs(t.amount), memo:memo || t.desc}]}); src = byId("accounts", t.acct)?.type === "ccard" ? "Card charge" : "Check"; }
   else { srcId = await put("journals", {date:t.date, memo:memo || t.desc, lines:[{acct:t.acct, debit:t.amount, credit:0, memo:memo || t.desc}, {acct, debit:0, credit:t.amount, memo:memo || t.desc}]}); src = "Journal entry"; }
   await put("banktx", {...clone(t), status:"added", link:{src, srcId, created:true, col:t.amount < 0 ? "expenses" : "journals"}, reviewedAt:Date.now()});
@@ -2711,7 +2852,7 @@ const FORMS = {
     const lines = rows.map(r => ({ref:r.ref, qty:1, rate:r.amt, memo:r.memo}));
     let eid = f.dataset.exp;
     if (eid) { const e = byId("expenses", eid); await put("expenses", {...clone(e), lines}); }
-    else { const t = byId("banktx", f.dataset.tx); eid = await put("expenses", {fromAcct:t.acct, date:t.date, vendorId:"", payee:(t.desc || "Card charge").slice(0, 60), ref:t.check || "", lines}); await put("banktx", {...clone(t), status:"added", link:{src:byId("accounts", t.acct)?.type === "ccard" ? "Card charge" : "Check", srcId:eid, created:true, col:"expenses"}, reviewedAt:Date.now()}); }
+    else { const t = byId("banktx", f.dataset.tx); eid = await put("expenses", {fromAcct:t.acct, date:t.date, vendorId:"", payee:(t.desc || "Card charge").slice(0, 60), ref:t.check || "", lines}); if (lines.length === 1 && lines[0].ref.startsWith("a:")) learnCat(t.desc, lines[0].ref.slice(2)).catch(() => {}); await put("banktx", {...clone(t), status:"added", link:{src:byId("accounts", t.acct)?.type === "ccard" ? "Card charge" : "Check", srcId:eid, created:true, col:"expenses"}, reviewedAt:Date.now()}); }
     const nt = f.elements.note ? f.elements.note.value.trim() : ""; if (nt !== (cardNote(eid).note || "")) await setCardNote(eid, {note:nt});
     toast(rows.length > 1 ? "Split into " + rows.length + " categories" : "Categorized"); },
   async cardNote(f){ await setCardNote(f.dataset.id, {note:f.elements.note.value.trim(), ok:f.elements.ok.checked}); toast("Note saved"); },
@@ -2742,7 +2883,9 @@ const FORMS = {
     const flip = f.elements.flip.checked; let n = 0;
     for (const t of P.fresh) { await put("banktx", {id:t.id, acct:P.acct, date:t.date, amount:flip ? -t.amount : t.amount, desc:t.desc, check:t.check || "", fitid:t.fitid || "", status:"new", importedAt:Date.now()}); n++; }
     if (P.parsed.balance) { const a = byId("accounts", P.acct); const bal = byId("accounts", P.acct).type === "ccard" ? -P.parsed.balance.amount : P.parsed.balance.amount; await put("accounts", {...clone(a), recon:{date:P.parsed.balance.date, balance:r2(bal)}}); }
-    PENDING_IMPORT = null; toast("Imported " + n + " transactions"); go("banking/" + P.acct); },
+    PENDING_IMPORT = null; PENDING_PARTS = null;
+    if (f.elements.autobal && f.elements.autobal.checked) { toast("Imported " + n + ". Scanning your books…"); const ds = P.parsed.tx.map(t => t.date).sort(); const rep = await autoBalance(P.acct, P.parsed.stmt || {from:ds[0], to:ds[ds.length - 1], begin:null, end:null}); closeSheet(); go("balance/" + P.acct); toast("Scan done: " + (rep.matched + rep.ruled + rep.invoices) + " sorted, " + rep.left + " need you"); return "keep"; }
+    toast("Imported " + n + " transactions"); go("banking/" + P.acct); },
   async txcat(f){ const t = byId("banktx", f.dataset.id); const acct = val(f, "acct"), vendorId = val(f, "vendorId");
     await txCreate(t, acct, vendorId, val(f, "memo"));
     const kw = val(f, "kw"); if (f.elements.remember.checked && kw) { const ex = S.bankrules.find(r => r.text.toLowerCase() === kw.toLowerCase()); await put("bankrules", {...(ex ? clone(ex) : {}), text:kw, acct, vendorId}); }
@@ -2861,6 +3004,8 @@ const ACT = {
   btReset(el){ const f = el.closest("form"), box = el.closest("[data-billto]"); f._bt = {}; box.dataset.open = "1"; renderBillTo(f); toast("Back to the account's usual bill to"); },
   cardPay: el => cardPayForm(el.dataset.id), cardCharge: el => expenseForm({date:todayISO(), fromAcct:el.dataset.id || UI.cardAcct || cardAccts()[0]?.id || SYS.CHK, lines:[]}),
   cardNote: el => cardNoteForm(el.dataset.id, el.dataset.label),
+  async scanNow(el){ const acct = el.dataset.id, st = balSt(acct); toast("Scanning…"); const rep = await autoBalance(acct, {from:"", to:st.date, begin:null, end:st.bal === "" ? null : +st.bal}); if (route().view !== "balance") go("balance/" + acct); toast("Scan done: " + (rep.matched + rep.ruled + rep.invoices) + " sorted, " + rep.left + " need you"); },
+  autoRepClose(el){ const r = {...(UI.autoRep || {})}; delete r[el.dataset.id]; UI.autoRep = r; render(); },
   boardMore(el){ UI.boardAll = {...(UI.boardAll || {}), [el.dataset.val]:true}; render(); },
   balShow(el){ UI.balAll = !!el.dataset.val; UI.balFull = true; render(); },
   async balTick(el){ const a = byId("accounts", el.dataset.id), c = {...(a.cleared || {})}; if (c[el.dataset.key]) delete c[el.dataset.key]; else c[el.dataset.key] = 1; UI.balFull = true; await put("accounts", {...clone(a), cleared:c}); },
@@ -3146,6 +3291,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet
 document.addEventListener("toggle", e => { const t = e.target; if (t.dataset && t.dataset.actToggle === "balFull") UI.balFull = t.open; }, true);
 document.addEventListener("change", e => { const t = e.target; if (!t.dataset) return;
   if (t.dataset.cardCat !== undefined) { cardQuickCat(t); return; }
+  if (t.dataset.actChange === "impSection" && PENDING_PARTS) { stageParts(t.value === "all" ? PENDING_PARTS.map((_, i) => i) : [+t.value], PENDING_IMPORT?.acct || UI.bankAcct); return; }
   if (t.name === "desc" && t.closest(".line.inv")) { shipRowCheck(t.closest(".line")); const ff = t.closest("form"); if (ff) recalc(ff); }
   if (t.dataset.budTax !== undefined) { UI.bud = {...(UI.bud || {}), tax:t.checked}; render(); return; }
   if (t.dataset.mailCat) { UI.mailCat = {...(UI.mailCat || {}), [t.dataset.mailCat]:t.value}; render(); }
@@ -3201,10 +3347,16 @@ document.addEventListener("change", async e => {
   if (act === "applyCheck") { const inp = t.closest("tr").querySelector("input[type=number]"); inp.value = t.checked ? r2(+t.dataset.open) : ""; payTotal(); }
 });
 $("#bankFile").addEventListener("change", async e => {
-  const file = e.target.files[0]; e.target.value = ""; if (!file) return;
-  try { const parsed = parseStatement(await file.text()); if (!parsed.tx.length) { toast("No transactions found in that file."); return; } stageImport(parsed, UI.bankAcct || SYS.CHK); }
-  catch(err) { toast(err.message || "Couldn't read that file."); }
+  const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
+  try { await handleStatementFiles(files); } catch(err) { console.error(err); toast(err.message || "Couldn't read that file."); }
 });
+const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files");
+document.addEventListener("dragover", e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; document.body.classList.add("dragging"); });
+document.addEventListener("dragleave", e => { if (!e.relatedTarget) document.body.classList.remove("dragging"); });
+document.addEventListener("drop", async e => { if (!hasFiles(e)) return; e.preventDefault(); document.body.classList.remove("dragging");
+  const files = [...e.dataTransfer.files]; if (!files.length) return; const {view, id} = route();
+  if (view === "banking" || view === "balance" || view === "card") { const aid = view === "card" ? (byId("accounts", id) ? id : UI.cardAcct) : (byId("accounts", id) ? id : null); if (aid) UI.bankAcct = aid; }
+  try { await handleStatementFiles(files); } catch(err) { console.error(err); toast(err.message || "Couldn't read that file."); } });
 $("#restoreFile").addEventListener("change", async e => {
   const file = e.target.files[0]; e.target.value = ""; if (!file) return;
   let data; try { data = JSON.parse(await file.text()); } catch(err) { toast("That file isn't a valid backup."); return; }
