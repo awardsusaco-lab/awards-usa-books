@@ -636,7 +636,7 @@ function route(){ const h = location.hash.replace(/^#\/?/, ""); const [view, id]
 const go = h => { location.hash = "#/" + h; };
 
 const NAV_ALL = [["home","Home"],["inbox","Inbox"],["customers","Customers"],["email","Email"],["sales","Sales"],["expenses","Expenses"],["banking","Banking"],["investments","Investments"],["taxes","Taxes"],["pay","Pay"],["inventory","Inventory"],["reports","Reports"],["accounts","Chart of accounts"],["settings","Settings"],["help","Help"]];
-const SECTION = {pos:"expenses", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"sales", estimate:"sales", bills:"expenses", checks:"expenses", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
+const SECTION = {pos:"expenses", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"sales", estimate:"sales", bills:"expenses", checks:"expenses", card:"expenses", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
 const ICONS = {
   home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   customers:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.8 3.1 2.5 3.5 5.2"/>',
@@ -803,7 +803,7 @@ VIEWS.customer = id => {
   <div class="actions"><button class="btn primary" data-act="newInvoice" data-customer="${id}">New invoice</button><button class="btn" data-act="receivePayment" data-customer="${id}">Receive payment</button><button class="btn" data-act="newEstimate" data-customer="${id}">New estimate</button><button class="btn" data-act="statement" data-id="${id}">Statement</button><button class="btn" data-act="editCustomer" data-id="${id}">Edit</button></div></div>
   <div class="ledger"><div><span>Open balance</span><b>${money(bal)}</b></div><div><span>Sales this year</span><b>${money(ytd)}</b></div><div><span>Invoices</span><b>${invs.length}</b></div><div><span>Terms</span><b style="font-size:20px">${esc(c.terms || "Net 30")}</b></div></div>
   <div class="grid2">
-    <section class="panel"><h2>Contact</h2><div class="contact">
+    <section class="panel"><div class="panel-head"><h2>Contact</h2><button class="btn small" data-act="changeContact" data-id="${id}">Change contact</button></div><div class="contact">
       ${c.contact ? `<span>Contact</span><div>${esc(c.contact)}</div>` : ""}
       ${c.email ? `<span>Email</span><div><a href="mailto:${esc(c.email)}">${esc(c.email)}</a>${isBounced(c) ? ' <span class="badge bad">Bounced: find a new email</span>' : ""}</div>` : ""}
       ${c.billingCc ? `<span>CC on invoices</span><div>${esc(c.billingCc)}</div>` : ""}
@@ -889,7 +889,7 @@ function invoiceDoc(inv, standalone, kind){
   const c = byId("customers", inv.customerId) || {}, co = S.company, t = invTotals(inv), paid = est ? 0 : invPaid(inv.id), stp = est ? null : invStamp(inv);
   return `<div class="doc">${stp ? `<div class="stamp ${stp.kind}" aria-label="${stp.text}">${stp.text}${stp.sub ? `<small>${esc(stp.sub)}</small>` : ""}</div>` : ""}<div class="doc-head"><div class="co">${co.showLogo !== false ? `<img class="logo" src="${LOGO_PNG}" alt="">` : ""}<div><b>${esc(co.name)}</b><div class="pre small muted">${esc(shownAddr())}${co.phone ? "\n" + esc(co.phone) : ""}${co.email ? "\n" + esc(co.email) : ""}</div></div></div>
     <div class="meta"><h2>${est ? "Estimate" : "Invoice"}</h2><div class="kv"><span>${est ? "Estimate" : "Invoice"} no.</span><b>${esc(inv.num)}</b><span>Date</span><div>${fmtDate(inv.date)}</div><span>${est ? "Valid until" : "Due"}</span><div>${fmtDate(inv.due)}</div><span>Terms</span><div>${esc(inv.terms || "")}</div>${inv.po ? `<span>P.O. no.</span><div>${esc(inv.po)}</div>` : ""}</div></div></div>
-    <div style="margin-bottom:18px"><div class="small muted">${est ? "Prepared for" : "Bill to"}</div><b>${esc(c.name || "")}</b>${c.contact ? `<div>${esc(c.contact)}</div>` : ""}<div class="pre">${esc(c.address || "")}</div></div>
+    ${(bt => `<div style="margin-bottom:18px"><div class="small muted">${est ? "Prepared for" : "Bill to"}</div><b>${esc(bt.name)}</b>${bt.contact ? `<div>Attn: ${esc(bt.contact)}</div>` : ""}<div class="pre">${esc(bt.address)}</div></div>`)(billToOf(inv))}
     <div class="tbl"><table><thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>
     ${(inv.lines || []).map(l => `<tr><td>${esc(byId("items", l.itemId)?.name || "")}</td><td class="pre">${esc(l.desc || "")}</td><td class="num">${esc(l.qty)}</td><td class="num">${money(l.rate)}</td><td class="num">${money((+l.qty||0) * (+l.rate||0))}${l.taxable ? "" : standalone ? "" : ' <span class="small muted">N</span>'}</td></tr>`).join("")}
     </tbody></table></div>
@@ -918,18 +918,64 @@ VIEWS.expenses = () => {
   </tbody></table></div></div>`;
 };
 function expHead(active){
-  return `<div class="pagehead"><div><h1>Expenses</h1></div><div class="actions"><button class="btn primary" data-act="newBill">Enter bill</button><button class="btn" data-act="payBills">Pay bills</button><button class="btn" data-act="newExpense">Write check / card charge</button></div></div>
-  <nav class="seg" aria-label="Expense sections"><a href="#/expenses" ${active === "bills" ? 'aria-current="page"' : ""}>Bills</a><a href="#/checks" ${active === "checks" ? 'aria-current="page"' : ""}>Checks &amp; charges</a><a href="#/vendors" ${active === "vendors" ? 'aria-current="page"' : ""}>Vendors</a><a href="#/pos" ${active === "pos" ? 'aria-current="page"' : ""}>Supplier orders</a><a href="#/mileage" ${active === "mileage" ? 'aria-current="page"' : ""}>Mileage</a></nav>`;
+  return `<div class="pagehead"><div><h1>Expenses</h1></div><div class="actions"><button class="btn primary" data-act="newBill">Enter bill</button><button class="btn" data-act="payBills">Pay bills</button><button class="btn" data-act="newExpense">Write check / card charge</button><button class="btn" data-act="cardPay">Pay credit card</button></div></div>
+  <nav class="seg" aria-label="Expense sections"><a href="#/expenses" ${active === "bills" ? 'aria-current="page"' : ""}>Bills</a><a href="#/checks" ${active === "checks" ? 'aria-current="page"' : ""}>Checks &amp; charges</a><a href="#/card" ${active === "card" ? 'aria-current="page"' : ""}>Credit card</a><a href="#/vendors" ${active === "vendors" ? 'aria-current="page"' : ""}>Vendors</a><a href="#/pos" ${active === "pos" ? 'aria-current="page"' : ""}>Supplier orders</a><a href="#/mileage" ${active === "mileage" ? 'aria-current="page"' : ""}>Mileage</a></nav>`;
 }
 VIEWS.checks = () => {
   const rows = [
-    ...S.expenses.map(e => ({date:e.date, kind:byId("accounts", e.fromAcct)?.type === "ccard" ? "Card charge" : "Check", payee:e.vendorId ? vendName(e.vendorId) : e.payee, ref:e.ref, acct:e.fromAcct, amt:linesTotal(e.lines), act:"editExpense", id:e.id})),
+    ...S.expenses.map(e => ({date:e.date, kind:byId("accounts", e.fromAcct)?.type === "ccard" ? "Card charge" : isCardPay(e) ? "Card payment" : "Check", payee:e.vendorId ? vendName(e.vendorId) : e.payee, ref:e.ref, acct:e.fromAcct, amt:linesTotal(e.lines), act:"editExpense", id:e.id})),
     ...S.billpays.map(bp => ({date:bp.date, kind:"Bill payment", payee:vendName(bp.vendorId), ref:bp.ref, acct:bp.fromAcct, amt:(bp.applied || []).reduce((s, a) => s + (+a.amount || 0), 0), act:"viewBillpay", id:bp.id}))
   ].sort((a, b) => a.date < b.date ? 1 : -1);
   return expHead("checks") + `<div class="panel"><div class="tbl"><table><thead><tr><th>Date</th><th>Type</th><th>Payee</th><th>No.</th><th>Paid from</th><th class="num">Amount</th></tr></thead><tbody>
   ${rows.map(r => `<tr class="click" data-act="${r.act}" data-id="${r.id}"><td>${fmtDate(r.date)}</td><td>${r.kind}</td><td>${esc(r.payee || "")}</td><td>${esc(r.ref || "")}</td><td>${esc(acctName(r.acct))}</td><td class="num">${money(r.amt)}</td></tr>`).join("") || `<tr><td colspan="6">${empty("Record things you pay for right away, like supplies bought with a card.")}</td></tr>`}
   </tbody></table></div></div>`;
 };
+const cardAccts = () => S.accounts.filter(a => a.type === "ccard" && !a.inactive).sort((a, b) => String(a.number || "").localeCompare(String(b.number || "")));
+const cardNote = id => (S.company.cardNotes || {})[id] || {};
+async function setCardNote(id, patch){ const cur = {...cardNote(id), ...patch}; const all = {...(S.company.cardNotes || {})}; if (!cur.note && !cur.ok) delete all[id]; else all[id] = cur; await saveCompany({cardNotes:all}); }
+const isCardPay = e => (e.lines || []).length > 0 && (e.lines || []).every(l => String(l.ref || "").startsWith("a:") && byId("accounts", l.ref.slice(2))?.type === "ccard");
+function cardRows(acct){ const g = new Map();
+  for (const l of journal()) if (l.acct === acct) { const k = l.src + "|" + l.srcId; const x = g.get(k) || {date:l.date, src:l.src, srcId:l.srcId, name:l.name, memo:"", amt:0}; x.amt = r2(x.amt + l.amt); if (!x.memo && l.memo) x.memo = l.memo; g.set(k, x); }
+  return [...g.values()].map(x => { const e = byId("expenses", x.srcId), charge = -x.amt; let kind = x.src, what = x.memo || "", act = "", cats = "";
+    if (x.src === "Card charge") { kind = charge < 0 ? "Refund / credit" : "Charge"; act = "editExpense"; cats = e ? [...new Set((e.lines || []).map(l => String(l.ref || "").startsWith("a:") ? (byId("accounts", l.ref.slice(2))?.name || "") : (byId("items", String(l.ref || "").slice(2))?.name || "")).filter(Boolean))].join(", ") : ""; }
+    else if (x.src === "Check") { kind = "Payment"; act = "editExpense"; }
+    else if (x.src === "Bill payment") { kind = "Bill paid by card"; act = "viewBillpay"; }
+    else if (x.src === "Journal entry") { kind = "Journal entry"; act = "editJournal"; }
+    return {...x, charge, kind, what, cats, act, note:cardNote(x.srcId)}; }).sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0); }
+VIEWS.card = id => {
+  const cards = cardAccts(); const acct = byId("accounts", id)?.type === "ccard" ? id : (UI.cardAcct && byId("accounts", UI.cardAcct)?.type === "ccard" ? UI.cardAcct : cards[0]?.id); UI.cardAcct = acct;
+  const a = byId("accounts", acct);
+  if (!a) return expHead("card") + `<div class="panel">${empty("Add your credit card under Chart of accounts (account type: Credit card), then come back here.", '<a class="btn primary" href="#/accounts">Chart of accounts</a>')}</div>`;
+  const owed = shown(a, balances(null, todayISO())[acct]), all = cardRows(acct), mo = todayISO().slice(0, 7);
+  const f = UI.filter.card || "all", q = (UI.q.card || "").toLowerCase();
+  const rows = all.filter(r => (f === "all" || (f === "charges" ? r.charge > 0 : f === "payments" ? r.charge < 0 : f === "unchecked" ? !r.note.ok : f === "nonote" ? !r.note.note : true)) && (!q || [r.name, r.what, r.cats, r.note.note, r.kind].join(" ").toLowerCase().includes(q)));
+  const chg = all.filter(r => r.date.startsWith(mo) && r.charge > 0).reduce((s, r) => s + r.charge, 0), paid = all.filter(r => r.date.startsWith(mo) && r.charge < 0).reduce((s, r) => s - r.charge, 0);
+  const lastPay = all.find(r => r.kind === "Payment");
+  return expHead("card") + (cards.length > 1 ? `<nav class="seg" aria-label="Cards" style="margin-top:-6px">${cards.map(x => `<a href="#/card/${x.id}" ${x.id === acct ? 'aria-current="page"' : ""}>${esc(x.name)}</a>`).join("")}</nav>` : "") + `
+  <div class="ledger"><div><span>Balance owed on ${esc(a.name)}</span><b class="${owed > 0 ? "neg" : ""}">${money(owed)}</b></div><div><span>Charges this month</span><b>${money(chg)}</b></div><div><span>Paid this month</span><b>${money(paid)}</b></div><div><span>Last payment</span><b style="font-size:20px">${lastPay ? fmtDate(lastPay.date) + " · " + money(-lastPay.charge) : "None yet"}</b></div></div>
+  <div class="panel"><div class="panel-head"><h2>${esc(a.name)}</h2><div class="actions"><button class="btn primary small" data-act="cardPay" data-id="${acct}">Pay card</button><button class="btn small" data-act="cardCharge" data-id="${acct}">Add a charge</button><a class="btn small" href="#/banking/${acct}">Import card statement</a></div></div>
+  <p class="small muted" style="margin-top:0">Every charge, refund and payment on this card. Tap <b>Note</b> to write what it was for, and <b>✓</b> once you've checked it against your statement. Tap a row to change the category or amount.</p>
+  <div class="toolbar"><input class="search" type="search" placeholder="Search payee, note or category" data-q="card" id="cardQ" value="${esc(UI.q.card || "")}"><div class="chips">${[["all","All"],["charges","Charges"],["payments","Payments"],["unchecked","Not checked"],["nonote","No note"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="card" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
+  <div class="tbl"><table><thead><tr><th>Date</th><th>Type</th><th>Payee / what</th><th>Note for my books</th><th class="num">Amount</th><th></th></tr></thead><tbody>
+  ${rows.map(r => `<tr ${r.act ? `class="click" data-act="${r.act}" data-id="${r.srcId}"` : ""}><td>${fmtDate(r.date)}</td><td>${esc(r.kind)}</td><td>${esc(r.name || r.what || "")}${r.cats ? `<div class="small muted">${esc(r.cats)}</div>` : ""}</td><td>${r.note.note ? `<span class="pre">${esc(r.note.note)}</span>` : '<span class="small muted">—</span>'}</td><td class="num ${r.charge < 0 ? "pos" : ""}">${r.charge < 0 ? "−" + money(-r.charge) : money(r.charge)}</td><td style="white-space:nowrap"><button class="btn small" data-act="cardNote" data-id="${r.srcId}" data-label="${esc(fmtDate(r.date) + " · " + (r.name || r.kind) + " · " + money(Math.abs(r.charge)))}">Note</button> <button class="chip" style="padding:3px 9px" data-act="cardOk" data-id="${r.srcId}" aria-pressed="${!!r.note.ok}" title="Checked against statement" aria-label="Checked against statement">✓</button></td></tr>`).join("") || `<tr><td colspan="6">${empty(all.length ? "Nothing matches." : "No card activity yet. Add a charge, import your card statement, or record a payment.")}</td></tr>`}
+  </tbody></table></div></div>`;
+};
+function cardPayForm(acct){ const cards = cardAccts(); if (!cards.length) { toast("Add your credit card under Chart of accounts first."); go("accounts"); return; }
+  acct = byId("accounts", acct)?.type === "ccard" ? acct : (UI.cardAcct && byId("accounts", UI.cardAcct)?.type === "ccard" ? UI.cardAcct : cards[0].id);
+  const b = balances(null, todayISO()), owedOf = id => shown(byId("accounts", id), b[id]), owed = owedOf(acct), rec = byId("accounts", acct).recon || {};
+  openSheet("Pay credit card", `<form data-form="cardPay"><p class="small muted" style="margin-top:0">This records the payment in your books. It doesn't move any money, so make the payment on Navy Federal's website or app too.</p><div class="fields">
+  <label class="f">Card<select name="card" data-act-change="cardPick">${cards.map(c => `<option value="${c.id}" data-owed="${owedOf(c.id)}" ${c.id === acct ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
+  <label class="f">Paid from<select name="fromAcct" required>${acctOpts(SYS.CHK, x => x.type === "bank")}</select></label>
+  <label class="f">Date paid<input type="date" name="date" required value="${todayISO()}"></label>
+  <label class="f">Amount<input type="number" name="amount" step="0.01" min="0.01" required value="${owed > 0 ? r2(owed) : ""}"><span class="chips" style="margin-top:4px"><button type="button" class="chip" style="padding:2px 9px;font-size:12.5px" data-act="cardAmt" data-v="owed">Full balance <span data-owed-lbl>${money(owed)}</span></button>${rec.balance !== undefined && rec.balance !== "" ? `<button type="button" class="chip" style="padding:2px 9px;font-size:12.5px" data-act="cardAmt" data-v="${esc(rec.balance)}">Statement ${money(+rec.balance)}</button>` : ""}</span></label>
+  <label class="f">Confirmation no.<input name="ref"></label>
+  <label class="f full">Note for my books<input name="note" placeholder="e.g. Paid the September statement"></label>
+  </div>${foot(null, "Record payment")}</form>`); }
+function cardNoteForm(id, label){ const n = cardNote(id);
+  openSheet("Note for my books", `<form data-form="cardNote" data-id="${esc(id)}"><p class="muted" style="margin-top:0">${esc(label || "")}</p><div class="fields">
+  <label class="f full">What was this for?<textarea name="note" rows="3" placeholder="e.g. Plaques for the Lakewood tournament order, or: Personal, owner will repay">${esc(n.note || "")}</textarea></label>
+  <label class="check full"><input type="checkbox" name="ok" ${n.ok ? "checked" : ""}> Checked against my statement</label>
+  </div>${foot(null, "Save note")}</form>`); }
 VIEWS.vendors = () => {
   const rows = S.vendors.slice().sort(byName);
   return expHead("vendors") + `<div class="panel"><div class="panel-head"><h2>Vendors</h2><button class="btn small" data-act="newVendor">New vendor</button></div><div class="list">
@@ -970,6 +1016,7 @@ const HELP = [
   ["It says \"Reconnect Google\" at the top. What do I do?", `Just tap <b>Reconnect</b> and choose your Google account. Google only lets the app stay signed in for about an hour at a time, so this is normal. Nothing you entered is lost; it's saved on the device and syncs as soon as you reconnect. About once a week Google may ask you to approve the app again. Click <b>Continue</b> when it does.`],
   ["How do I put the app on my phone or computer?", `<b>iPhone:</b> open the app's address in <b>Safari</b> → tap the Share button → <b>Add to Home Screen</b>. Open it from the new icon and tap <b>Connect Google</b>.<br><b>Computer:</b> open it in Chrome → click the install icon at the right of the address bar (or ⋮ → Cast, save and share → Install page as app).`]]],
  ["Invoices", [
+  ["How do I bill someone new, or change who an invoice goes to?", `In the invoice (or estimate), under the customer, tap <b>Change bill to / contact</b>. Pick someone already on file from <b>Quick pick</b>, or choose <b>+ Someone new</b> and type their name, email and billing address. That changes <i>this invoice only</i>: the printed invoice shows "Attn:" that person, and <b>Email invoice</b> goes to their email.<br><br>If this person is now the main contact for the account, also tick <b>Save to the account as the main contact</b>. The old contact is kept under Other contacts. You can also do this from the customer's page with <b>Change contact</b>.`],
   ["How do I make an invoice?", `<ol><li>Tap <b>New invoice</b> (Home or Sales).</li><li>Pick the customer. New customer? Choose "+ Add a new customer" at the top of the list.</li><li>Add lines: pick an item (or "+ New item"), type a description, quantity and price. The customer's past prices show on the right.</li><li>Check the tax rate. It fills in from the customer's file (7.5% for Lakewood, 0 for tax-exempt).</li><li>Press <b>Save</b>.</li></ol>`],
   ["Is shipping taxed?", `No. Any line for shipping, delivery, freight or postage is saved without sales tax, even if the Tax box was checked. Colorado doesn't tax delivery charges when they're on their own line and the customer could have picked up instead. So always put shipping on a separate line. Lakewood is a home-rule city with its own tax rules, so confirm with your accountant.`],
   ["How are invoice numbers and due dates set?", `New invoices automatically get the next number after your highest invoice, even if you made one on your phone. If a number is already used, the app picks the next free one. The due date fills in from the customer's payment terms. To change it, pick a date or tap <b>On receipt</b>, <b>15 days</b>, <b>30 days</b> or <b>45 days</b> under Due date. The due date prints on the invoice. "Needed by" is separate: it's the customer's event date, for your own scheduling.`],
@@ -999,6 +1046,7 @@ const HELP = [
   ["How do I find items that fit a customer's budget?", `Go to <b>Inventory</b>. In the gold <b>Fit a budget</b> bar, type their total budget and how many pieces they need (for example $300 for 12 medals). You'll see the most you can charge each, and only the items that fit, nicest first, with the total for all the pieces. Check <b>Include sales tax</b> if they aren't tax-exempt. You can also set a price range each (like $10 to $25). Items with low stock show "only N in stock". Press <b>Clear</b> to see everything again.`],
   ["How do I know what's running low?", `Home lists low-stock items. Set a "reorder at" number on each item (Inventory → the item → Edit) so the app knows when to warn you.`]]],
  ["Expenses, banking and taxes", [
+  ["How do I pay my credit card or add notes to card charges?", `Go to Expenses → <b>Credit card</b>. You'll see what you owe and every charge, refund and payment.<ul><li><b>Pay card</b>: records a payment from checking to the card. It only records it in your books. Make the actual payment on Navy Federal's website or app.</li><li><b>Add a charge</b>: something you bought with the card. Pick the category so your taxes come out right.</li><li><b>Note</b>: write what a charge was for (for example, which order or event it was for). Notes show in the list and can be searched.</li><li><b>✓</b>: mark a line once you've checked it against your statement. Use the <b>Not checked</b> filter to see what's left.</li></ul>Paid the card from Banking instead? Categorize that bank line to the card account and it shows here as a payment.`],
   ["How do I enter a bill or a purchase?", `Bill you'll pay later: <b>Enter bill</b> on Home. Something already paid by card or check: Expenses → <b>Write check / card charge</b>. Pick the right category so your taxes come out right.`],
   ["How do I bring in my bank statement?", `Download a CSV from Navy Federal, then Banking → <b>Import statement</b>. Match or categorize each line. Rules you create sort similar lines automatically next time.`],
   ["How do I file Colorado and Lakewood sales tax?", `<b>Taxes</b> shows each deadline with the amount owed. Colorado DOR gets the state, RTD, cultural district and Jefferson County share; the City of Lakewood gets its 3% separately. When you pay, press <b>Record payment &amp; mark filed</b> next to it.`],
@@ -1411,6 +1459,43 @@ VIEWS.payroll = () => {
 
 /* ---------- email (Gmail) ---------- */
 const GMAIL = "Gmail";
+function billToOf(inv){ const c = byId("customers", inv.customerId) || {}, b = inv.billTo || {}; const pick = k => b[k] !== undefined && b[k] !== null ? b[k] : (c[k] || ""); return {name:b.name || c.name || "", contact:pick("contact"), email:pick("email"), address:pick("address"), changed:!!Object.keys(b).length}; }
+function custPeople(c){ const out = [], seen = new Set(); const add = (name, email) => { name = (name || "").trim(); email = (email || "").trim(); const k = (email || name).toLowerCase(); if (!k || seen.has(k)) return; seen.add(k); out.push({name, email}); };
+  if (c) { add(c.contact, c.email); (c.contacts || []).forEach(x => add(x.name, x.email)); ccList(c.billingCc).forEach(e => add("", e)); } return out; }
+function renderBillTo(f){ const box = f.querySelector("[data-billto]"); if (!box) return;
+  const cid = f.elements.customerId.value, c = byId("customers", cid);
+  if (!c) { box.innerHTML = ""; return; }
+  const keep = f._btCust === cid ? (f._bt || {}) : {}; f._btCust = cid; f._bt = keep;
+  const bt = billToOf({customerId:cid, billTo:keep}), people = custPeople(c), cur = (bt.email || bt.contact).toLowerCase();
+  const open = box.dataset.open === "1";
+  box.innerHTML = `<div class="bt-sum" style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface)">
+    <div><div class="small muted">Bill to${bt.changed ? ' <span class="badge brass">Changed for this invoice</span>' : ""}</div><b data-bt-s="name">${esc(bt.name)}</b><div class="small" data-bt-s="contact">${esc([bt.contact, bt.email].filter(Boolean).join(" · ") || "No contact person")}</div><div class="small muted pre" data-bt-s="address">${esc(bt.address)}</div></div>
+    <button type="button" class="btn small" data-act="btToggle" aria-expanded="${open}">${open ? "Done" : "Change bill to / contact"}</button></div>
+  <div data-bt-edit ${open ? "" : "hidden"} style="margin-top:10px"><div class="fields">
+    <label class="f full">Quick pick<select data-act-change="btPick">${people.map((p, i) => `<option value="${i}" ${(p.email || p.name).toLowerCase() === cur ? "selected" : ""}>${esc([p.name, p.email].filter(Boolean).join(" · "))}</option>`).join("")}<option value="__new" ${people.some(p => (p.email || p.name).toLowerCase() === cur) ? "" : "selected"}>+ Someone new…</option></select></label>
+    <label class="f">Contact person (Attn)<input name="btContact" value="${esc(bt.contact)}" data-bt-in></label>
+    <label class="f">Email for this invoice<input name="btEmail" type="email" autocapitalize="off" value="${esc(bt.email)}" data-bt-in></label>
+    <label class="f">Name on invoice<input name="btName" value="${esc(bt.name)}" data-bt-in></label>
+    <label class="f full">Billing address<textarea name="btAddress" rows="3" data-bt-in>${esc(bt.address)}</textarea></label>
+    <label class="check full"><input type="checkbox" name="btMain"> Save to ${esc(c.name)}'s account as the main contact and address (the old contact is kept under Other contacts)</label>
+    <p class="small muted full" style="margin:0">Leave the box unchecked to change it for this ${f.dataset.form === "estimate" ? "estimate" : "invoice"} only. <button type="button" class="linkbtn small" data-act="btReset">Go back to the account's usual bill to</button></p>
+  </div></div>`;
+  box._people = people; }
+function btSummary(f){ const box = f.querySelector("[data-billto]"); if (!box) return; const g = n => (f.elements[n] ? f.elements[n].value.trim() : "");
+  const set = (k, v) => { const el = box.querySelector(`[data-bt-s="${k}"]`); if (el) el.textContent = v; };
+  set("name", g("btName")); set("contact", [g("btContact"), g("btEmail")].filter(Boolean).join(" · ") || "No contact person"); set("address", g("btAddress")); }
+async function readBillTo(f, customerId){ const c = byId("customers", customerId); if (!c || !f.elements.btName) return f._bt && Object.keys(f._bt).length && f._btCust === customerId ? clone(f._bt) : undefined;
+  const v = {name:val(f, "btName"), contact:val(f, "btContact"), email:val(f, "btEmail"), address:f.elements.btAddress.value.trim()};
+  if (f.elements.btMain.checked && (v.contact !== (c.contact || "") || v.email !== (c.email || "") || (v.address && v.address !== (c.address || "")))) {
+    const nc = clone(c); let others = (nc.contacts || []).filter(x => (x.email || x.name || "").toLowerCase() !== (v.email || v.contact).toLowerCase());
+    if ((c.contact || c.email) && (c.email || c.contact).toLowerCase() !== (v.email || v.contact).toLowerCase() && !others.some(x => (x.email || x.name).toLowerCase() === (c.email || c.contact).toLowerCase())) others.push({name:c.contact || "", email:c.email || ""});
+    nc.contact = v.contact; nc.email = v.email; if (v.address) nc.address = v.address; nc.contacts = others; await put("customers", nc); toast(c.name + ": main contact updated"); }
+  const cu = byId("customers", customerId) || c, o = {};
+  if (v.name && v.name !== (cu.name || "")) o.name = v.name;
+  if (v.contact !== (cu.contact || "")) o.contact = v.contact;
+  if (v.email !== (cu.email || "")) o.email = v.email;
+  if (v.address !== (cu.address || "")) o.address = v.address;
+  return Object.keys(o).length ? o : undefined; }
 const firstName = c => { const n = (c.contact || "").trim().split(/\s+/)[0]; return n || "there"; };
 const cityLine = () => { const l = (S.company.address || "").split("\n").map(x => x.trim()).filter(Boolean); return l.length ? l[l.length - 1].replace(/\s+\d{5}(-\d{4})?$/, "") : ""; };
 const shownAddr = () => S.company.showStreet ? (S.company.address || "") : cityLine();
@@ -1595,8 +1680,9 @@ function docPDF(inv, kind){
   P.text(L, y, est ? "PREPARED FOR" : "BILL TO", {size:8, bold:true, color:gray});
   { const sp = est ? null : invStamp(inv); if (sp) P.stamp(360, y + 20, sp.text, sp.sub, sp.kind === "paid" ? [0.17, 0.46, 0.29] : [0.11, 0.37, 0.66]); }
   y += 14;
-  P.text(L, y, c.name || "", {size:11, bold:true}); y += 13.5;
-  [c.contact].concat((c.address || "").split("\n")).filter(Boolean).forEach(l => { P.text(L, y, l, {size:9.5}); y += 12.5; });
+  const bt = billToOf(inv);
+  P.text(L, y, bt.name, {size:11, bold:true}); y += 13.5;
+  [bt.contact ? "Attn: " + bt.contact : ""].concat((bt.address || "").split("\n")).filter(Boolean).forEach(l => { P.text(L, y, l, {size:9.5}); y += 12.5; });
   y += 16;
   const cols = {item:L + 6, desc:148, qty:402, rate:482, amt:R - 6};
   const header = () => { P.rect(L, y - 13, R - L, 20, [0.94, 0.95, 0.96]); P.text(cols.item, y, "Item", {size:8.5, bold:true, color:gray}); P.text(cols.desc, y, "Description", {size:8.5, bold:true, color:gray}); P.text(cols.qty, y, "Qty", {size:8.5, bold:true, color:gray, align:"right"}); P.text(cols.rate, y, "Rate", {size:8.5, bold:true, color:gray, align:"right"}); P.text(cols.amt, y, "Amount", {size:8.5, bold:true, color:gray, align:"right"}); y += 20; };
@@ -1938,7 +2024,7 @@ async function saveInlineCustomer(box){
   const type = g("type").value, exempt = g("exempt").checked || ["School","Government","Nonprofit"].includes(type) && g("exempt").checked;
   const id = await put("customers", {name, contact:g("contact").value.trim(), email:g("email").value.trim(), phone:g("phone").value.trim(), type, status:"active", terms:"Net 30", taxable:!g("exempt").checked, notes:[], address:""});
   const sel = f.elements.customerId; sel.insertAdjacentHTML("beforeend", `<option value="${id}">${esc(name)}</option>`); sel.value = id;
-  f.elements.taxRate.value = g("exempt").checked ? 0 : coRate(); box.remove(); renderPriceRef(f); recalc(f); toast(name + " added"); void exempt;
+  f.elements.taxRate.value = g("exempt").checked ? 0 : coRate(); box.remove(); renderPriceRef(f); renderBillTo(f); recalc(f); toast(name + " added"); void exempt;
 }
 
 /* ---------- price history ---------- */
@@ -2332,6 +2418,7 @@ function invoiceForm(inv, customerId, kind, fromEstimate){
   if (!S.customers.length) { toast("Add a customer first."); customerForm(); return; }
   openSheet(isNew ? "New " + word : "Edit " + word + " #" + inv.num, `<form data-form="${est ? "estimate" : "invoice"}" data-id="${inv.id || ""}" data-from-estimate="${fromEstimate || ""}" data-from-order="${inv.fromOrder || ""}"><div class="fields">
   <label class="f">Customer<select name="customerId" required data-act-change="invCustomer"><option value="__newcust">+ Add a new customer…</option>${opts(S.customers.filter(c => c.status !== "inactive" || c.id === inv.customerId).sort(byName).map(c => [c.id, c.name]), inv.customerId, "Choose customer")}</select></label>
+  <div class="full" data-billto></div>
   <label class="f">${est ? "Estimate" : "Invoice"} no.<input name="num" required value="${esc(inv.num)}"></label>
   <label class="f">Date<input name="date" type="date" required value="${esc(inv.date)}" ${est ? "" : 'data-act-change="invTerms"'}></label>
   <label class="f">Terms<select name="terms" ${est ? "" : 'data-act-change="invTerms"'}>${opts(Object.keys(TERMS).map(t => [t, t]), inv.terms)}</select></label>
@@ -2344,6 +2431,7 @@ function invoiceForm(inv, customerId, kind, fromEstimate){
   ${linesBlock("inv", inv.lines)}<div class="totals"></div>
   <label class="f" style="margin-top:12px">Message on ${est ? "estimate" : "invoice"} <span class="small">(change it for a personal note)</span><textarea name="memo">${esc(inv.memo)}</textarea></label>
   ${foot(isNew ? null : {act:est ? "delEstimate" : "delInvoice", id:inv.id}, isNew ? "Save " + word : "Save changes")}</form>`);
+  { const f = $("#sheetBody form"); f._bt = clone(inv.billTo || {}); f._btCust = inv.customerId || ""; renderBillTo(f); }
   recalc($("#sheetBody form")); renderPriceRef($("#sheetBody form")); }
 
 function billForm(b, vendorId){ const isNew = !b || !b.id;
@@ -2368,6 +2456,7 @@ function expenseForm(e, taxKey){ const isNew = !e || !e.id; e = e || {date:today
   <label class="f">Vendor<select name="vendorId">${opts(S.vendors.slice().sort(byName).map(v => [v.id, v.name]), e.vendorId, "Other payee (type below)")}</select></label>
   <label class="f">Other payee<input name="payee" value="${esc(e.payee)}"></label>
   <label class="f">Check / ref no.<input name="ref" value="${esc(e.ref)}"></label>
+  <label class="f full">Note for my books<input name="note" value="${esc(e.id ? cardNote(e.id).note || "" : e.note || "")}" placeholder="Optional: what this was for"></label>
   </div>${linesBlock("buy", e.lines)}<div class="totals"></div>
   ${foot(isNew ? null : {act:"delExpense", id:e.id})}</form>`);
   recalc($("#sheetBody form")); }
@@ -2450,6 +2539,7 @@ const FORMS = {
     if (lines.some(l => !l.itemId && !l.desc)) return formErr(f, "Each line needs an item or a description.");
     let numv = val(f, "num"); if (S.invoices.some(i => i.id !== id && String(i.num) === numv)) { if (id) return formErr(f, "Invoice #" + numv + " already exists. Use a different number."); const nn = nextInvNum(); toast("#" + numv + " was already used, so this is #" + nn); numv = nn; f.elements.num.value = nn; }
     const inv = {...clone(byId("invoices", id) || {}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due") || addDays(val(f, "date"), termDays(val(f, "terms"))), po:val(f, "po"), neededBy:val(f, "neededBy"), jobStatus:(byId("invoices", id) || {}).jobStatus || "new", taxRate:num(f, "taxRate"), memo:val(f, "memo"), lines};
+    inv.billTo = await readBillTo(f, inv.customerId); if (!inv.billTo) delete inv.billTo;
     inv.taxParts = Math.abs(inv.taxRate - partsRate(S.company.taxParts)) < 0.0005 ? clone(S.company.taxParts || []) : [];
     if (id && invPaid(id) - invTotals(inv).total > 0.004) return formErr(f, "Payments on this invoice are more than the new total. Edit the payment first.");
     const nid = await put("invoices", inv); await rememberTaxRate(inv.customerId, inv.taxRate);
@@ -2461,6 +2551,7 @@ const FORMS = {
     if (!lines.length) return formErr(f, "Add at least one line.");
     const numv = val(f, "num"); if (S.estimates.some(e => e.id !== id && String(e.num) === numv)) return formErr(f, "Estimate #" + numv + " already exists.");
     const e = {...clone(byId("estimates", id) || {status:"open"}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due"), po:val(f, "po"), neededBy:val(f, "neededBy"), taxRate:num(f, "taxRate"), memo:val(f, "memo"), lines};
+    e.billTo = await readBillTo(f, e.customerId); if (!e.billTo) delete e.billTo;
     const nid = await put("estimates", e); await rememberTaxRate(e.customerId, e.taxRate);
     const n = +String(numv).replace(/\D/g, ""); if (!id && n >= +(S.company.nextEstimate || 0)) await saveCompany({nextEstimate:n + 1});
     toast(id ? "Estimate saved" : "Estimate #" + numv + " created"); go("estimate/" + nid); },
@@ -2471,7 +2562,21 @@ const FORMS = {
     await put("bills", b); toast("Bill saved"); },
   async expense(f){ const lines = readLines(f); if (!lines.length) return formErr(f, "Add at least one line."); if (lines.some(l => !l.ref)) return formErr(f, "Choose an account or item on each line.");
     if (!val(f, "vendorId") && !val(f, "payee")) return formErr(f, "Choose a vendor or type a payee.");
-    const id = f.dataset.id; await put("expenses", {...clone(byId("expenses", id) || {}), id:id || undefined, fromAcct:val(f, "fromAcct"), date:val(f, "date"), vendorId:val(f, "vendorId"), payee:val(f, "payee"), ref:val(f, "ref"), lines}).then(async eid => { const tk = f.dataset.taxKey; if (tk) { await put("taxfilings", {id:tk, filedAt:new Date().toISOString(), expenseId:eid, amount:linesTotal(lines)}); toast("Payment recorded and marked filed"); } else toast("Saved"); }); },
+    const id = f.dataset.id; await put("expenses", {...clone(byId("expenses", id) || {}), id:id || undefined, fromAcct:val(f, "fromAcct"), date:val(f, "date"), vendorId:val(f, "vendorId"), payee:val(f, "payee"), ref:val(f, "ref"), lines}).then(async eid => { if (f.elements.note && val(f, "note") !== (cardNote(eid).note || "")) await setCardNote(eid, {note:val(f, "note")}); const tk = f.dataset.taxKey; if (tk) { await put("taxfilings", {id:tk, filedAt:new Date().toISOString(), expenseId:eid, amount:linesTotal(lines)}); toast("Payment recorded and marked filed"); } else toast("Saved"); }); },
+  async cardPay(f){ const card = val(f, "card"), a = byId("accounts", card), amt = r2(num(f, "amount"));
+    if (!a) return formErr(f, "Choose the card."); if (!(amt > 0)) return formErr(f, "Enter the amount you paid.");
+    const eid = await put("expenses", {fromAcct:val(f, "fromAcct") || SYS.CHK, date:val(f, "date") || todayISO(), vendorId:"", payee:a.name, ref:val(f, "ref"), lines:[{ref:"a:" + card, qty:1, rate:amt, memo:"Credit card payment"}]});
+    if (val(f, "note")) await setCardNote(eid, {note:val(f, "note")});
+    toast("Payment of " + money(amt) + " recorded"); go("card/" + card); },
+  async cardNote(f){ await setCardNote(f.dataset.id, {note:f.elements.note.value.trim(), ok:f.elements.ok.checked}); toast("Note saved"); },
+  async changeContact(f){ const c = byId("customers", f.dataset.id); if (!c) return;
+    const v = {contact:val(f, "contact"), email:val(f, "email"), phone:val(f, "phone")};
+    if (v.email && !validEmail(v.email)) return formErr(f, "Check the email address.");
+    const nc = clone(c), key = x => (x.email || x.name || "").toLowerCase(), newKey = (v.email || v.contact).toLowerCase();
+    let others = (nc.contacts || []).filter(x => key(x) !== newKey);
+    if (f.elements.keepOld.checked && (c.contact || c.email) && (c.email || c.contact).toLowerCase() !== newKey && !others.some(x => key(x) === (c.email || c.contact).toLowerCase())) others.push({name:c.contact || "", email:c.email || ""});
+    nc.contact = v.contact; nc.email = v.email; if (v.phone) nc.phone = v.phone; nc.contacts = others;
+    await put("customers", nc); toast("Main contact changed to " + (v.contact || v.email)); },
   async journal(f){ const lines = readLines(f); if (lines.length < 2) return formErr(f, "A journal entry needs at least two lines."); if (lines.some(l => !l.acct)) return formErr(f, "Choose an account on each line.");
     const d = r2(lines.reduce((s, l) => s + l.debit, 0)), c = r2(lines.reduce((s, l) => s + l.credit, 0)); if (Math.abs(d - c) > 0.004) return formErr(f, "Debits and credits differ by " + money(d - c) + ".");
     const id = f.dataset.id; await put("journals", {id:id || undefined, date:val(f, "date"), memo:val(f, "memo"), lines}); toast("Journal entry saved"); },
@@ -2606,6 +2711,18 @@ document.addEventListener("submit", async e => {
 
 /* ---------- clicks & inputs ---------- */
 const ACT = {
+  btToggle(el){ const box = el.closest("[data-billto]"), ed = box.querySelector("[data-bt-edit]"), open = ed.hidden; ed.hidden = !open; box.dataset.open = open ? "1" : ""; el.textContent = open ? "Done" : "Change bill to / contact"; el.setAttribute("aria-expanded", open); if (open) box.querySelector("[name=btContact]").focus(); },
+  btReset(el){ const f = el.closest("form"), box = el.closest("[data-billto]"); f._bt = {}; box.dataset.open = "1"; renderBillTo(f); toast("Back to the account's usual bill to"); },
+  cardPay: el => cardPayForm(el.dataset.id), cardCharge: el => expenseForm({date:todayISO(), fromAcct:el.dataset.id || UI.cardAcct || cardAccts()[0]?.id || SYS.CHK, lines:[]}),
+  cardNote: el => cardNoteForm(el.dataset.id, el.dataset.label), async cardOk(el){ const n = cardNote(el.dataset.id); await setCardNote(el.dataset.id, {ok:!n.ok}); },
+  cardAmt(el){ const f = el.closest("form"); f.elements.amount.value = el.dataset.v === "owed" ? r2(+f.elements.card.selectedOptions[0].dataset.owed || 0) : r2(+el.dataset.v); },
+  changeContact(el){ const c = byId("customers", el.dataset.id); if (!c) return; const others = (c.contacts || []);
+    openSheet("Change main contact", `<form data-form="changeContact" data-id="${c.id}"><p class="muted" style="margin-top:0">${esc(c.name)} · now: <b>${esc([c.contact, c.email].filter(Boolean).join(" · ") || "no contact")}</b></p>
+    ${others.length ? `<p class="small" style="margin-bottom:6px">Pick someone already on file, or type a new person below:</p><div class="chips" style="margin-bottom:10px">${others.map(x => `<button type="button" class="chip" data-act="ccPick" data-name="${esc(x.name || "")}" data-email="${esc(x.email || "")}">${esc([x.name, x.email].filter(Boolean).join(" · "))}</button>`).join("")}</div>` : ""}
+    <div class="fields"><label class="f">New contact person<input name="contact" required value=""></label><label class="f">Email<input name="email" type="email" autocapitalize="off"></label><label class="f">Phone <span class="small">(optional)</span><input name="phone" type="tel"></label>
+    <label class="check full"><input type="checkbox" name="keepOld" checked> Keep ${esc(c.contact || "the old contact")} under Other contacts</label></div>
+    <p class="small muted">New invoices will go to this person. Invoices already made keep their own bill to.</p>${foot(null, "Save contact")}</form>`); },
+  ccPick(el){ const f = el.closest("form"); f.elements.contact.value = el.dataset.name; f.elements.email.value = el.dataset.email; },
   budClear(){ UI.bud = {}; render(); },
   dueQuick(el){ const f = el.closest("form"); if (!f) return; const d = +el.dataset.days; f.elements.due.value = addDays(f.elements.date.value || todayISO(), d); const t = d === 0 ? "Due on receipt" : "Net " + d; if (TERMS[t] !== undefined) f.elements.terms.value = t; },
   checkReplies(){ checkReplies(false); },
@@ -2802,7 +2919,7 @@ ${text}`, {modelTier:"default"});
       const tag = [UI.filter.invy && UI.filter.invy !== "all" ? UI.filter.invy : "", ({open:"unpaid", overdue:"overdue", paid:"paid", all:"all"})[UI.filter.inv || "open"]].filter(Boolean).join("-");
       saveFile("Awards-USA-invoices-" + tag + "-" + todayISO() + ".zip", makeZip(files)); }, 30); },
   askReview(el){ reviewForm(byId("invoices", el.dataset.id)); },
-  emailInvoice(el){ const inv = byId("invoices", el.dataset.id), c = byId("customers", inv.customerId) || {};
+  emailInvoice(el){ const inv = byId("invoices", el.dataset.id), c0 = byId("customers", inv.customerId) || {}, bt = billToOf(inv), c = {...c0, email:bt.email, contact:bt.contact};
     const bal = invBalance(inv), t = invTotals(inv);
     openSheet("Email invoice #" + inv.num, `<form data-form="sendInvoice" data-id="${inv.id}"><div class="fields">
     <label class="f full">To<input name="to" type="email" required value="${esc(c.email || "")}"></label>
@@ -2868,6 +2985,7 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
   else if (t.dataset.mailVend) { UI.mailVend = {...(UI.mailVend || {}), [t.dataset.mailVend]:t.value}; render(); } });
 document.addEventListener("input", e => {
   const t = e.target;
+  if (t.dataset && t.dataset.btIn !== undefined) { btSummary(t.closest("form")); return; }
   if (t.dataset && t.dataset.bud) { UI.bud = {...(UI.bud || {}), [t.dataset.bud]:t.value}; render(); return; }
   if (t.dataset.q) { UI.q[t.dataset.q] = t.value; render(); return; }
   const of = t.closest && t.closest("form[data-form=outreach]");
@@ -2906,7 +3024,9 @@ document.addEventListener("change", async e => {
   if (act === "custSort") { UI.filter.csort = t.value; render(); return; }
   if (act === "invYear") { UI.filter.invy = t.value; render(); return; }
   if (act === "invCustomer" && t.value === "__newcust") { t.value = ""; openInlineCustomer(f); return; }
-  if (act === "invCustomer") { renderPriceRef(f); const c = byId("customers", t.value); if (c) { f.elements.terms.value = c.terms || "Net 30"; f.elements.due.value = addDays(f.elements.date.value, termDays(f.elements.terms.value)); f.elements.taxRate.value = custTax(c); recalc(f); } }
+  if (act === "invCustomer") { renderPriceRef(f); renderBillTo(f); const c = byId("customers", t.value); if (c) { f.elements.terms.value = c.terms || "Net 30"; f.elements.due.value = addDays(f.elements.date.value, termDays(f.elements.terms.value)); f.elements.taxRate.value = custTax(c); recalc(f); } }
+  if (act === "cardPick") { const o = t.selectedOptions[0], lbl = f.querySelector("[data-owed-lbl]"); if (lbl) lbl.textContent = money(+o.dataset.owed || 0); return; }
+  if (act === "btPick") { const box = t.closest("[data-billto]"), p = t.value === "__new" ? {name:"", email:""} : (box._people || [])[+t.value] || {}; f.elements.btContact.value = p.name || ""; f.elements.btEmail.value = p.email || ""; btSummary(f); if (t.value === "__new") f.elements.btContact.focus(); return; }
   if (act === "payCustomer") fillApply(null);
   if (act === "applyCheck") { const inp = t.closest("tr").querySelector("input[type=number]"); inp.value = t.checked ? r2(+t.dataset.open) : ""; payTotal(); }
 });
