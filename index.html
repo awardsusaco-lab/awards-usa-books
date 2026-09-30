@@ -98,6 +98,7 @@ a.btn.primary{color:var(--primary-ink)}
 .dropzone{display:flex;flex-direction:column;gap:4px;align-items:center;text-align:center;border:2px dashed var(--line);border-radius:12px;padding:22px 16px;margin-bottom:18px;cursor:pointer;background:var(--surface);color:var(--muted, #667)}
 .dropzone b{color:var(--ink, inherit);font-size:16px}.dropzone:hover,body.dragging .dropzone{border-color:var(--brand, #1e3a5f);background:rgba(30,58,95,.06)}
 body.dragging::after{content:"Drop statement to import";position:fixed;inset:12px;border:3px dashed var(--brand, #1e3a5f);border-radius:16px;background:rgba(30,58,95,.08);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--brand, #1e3a5f);z-index:9999;pointer-events:none}
+.kitrow select,.kitrow input{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:inherit;font:inherit;min-width:0}
 .ordcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
 .ordcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
 .ordlines{margin:10px 0 12px;padding-left:18px;line-height:1.55}.ordcard .actions{display:flex;flex-wrap:wrap;gap:8px}
@@ -610,6 +611,7 @@ function journal(){
     for (const l of inv.lines || []) {
       const it = byId("items", l.itemId), amt = r2((+l.qty||0) * (+l.rate||0));
       add(inv.date, it?.incomeAcct || l.acct || SYS.SALES, -amt, src, inv.id, nm, l.desc);
+      if (it && it.type === "kit") for (const p of it.parts || []) { const c0 = byId("items", p.itemId); if (c0 && c0.type === "inventory" && +c0.cost) { const c = (+l.qty||0) * (+p.qty||0) * c0.cost; add(inv.date, SYS.COGS, c, src, inv.id, nm, c0.name); add(inv.date, SYS.INV, -c, src, inv.id, nm, c0.name); } }
       if (it && it.type === "inventory" && +it.cost) { const c = (+l.qty||0) * it.cost; add(inv.date, SYS.COGS, c, src, inv.id, nm, it.name); add(inv.date, SYS.INV, -c, src, inv.id, nm, it.name); }
     }
     for (const part of taxSplit(inv, t.tax)) add(inv.date, TAX_AGENCIES[part.agency]?.acct || SYS.TAX, -part.amt, src, inv.id, nm, "Sales tax – " + part.name);
@@ -634,13 +636,18 @@ function balances(from, to){
   return m;
 }
 const shown = (acct, raw) => DEBIT_NORMAL.has(acct?.type) ? r2(raw || 0) : r2(-(raw || 0));
+let KITV = -1, KITM = new Map();
+function kitParts(id){ if (!id) return null; if (KITV !== version) { KITM = new Map(S.items.filter(i => i.type === "kit").map(i => [i.id, (i.parts || []).filter(p => p.itemId && byId("items", p.itemId))])); KITV = version; } return KITM.get(id) || null; }
+const kitCost = it => r4((it.parts || []).reduce((s, p) => s + (+(byId("items", p.itemId)?.cost) || 0) * (+p.qty || 0), 0));
+function kitCanMake(it){ const ps = (it.parts || []).map(p => ({p, c:byId("items", p.itemId)})).filter(x => x.c && x.c.type === "inventory" && +x.p.qty > 0); if (!ps.length) return null; return Math.max(0, Math.min(...ps.map(x => Math.floor(Math.max(0, onHand(x.c)) / +x.p.qty)))); }
+const kitText = it => (it.parts || []).map(p => { const c = byId("items", p.itemId); return c ? ((+p.qty !== 1 ? p.qty + " × " : "") + c.name) : ""; }).filter(Boolean).join(" + ");
 function onHand(it){
   if (it.type !== "inventory") return null;
   let q = +it.openQty || 0;
   const ref = "i:" + it.id;
   for (const b of S.bills) for (const l of b.lines || []) if (l.ref === ref) q += +l.qty || 0;
   for (const e of S.expenses) for (const l of e.lines || []) if (l.ref === ref) q += +l.qty || 0;
-  for (const inv of S.invoices) for (const l of inv.lines || []) if (l.itemId === it.id) q -= +l.qty || 0;
+  for (const inv of S.invoices) for (const l of inv.lines || []) { if (l.itemId === it.id) q -= +l.qty || 0; else { const k = kitParts(l.itemId); if (k) for (const p of k) if (p.itemId === it.id) q -= (+l.qty || 0) * (+p.qty || 0); } }
   for (const ad of S.adjustments) if (ad.itemId === it.id) q += +ad.qty || 0;
   return Math.round(q * 1000) / 1000;
 }
@@ -1102,7 +1109,23 @@ VIEWS.inventory = id => {
   const bTotal = bn("total"), bQty = Math.max(1, Math.round(bn("qty")) || 1), bMin = bn("min"), bMax = bn("max"), taxF = B.tax ? 1 + coRate() / 100 : 1;
   const eachCap = bTotal ? r2(bTotal / bQty / taxF) : 0, budgetOn = !!(bTotal || bMin || bMax);
   const fits = it => { const pr = +it.price || 0; if (!budgetOn) return true; if (!(pr > 0)) return false; if (bMin && pr < bMin) return false; if (bMax && pr > bMax) return false; if (eachCap && pr > eachCap + 0.004) return false; return true; };
-  const rows = S.items.filter(it => (f === "all" || (f === "low" ? isLow(it) : it.type === f)) && (!q || [it.name, it.sku, it.desc].join(" ").toLowerCase().includes(q)) && fits(it)).sort(budgetOn ? (a, b) => (+b.price || 0) - (+a.price || 0) || byName(a, b) : byName);
+  const fv = UI.filter.invV || "", fc = UI.filter.invC || "", fs = UI.filter.invS || "name", fin = !!UI.filter.invIn, pick = UI.pick || (UI.pick = new Set());
+  const stockOf = it => it.type === "kit" ? kitCanMake(it) : onHand(it);
+  const SORTS = {name:byName, most:(a, b) => (stockOf(b) ?? -1e9) - (stockOf(a) ?? -1e9) || byName(a, b), least:(a, b) => (stockOf(a) ?? 1e9) - (stockOf(b) ?? 1e9) || byName(a, b), phigh:(a, b) => (+b.price || 0) - (+a.price || 0) || byName(a, b), plow:(a, b) => (+a.price || 1e9) - (+b.price || 1e9) || byName(a, b), value:(a, b) => Math.max(0, stockOf(b) || 0) * (+b.cost || 0) - Math.max(0, stockOf(a) || 0) * (+a.cost || 0) || byName(a, b), cat:(a, b) => (a.category || "~").localeCompare(b.category || "~") || byName(a, b)};
+  const rows = S.items.filter(it => (f === "all" || (f === "low" ? isLow(it) : it.type === f)) && (!q || [it.name, it.sku, it.desc, it.category, ...(it.aliases || []).map(a => a.sku)].join(" ").toLowerCase().includes(q)) && fits(it)
+    && (!fv || (fv === "_none" ? !it.vendorId : it.vendorId === fv)) && (!fc || (fc === "_none" ? !(it.category || "").trim() : (it.category || "").trim() === fc)) && (!fin || (stockOf(it) ?? 1) > 0))
+    .sort(budgetOn ? (a, b) => (+b.price || 0) - (+a.price || 0) || byName(a, b) : (SORTS[fs] || byName));
+  const vIds = [...new Set(S.items.map(i => i.vendorId).filter(Boolean))].sort((a, b) => vendName(a).localeCompare(vendName(b))), cats = itemCats(), uncat = S.items.filter(i => !(i.category || "").trim()).length;
+  const sel = (key, cur, list, label) => `<select data-invf="${key}" aria-label="${label}" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:inherit;max-width:200px">${list.map(([v, l]) => `<option value="${esc(v)}" ${cur === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+  const filterBar = `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px">
+    ${sel("invV", fv, [["", "All suppliers"], ...vIds.map(v => [v, vendName(v)]), ["_none", "No supplier set"]], "Supplier")}
+    ${sel("invC", fc, [["", "All categories"], ...cats.map(c => [c, c]), ["_none", "No category"]], "Category")}
+    ${sel("invS", fs, [["name", "Sort: A to Z"], ["cat", "Sort: by category"], ["most", "Most in stock"], ["least", "Least in stock"], ["phigh", "Price: high to low"], ["plow", "Price: low to high"], ["value", "Stock value"]], "Sort")}
+    <label class="check small" style="margin:0"><input type="checkbox" data-invf="invIn" ${fin ? "checked" : ""}> In stock only</label>
+    ${fv || fc || fin || fs !== "name" || q || f !== "all" ? `<button class="btn small" data-act="invFClear">Clear filters</button>` : ""}
+    ${uncat ? `<button class="btn small" data-act="autoCat">Sort items into categories (${uncat})</button>` : ""}
+    <span class="small muted" style="margin-left:auto">${rows.length} of ${S.items.length} items</span></div>
+    ${pick.size ? `<div class="notice" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center"><b>${pick.size} selected</b><button class="btn small primary" data-act="kitFromPick">Make an award kit from these</button><button class="btn small" data-act="catPick">Set category</button><button class="linkbtn small" data-act="pickClear">Clear</button></div>` : ""}`;
   const bIn = (k, ph, w) => `<input id="bud-${k}" class="search" style="width:${w}px;max-width:${w}px;min-width:0;flex:none;padding:6px 8px" inputmode="decimal" data-bud="${k}" value="${esc(B[k] || "")}" placeholder="${ph}">`;
   const budgetBar = `<div class="budgetbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px;padding:10px 12px;border:1px dashed var(--brass);border-radius:10px;background:var(--brass-soft)">
     <b style="margin-right:4px">Fit a budget:</b> $${bIn("total", "Total budget", 120)} <span class="small">for</span> ${bIn("qty", "How many", 95)} <span class="small">pieces</span>
@@ -1112,11 +1135,11 @@ VIEWS.inventory = id => {
     ${eachCap ? `<div class="small" style="flex-basis:100%">Up to <b>${money(eachCap)}</b> each${B.tax ? " before tax" : ""} for ${bQty} piece${bQty > 1 ? "s" : ""}. ${rows.length} item${rows.length === 1 ? "" : "s"} fit, nicest first.</div>` : budgetOn ? `<div class="small" style="flex-basis:100%">${rows.length} item${rows.length === 1 ? "" : "s"} in that price range, highest price first.</div>` : ""}</div>`;
   const value = S.items.filter(it => it.type === "inventory").reduce((s, it) => s + Math.max(0, onHand(it)) * (+it.cost || 0), 0);
   void value; return invHead("stock") + `
-  <div class="panel"><div class="toolbar"><input class="search" id="searchItem" type="search" placeholder="Search name or SKU" value="${esc(UI.q.item || "")}" data-q="item" aria-label="Search items"><div class="chips">${[["all","All"],["inventory","Stocked"],["low","Low stock"],["noninventory","Non-stocked"],["service","Services"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="item" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
-  ${budgetBar}
-  <div class="tbl"><table><thead><tr><th>Item</th><th>SKU</th><th>Type</th><th class="num">On hand</th><th class="num">Reorder at</th><th class="num">Cost</th><th class="num">Price</th>${eachCap ? `<th class="num">${bQty} pcs${B.tax ? " + tax" : ""}</th>` : ""}</tr></thead><tbody>
-  ${rows.length ? "" : `<tr><td colspan="8">${empty(budgetOn ? "Nothing in your items fits that budget. Try a lower quantity or a wider price range." : "No items match.")}</td></tr>`}
-  ${rows.map(it => { const oh = onHand(it), oo = onOrder(it.id); return `<tr class="click" data-act="editItem" data-id="${it.id}"><td><b>${esc(it.name)}</b>${isLow(it) ? ' <span class="badge warn">Low</span>' : ""}${oo ? ` <span class="badge brass">${oo} on order</span>` : isLow(it) ? ` <button class="btn small" data-act="reorderItem" data-id="${it.id}">Order more</button>` : ""}${it.desc && it.desc !== it.name ? `<div class="small muted">${esc(it.desc)}</div>` : ""}${it.vendorId ? `<div class="small muted">From ${esc(vendName(it.vendorId))}</div>` : ""}</td><td>${esc(it.sku || "")}</td><td>${it.type === "inventory" ? "Stocked" : it.type === "service" ? "Service" : "Non-stocked"}</td><td class="num ${oh < 0 ? "neg" : ""}">${oh == null ? "—" : oh}</td><td class="num">${it.type === "inventory" && it.reorder !== "" && it.reorder != null ? esc(it.reorder) : "—"}</td><td class="num">${it.cost ? money(it.cost) : "—"}</td><td class="num">${it.price ? money(it.price) : "—"}</td>${eachCap ? `<td class="num"><b>${money(r2((+it.price || 0) * bQty * taxF))}</b>${oh !== null && it.type === "inventory" && oh < bQty ? `<div class="small neg">only ${Math.max(0, oh)} in stock</div>` : ""}</td>` : ""}</tr>`; }).join("") || `<tr><td colspan="7">${empty(S.items.length ? "No items match." : "Add the products and services you sell: plaques, trophies, name badges, engraving.", S.items.length ? "" : '<button class="btn primary" data-act="newItem">Add an item</button>')}</td></tr>`}
+  <div class="panel"><div class="toolbar"><input class="search" id="searchItem" type="search" placeholder="Search name or SKU" value="${esc(UI.q.item || "")}" data-q="item" aria-label="Search items"><div class="chips">${[["all","All"],["inventory","Stocked"],["kit","Award kits"],["low","Low stock"],["noninventory","Non-stocked"],["service","Services"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="item" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
+  ${filterBar}${budgetBar}
+  <div class="tbl"><table><thead><tr><th style="width:28px"></th><th>Item</th><th>SKU</th><th>Type</th><th class="num">On hand</th><th class="num">Reorder at</th><th class="num">Cost</th><th class="num">Price</th>${eachCap ? `<th class="num">${bQty} pcs${B.tax ? " + tax" : ""}</th>` : ""}</tr></thead><tbody>
+  ${rows.length ? "" : `<tr><td colspan="9">${empty(budgetOn ? "Nothing in your items fits that budget. Try a lower quantity or a wider price range." : "No items match.")}</td></tr>`}
+  ${rows.map(it => { const kit = it.type === "kit", oh = kit ? kitCanMake(it) : onHand(it), oo = onOrder(it.id); return `<tr class="click" data-act="editItem" data-id="${it.id}"><td data-act="none"><input type="checkbox" data-pick="${it.id}" ${pick.has(it.id) ? "checked" : ""} aria-label="Select ${esc(it.name)}"></td><td><b>${esc(it.name)}</b>${it.category ? ` <span class="badge">${esc(it.category)}</span>` : ""}${kit ? `<div class="small muted">${esc(kitText(it) || "No parts yet")}</div>` : ""}${isLow(it) ? ' <span class="badge warn">Low</span>' : ""}${oo ? ` <span class="badge brass">${oo} on order</span>` : isLow(it) ? ` <button class="btn small" data-act="reorderItem" data-id="${it.id}">Order more</button>` : ""}${it.desc && it.desc !== it.name ? `<div class="small muted">${esc(it.desc)}</div>` : ""}${it.vendorId ? `<div class="small muted">From ${esc(vendName(it.vendorId))}</div>` : ""}</td><td>${esc(it.sku || "")}</td><td>${it.type === "inventory" ? "Stocked" : it.type === "service" ? "Service" : kit ? "Award kit" : "Non-stocked"}</td><td class="num ${oh < 0 ? "neg" : ""}">${oh == null ? "—" : kit ? `<span title="How many you can make from parts in stock">can make ${oh}</span>` : oh}</td><td class="num">${it.type === "inventory" && it.reorder !== "" && it.reorder != null ? esc(it.reorder) : "—"}</td><td class="num">${kit ? money(kitCost(it)) : it.cost ? money(it.cost) : "—"}</td><td class="num">${it.price ? money(it.price) : "—"}</td>${eachCap ? `<td class="num"><b>${money(r2((+it.price || 0) * bQty * taxF))}</b>${oh !== null && (it.type === "inventory" || kit) && oh < bQty ? `<div class="small neg">only ${Math.max(0, oh)} ${kit ? "can be made" : "in stock"}</div>` : ""}</td>` : ""}</tr>`; }).join("") || `<tr><td colspan="8">${empty(S.items.length ? "No items match." : "Add the products and services you sell: plaques, trophies, name badges, engraving.", S.items.length ? "" : '<button class="btn primary" data-act="newItem">Add an item</button>')}</td></tr>`}
   </tbody></table></div></div>`;
 };
 
@@ -1130,6 +1153,8 @@ const HELP = [
  ["Inventory and ordering", [
   ["How do I log a supplier order?", `Go to <b>Inventory</b> and drag the supplier's order confirmation or invoice PDF onto the box at the top (or tap it to pick the file). The app reads each line: part number, description, quantity and cost. For every line you see what it matched in your inventory:<ul><li><b>✓ Matched by part #</b>: it found the item.</li><li><b>Best guess · check it</b>: it found something similar. Make sure it's right.</li><li><b>New item</b>: nothing matched, so a new stocked item is created.</li></ul>Change <b>Goes to</b> to pick a different item, and edit <b>Name in your inventory</b> to rename it. The app remembers each supplier's part numbers, so next time it matches on its own. Save, and the order shows under <b>On order</b>.`],
   ["The order arrived. What do I do?", `Inventory → <b>On order</b> → tap <b>✓ Arrived: add to stock</b>. Your stock counts go up and the purchase is recorded (on your card, from checking, or as a bill, depending on how you paid). Something missing? Tap <b>Some items missing?</b> and enter what actually came. Tapped it by mistake? Tap <b>Undo</b>.`],
+  ["How do I group items into one award (a kit)?", `On Inventory → <b>Stock</b>, tick the boxes next to the parts (for example a base, a plaque and an engraving plate) and tap <b>Make an award kit from these</b>. Or tap <b>New item</b> and choose the type <b>Award kit</b>. Set how many of each part the award uses, then give it a name and price. The app shows the parts cost, your profit, and how many you can make with what's in stock. When you put the kit on an invoice, each part comes out of stock automatically and the cost of goods is recorded.`],
+  ["How do I filter or sort my inventory?", `Use the search box (name, SKU, supplier part # or category), the type buttons (Stocked, Award kits, Low stock…), and the <b>supplier</b>, <b>category</b> and <b>sort</b> menus. <b>In stock only</b> hides anything you're out of. To give items categories, tap <b>Sort items into categories</b>: the app guesses from each name, and you fix any guess. Or tick several items and tap <b>Set category</b>.`],
   ["How do I know what to reorder?", `Inventory → <b>Reorder</b> lists items at or below their <b>Reorder when down to</b> number (set it on each item), grouped by supplier, with a suggested quantity. Tick what you want and tap <b>Start an order with these</b>. Items below zero are marked <b>Count needed</b>. Use <b>Count stock</b> to set the real number.`]]],
  ["Invoices", [
   ["Where are all my open invoices?", `On <b>Home</b> under <b>Current invoices</b>. Every invoice that isn't finished and paid shows in its stage: Not started → Parts ordered → Engraving → Ready for pickup → Delivered · waiting on payment. Tap the <b>→</b> button to move a job to the next stage. Once it's delivered, it waits in the last column until you tap <b>Receive payment</b>. Badges show overdue, not-sent and paid invoices.`],
@@ -2645,7 +2670,7 @@ async function handleOrderFiles(files, preLines){ const f = [...files].find(x =>
   if (!parsed.lines.length) { toast("Couldn't find the item lines in that PDF, so fill them in here."); poForm({date:parsed.date || todayISO(), status:"placed", payFrom:"a2200", vendorId:parsed.vendorId, orderNo:parsed.orderNo, shipping:parsed.shipping || "", tax:parsed.tax || "", lines:[{qty:1}], notes:"From " + f.name}); return; }
   PENDING_ORDER = {parsed, file:f.name}; orderReview(); }
 function orderReview(){ const P = PENDING_ORDER, p = P.parsed, v = byId("vendors", p.vendorId);
-  const items = S.items.filter(i => i.type !== "service").sort(byName);
+  const items = S.items.filter(i => i.type !== "service" && i.type !== "kit").sort(byName);
   const row = (l, i) => { const m = matchItem(l, p.vendorId), it = m && m.it, sug = (l.sku && l.desc ? l.sku + " " + l.desc : l.sku || l.desc).slice(0, 70);
     const badge = !m ? '<span class="badge">New item</span>' : m.how === "guess" ? '<span class="badge warn">Best guess · check it</span>' : '<span class="badge good">✓ Matched by part #</span>';
     return `<div class="ordrow" data-i="${i}" data-sug="${esc(sug)}">
@@ -2771,11 +2796,13 @@ function itemForm(it){ it = it || {type:"inventory", taxable:true, incomeAcct:SY
   <label class="f">Item name<input name="name" required value="${esc(it.name)}" placeholder="e.g. 9x12 walnut plaque"></label>
   <label class="f">SKU / part no.<input name="sku" value="${esc(it.sku)}"></label>
   ${(it.aliases || []).length ? `<div class="f full small muted">Supplier part numbers the app recognizes: ${(it.aliases || []).map(a => esc([a.sku || a.desc, a.v ? "(" + vendName(a.v) + ")" : ""].filter(Boolean).join(" "))).join(", ")}</div>` : ""}
-  <label class="f">Type<select name="type" data-act-change="itemType">${opts([["inventory","Stocked item (track quantity)"],["noninventory","Non-stocked item"],["service","Service (e.g. engraving)"]], it.type)}</select></label>
+  <label class="f">Type<select name="type" data-act-change="itemType">${opts([["inventory","Stocked item (track quantity)"],["kit","Award kit (made from other items)"],["noninventory","Non-stocked item"],["service","Service (e.g. engraving)"]], it.type)}</select></label>
+  <label class="f">Category<input name="category" list="catList" value="${esc(it.category || "")}" placeholder="e.g. Plaques, Glass, Hardware"><datalist id="catList">${itemCats().map(c => `<option value="${esc(c)}">`).join("")}</datalist></label>
+  <div class="f full kitonly"><div style="font-weight:600">Parts in this award</div><div class="small muted" style="margin-bottom:4px">Each time you sell one, these come out of stock.</div><div data-kitparts>${(it.parts && it.parts.length ? it.parts : [{qty:1}, {qty:1}]).map(kitRow).join("")}</div><button type="button" class="btn small" data-act="kitAdd">+ Add a part</button><div class="small" data-kitsum style="margin-top:8px;font-weight:600"></div></div>
   <label class="f">Income account<select name="incomeAcct">${acctOpts(it.incomeAcct || SYS.SALES, a => ["income","oincome"].includes(a.type))}</select></label>
   <label class="f full">Description on invoices<input name="desc" value="${esc(it.desc)}"></label>
   <label class="f">Sales price<input name="price" type="number" step="0.01" min="0" value="${esc(it.price)}"></label>
-  <label class="f">Your cost<input name="cost" type="number" step="0.0001" min="0" value="${esc(it.cost)}"></label>
+  <label class="f notkit">Your cost<input name="cost" type="number" step="0.0001" min="0" value="${esc(it.cost)}"></label>
   <label class="f stockonly">Quantity on hand to start<input name="openQty" type="number" step="any" value="${esc(it.openQty ?? 0)}"></label>
   <label class="f stockonly">As of<input name="openDate" type="date" value="${esc(it.openDate || todayISO())}"></label>
   <label class="f stockonly">Reorder when at or below<input name="reorder" type="number" step="any" min="0" value="${esc(it.reorder ?? "")}"></label>
@@ -2787,7 +2814,29 @@ function itemForm(it){ it = it || {type:"inventory", taxable:true, incomeAcct:SY
   </div>${foot(it.id ? {act:"delItem", id:it.id} : null)}</form>`);
   toggleItemType(); }
 function toggleItemType(){ const f = $("#sheetBody form[data-form=item]"); if (!f) return; const t = f.elements.type.value;
-  $$(".stockonly", f).forEach(e => e.style.display = t === "inventory" ? "" : "none"); $$(".nonstock", f).forEach(e => e.style.display = t === "noninventory" ? "" : "none"); }
+  $$(".stockonly", f).forEach(e => e.style.display = t === "inventory" ? "" : "none"); $$(".nonstock", f).forEach(e => e.style.display = t === "noninventory" ? "" : "none");
+  $$(".kitonly", f).forEach(e => e.style.display = t === "kit" ? "" : "none"); $$(".notkit", f).forEach(e => e.style.display = t === "kit" ? "none" : ""); if (t === "kit") kitSum(f); }
+function kitRow(p){ const opts2 = S.items.filter(i => i.type === "inventory" || i.type === "noninventory").sort(byName);
+  return `<div class="kitrow" style="display:grid;grid-template-columns:minmax(0,1fr) 80px 32px;gap:8px;margin:6px 0"><select data-kit-item aria-label="Part"><option value="">Choose a part…</option>${opts2.map(i => `<option value="${i.id}" ${p.itemId === i.id ? "selected" : ""}>${esc(i.name)}${i.type === "inventory" ? " (" + onHand(i) + " on hand)" : ""}</option>`).join("")}</select><input type="number" min="0" step="any" data-kit-qty value="${esc(p.qty ?? 1)}" aria-label="How many"><button type="button" class="x" data-act="kitDel" aria-label="Remove part">×</button></div>`; }
+function kitSum(f){ const el = f.querySelector("[data-kitsum]"); if (!el) return; const parts = $$(".kitrow", f).map(r => ({itemId:r.querySelector("[data-kit-item]").value, qty:+r.querySelector("[data-kit-qty]").value || 0})).filter(p => p.itemId && p.qty > 0);
+  if (!parts.length) { el.textContent = "Add the parts that make up this award."; return; }
+  const k = {parts}, cost = kitCost(k), cm = kitCanMake(k), pr = +f.elements.price.value || 0;
+  el.textContent = "Parts cost " + money(cost) + (pr ? " · price " + money(pr) + " · profit " + money(pr - cost) + (pr > 0 ? " (" + Math.round((pr - cost) / pr * 100) + "%)" : "") : "") + (cm !== null ? " · you have parts to make " + cm : ""); }
+function itemCats(){ return [...new Set(S.items.map(i => (i.category || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
+function guessCat(it){ const t = (it.name + " " + (it.desc || "") + " " + (it.sku || "")).toLowerCase(), v = vendName(it.vendorId || "").toLowerCase();
+  if (it.type === "kit") return "Award kits"; if (it.type === "service") return "Services";
+  if (/\b(mug|tumbler|bottle|drinkware|stein|flask|wine)\b/.test(t)) return "Drinkware";
+  if (/\b(badge|name ?tag|magnet)\b/.test(t)) return "Name badges";
+  if (/\b(medal|medallion)s?\b/.test(t) && !/glass/.test(t)) return "Medals";
+  if (/glass|crystal|jade/.test(t) || /crystal by design|d&l/.test(v)) return "Glass & crystal";
+  if (/acrylic|lucite/.test(t)) return "Acrylic";
+  if (/plaque|alder|walnut|cherry|piano|board|laminat/.test(t)) return "Plaques";
+  if (/\b(plate|plates|brass|aluminum|alum)\b|^gap|^lsm/.test(t)) return "Engraving plates";
+  if (/trophy|trophies|cup|figure|riser|column|topper|resin/.test(t)) return "Trophies";
+  if (/screw|\bcap\b|\bpost\b|hardware|\bnut\b|bolt|standoff|washer/.test(t)) return "Hardware";
+  if (/\bbox|case|\bbag|packag|pouch/.test(t)) return "Boxes & packaging";
+  if (/ribbon|lanyard|neck/.test(t)) return "Ribbons";
+  return ""; }
 function accountForm(a){ a = a || {type:"expense"}; const sys = a.id && SYSTEM_IDS.has(a.id);
   openSheet(a.id ? "Edit account" : "New account", `<form data-form="account" data-id="${a.id || ""}"><div class="fields">
   <label class="f">Number<input name="number" value="${esc(a.number)}"></label>
@@ -2809,7 +2858,7 @@ function followupForm(fu, customerId){ fu = fu || {customerId, due:addDays(today
 function itemSelect(sel){ return `<select name="itemId" aria-label="Item"><option value="__new">+ Add a new item…</option>${opts(S.items.slice().sort(byName).map(i => [i.id, i.name + (i.desc && i.desc !== i.name ? " — " + (i.desc.length > 48 ? i.desc.slice(0, 46) + "…" : i.desc) : "")]), sel, "Choose item")}</select>`; }
 function invLine(l){ l = l || {qty:1, taxable:true};
   return `<div class="line inv"><input type="hidden" name="acct" value="${esc(l.acct || "")}">${itemSelect(l.itemId)}<input name="desc" placeholder="Description" value="${esc(l.desc)}" aria-label="Description"><input name="qty" type="number" step="any" value="${esc(l.qty)}" aria-label="Quantity"><input name="rate" type="number" step="0.01" value="${esc(l.rate)}" placeholder="Rate" aria-label="Rate"><div class="amt">${money((+l.qty||0) * (+l.rate||0))}</div><label title="Taxable" class="taxcell"><input type="checkbox" name="taxable" ${l.taxable ? "checked" : ""}><span class="mlabel">Taxable</span></label><button type="button" class="x" data-act="rmLine" aria-label="Remove line">×</button></div>`; }
-function buyRefOpts(sel){ const items = S.items.filter(i => i.type !== "service").sort(byName);
+function buyRefOpts(sel){ const items = S.items.filter(i => i.type !== "service" && i.type !== "kit").sort(byName);
   return `<option value="">Choose account or item</option><optgroup label="Accounts">${sortedAccts(a => ["expense","cogs","ocasset","fixed","oexpense","equity","ocliab","ltliab","ccard"].includes(a.type) && a.id !== SYS.AR && a.id !== SYS.OBE).map(a => `<option value="a:${a.id}" ${sel === "a:" + a.id ? "selected" : ""}>${esc((a.number ? a.number + " · " : "") + a.name)}</option>`).join("")}</optgroup>${items.length ? `<optgroup label="Items">${items.map(i => `<option value="i:${i.id}" ${sel === "i:" + i.id ? "selected" : ""}>${esc(i.name)}</option>`).join("")}</optgroup>` : ""}`; }
 function buyLine(l){ l = l || {qty:1};
   return `<div class="line buy"><select name="ref" aria-label="Account or item">${buyRefOpts(l.ref)}</select><input name="memo" placeholder="Memo" value="${esc(l.memo)}" aria-label="Memo"><input name="qty" type="number" step="any" value="${esc(l.qty)}" aria-label="Quantity"><input name="rate" type="number" step="0.0001" value="${esc(l.rate)}" placeholder="Cost" aria-label="Cost each"><div class="amt">${money((+l.qty||0) * (+l.rate||0))}</div><button type="button" class="x" data-act="rmLine" aria-label="Remove line">×</button></div>`; }
@@ -2956,7 +3005,8 @@ const FORMS = {
   async vendor(f){ const id = f.dataset.id; await put("vendors", {...clone(byId("vendors", id) || {}), id:id || undefined, name:val(f, "name"), contact:val(f, "contact"), phone:val(f, "phone"), email:val(f, "email"), terms:val(f, "terms"), defaultAcct:val(f, "defaultAcct") || (f.elements.contractor.checked ? "a6060" : ""), address:val(f, "address"), website:normUrl(val(f, "website")), contractor:f.elements.contractor.checked, w9:f.elements.w9.checked}); toast("Saved"); },
   async item(f){ const id = f.dataset.id, type = val(f, "type");
     const dup = S.items.find(i => i.id !== id && i.name.toLowerCase() === val(f, "name").toLowerCase()); if (dup) return formErr(f, "An item with this name already exists.");
-    await put("items", {...clone(byId("items", id) || {}), id:id || undefined, name:val(f, "name"), sku:val(f, "sku"), type, incomeAcct:val(f, "incomeAcct"), desc:val(f, "desc"), price:num(f, "price"), cost:num(f, "cost"), openQty:type === "inventory" ? num(f, "openQty") : 0, openDate:val(f, "openDate") || todayISO(), reorder:type === "inventory" ? val(f, "reorder") : "", expenseAcct:type === "noninventory" ? val(f, "expenseAcct") : "", taxable:f.elements.taxable.checked, vendorId:val(f, "vendorId"), notes:val(f, "notes")}); toast("Item saved"); },
+    let parts = []; if (type === "kit") { parts = $$(".kitrow", f).map(r => ({itemId:r.querySelector("[data-kit-item]").value, qty:+r.querySelector("[data-kit-qty]").value || 0})).filter(p => p.itemId && p.qty > 0); if (!parts.length) return formErr(f, "Add at least one part to the award kit."); if (id && parts.some(p => p.itemId === id)) return formErr(f, "A kit can't include itself."); }
+    await put("items", {...clone(byId("items", id) || {}), id:id || undefined, name:val(f, "name"), sku:val(f, "sku"), type, category:val(f, "category"), parts, incomeAcct:val(f, "incomeAcct"), desc:val(f, "desc"), price:num(f, "price"), cost:type === "kit" ? kitCost({parts}) : num(f, "cost"), openQty:type === "inventory" ? num(f, "openQty") : 0, openDate:val(f, "openDate") || todayISO(), reorder:type === "inventory" ? val(f, "reorder") : "", expenseAcct:type === "noninventory" ? val(f, "expenseAcct") : "", taxable:f.elements.taxable.checked, vendorId:val(f, "vendorId"), notes:val(f, "notes")}); toast("Item saved"); },
   async account(f){ const id = f.dataset.id, old = byId("accounts", id) || {};
     await put("accounts", {...clone(old), id:id || undefined, number:val(f, "number"), name:val(f, "name"), type:SYSTEM_IDS.has(id) ? old.type : val(f, "type"), openBal:num(f, "openBal"), openDate:val(f, "openDate")}); toast("Account saved"); },
   async followup(f){ const id = f.dataset.id; await put("followups", {...clone(byId("followups", id) || {}), id:id || undefined, text:val(f, "text"), customerId:val(f, "customerId"), due:val(f, "due"), done:f.elements.done ? f.elements.done.checked : false}); toast("Follow-up saved"); },
@@ -3074,6 +3124,8 @@ const FORMS = {
     const short = (o.lines || []).some((l, i) => (+(f.querySelector(`[data-rl="${i}"]`)?.value || 0)) < +l.qty);
     await put("pos", {...clone(o), status:"received", receivedAt:date, received:lines.map(l => ({ref:l.ref, qty:l.qty})), link:{col, id:rid}, short});
     toast("Added to inventory" + (short ? ". Some items were short; log a new order for the rest if they're backordered." : "")); },
+  async catPick(f){ const c = val(f, "category"); for (const id of [...(UI.pick || [])]) { const i = byId("items", id); if (i) await put("items", {...clone(i), category:c}); } UI.pick = new Set(); toast("Category set"); },
+  async autoCat(f){ let n = 0; for (const inp of $$("[data-cat]", f)) { const c = inp.value.trim(); if (!c) continue; const i = byId("items", inp.dataset.cat); if (i && (i.category || "") !== c) { await put("items", {...clone(i), category:c}); n++; } } toast(n + " item" + (n === 1 ? "" : "s") + " sorted into categories"); },
   async orderIn(f){ const P = PENDING_ORDER; if (!P) return;
     let vid = val(f, "vendorId"); if (vid === "__newv") { const nm = val(f, "newVendor"); if (!nm) return formErr(f, "Type the supplier's name."); const ex = S.vendors.find(x => x.name.toLowerCase() === nm.toLowerCase()); vid = ex ? ex.id : await put("vendors", {name:nm}); }
     if (!vid) return formErr(f, "Choose the supplier.");
@@ -3186,6 +3238,18 @@ const ACT = {
   async scanNow(el){ const acct = el.dataset.id, st = balSt(acct); toast("Scanning…"); const rep = await autoBalance(acct, {from:"", to:st.date, begin:null, end:st.bal === "" ? null : +st.bal}); if (route().view !== "balance") go("balance/" + acct); toast("Scan done: " + (rep.matched + rep.ruled + rep.invoices) + " sorted, " + rep.left + " need you"); },
   autoRepClose(el){ const r = {...(UI.autoRep || {})}; delete r[el.dataset.id]; UI.autoRep = r; render(); },
   orderPick(){ $("#orderFile").click(); },
+  kitAdd(el){ const f = el.closest("form"); f.querySelector("[data-kitparts]").insertAdjacentHTML("beforeend", kitRow({qty:1})); kitSum(f); },
+  kitDel(el){ const f = el.closest("form"), rows = f.querySelectorAll(".kitrow"); if (rows.length > 1) el.closest(".kitrow").remove(); else el.closest(".kitrow").querySelector("select").value = ""; kitSum(f); },
+  kitFromPick(){ const ids = [...(UI.pick || [])].filter(id => { const i = byId("items", id); return i && i.type !== "kit" && i.type !== "service"; }); if (!ids.length) { toast("Pick stocked items to put in the kit."); return; }
+    const its = ids.map(id => byId("items", id)); itemForm({type:"kit", taxable:true, incomeAcct:SYS.SALES, openDate:todayISO(), name:"", category:"Award kits", vendorId:"", parts:ids.map(id => ({itemId:id, qty:1})), desc:""}); void its; UI.pick = new Set(); },
+  pickClear(){ UI.pick = new Set(); render(); },
+  invFClear(){ ["invV", "invC", "invS", "invIn", "item"].forEach(k => delete UI.filter[k]); UI.q.item = ""; render(); },
+  catPick(){ const ids = [...(UI.pick || [])]; openSheet("Set category for " + ids.length + " item" + (ids.length > 1 ? "s" : ""), `<form data-form="catPick"><div class="fields"><label class="f full">Category<input name="category" list="catList2" required placeholder="e.g. Plaques"><datalist id="catList2">${itemCats().map(c => `<option value="${esc(c)}">`).join("")}</datalist></label></div>${foot(null, "Save")}</form>`, true); },
+  autoCat(){ const list = S.items.filter(i => !(i.category || "").trim()).sort(byName);
+    openSheet("Sort items into categories", `<form data-form="autoCat"><p class="small muted" style="margin-top:0">The app guessed a category from each item's name and supplier. Change any guess or leave it blank, then save. You can filter by category afterwards.</p>
+    <datalist id="catList3">${[...new Set([...itemCats(), "Plaques", "Glass & crystal", "Acrylic", "Trophies", "Medals", "Engraving plates", "Hardware", "Drinkware", "Name badges", "Boxes & packaging", "Ribbons", "Award kits", "Services"])].sort().map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+    <div class="tbl" style="max-height:60vh;overflow:auto"><table><thead><tr><th>Item</th><th>Category</th></tr></thead><tbody>${list.map(i => `<tr><td>${esc(i.name)}${i.vendorId ? `<div class="small muted">${esc(vendName(i.vendorId))}</div>` : ""}</td><td><input data-cat="${i.id}" list="catList3" value="${esc(guessCat(i))}" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:inherit"></td></tr>`).join("")}</tbody></table></div>
+    ${foot(null, "Save categories")}</form>`); },
   async poArrived(el){ const o = byId("pos", el.dataset.id); if (!o || o.status === "received") return; const r = await receivePO(o, null, todayISO()); UI.lastArrived = o.id; toast("Arrived. Stock updated for " + (r ? r.n : 0) + " item" + (r && r.n === 1 ? "" : "s")); },
   dismissArrived(){ UI.lastArrived = null; render(); },
   reorderGroup(el){ const sec = el.closest("[data-reorder-v]"), vid = el.dataset.v; const lines = $$("[data-ro]", sec).filter(c => c.checked).map(c => { const it = byId("items", c.dataset.ro), q = +(sec.querySelector(`[data-roq="${it.id}"]`)?.value || 1); return {ref:"i:" + it.id, qty:q, rate:it.cost || "", memo:it.name}; });
@@ -3475,6 +3539,9 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet
 document.addEventListener("toggle", e => { const t = e.target; if (t.dataset && t.dataset.actToggle === "balFull") UI.balFull = t.open; }, true);
 document.addEventListener("change", e => { const t = e.target; if (!t.dataset) return;
   if (t.dataset.cardCat !== undefined) { cardQuickCat(t); return; }
+  if (t.dataset.invf) { if (t.type === "checkbox") UI.filter[t.dataset.invf] = t.checked; else UI.filter[t.dataset.invf] = t.value; render(); return; }
+  if (t.dataset.pick) { UI.pick = UI.pick || new Set(); if (t.checked) UI.pick.add(t.dataset.pick); else UI.pick.delete(t.dataset.pick); render(); return; }
+  if (t.dataset.kitItem !== undefined) { kitSum(t.closest("form")); return; }
   if (t.dataset.actChange === "ordTo") { const row = t.closest(".ordrow"), it = byId("items", t.value), nm = row.querySelector("[name=name]"), pr = row.querySelector("[name=price]"), note = row.querySelector(".or-note"); nm.value = it ? it.name : t.value === "exp" ? "" : row.dataset.sug; nm.disabled = t.value === "exp"; pr.disabled = t.value === "exp"; if (it && it.price && !pr.value) pr.value = it.price; if (note) note.textContent = it ? onHand(it) + " on hand now" + (it.cost ? " · last cost " + money(it.cost) : "") : t.value === "exp" ? "Recorded as shop supplies, not counted in stock." : "A new stocked item will be created."; const b = row.querySelector(".or-top .badge"); if (b) { b.className = "badge"; b.textContent = it ? "Your pick" : t.value === "exp" ? "Supplies" : "New item"; } return; }
   if (t.dataset.actChange === "ordVendor") { const box = t.closest("form").querySelector("[data-newv]"); if (box) box.style.display = t.value === "__newv" ? "" : "none"; return; }
   if (t.dataset.actChange === "impSection" && PENDING_PARTS) { stageParts(t.value === "all" ? PENDING_PARTS.map((_, i) => i) : [+t.value], PENDING_IMPORT?.acct || UI.bankAcct); return; }
@@ -3485,6 +3552,8 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
   else if (t.dataset.mailVend) { UI.mailVend = {...(UI.mailVend || {}), [t.dataset.mailVend]:t.value}; render(); } });
 document.addEventListener("input", e => {
   const t = e.target;
+  if (t.dataset && t.dataset.kitQty !== undefined) { kitSum(t.closest("form")); return; }
+  if (t.closest && t.closest("form[data-form=item]") && t.name === "price") { kitSum(t.closest("form")); }
   if (t.dataset && t.dataset.bal) { const acct = UI.balAcct; UI.balSt = {...(UI.balSt || {}), [acct]:{...balSt(acct), [t.dataset.bal]:t.value}}; render(); return; }
   if (t.dataset && t.dataset.itzAmt !== undefined) { itzLeft(t.closest("form")); return; }
   if (t.dataset && t.dataset.btIn !== undefined) { btSummary(t.closest("form")); return; }
@@ -3519,6 +3588,7 @@ document.addEventListener("change", async e => {
     if (!t.checked && i >= 0) { const start = ta.value.lastIndexOf("\n\n", i), end = ta.value.indexOf("\n", ta.value.indexOf("\n", i) + 1); ta.value = ta.value.slice(0, start) + (end >= 0 ? ta.value.slice(end) : ""); }
     return; }
   if (t.name === "itemId" && t.value === "__new") { openInlineItem(t.closest(".line")); t.value = ""; return; }
+  if (t.name === "itemId" && t.closest(".line.inv") && byId("items", t.value)?.type === "kit") { const k = byId("items", t.value), cm = kitCanMake(k); if (cm !== null && cm < 1) toast("Heads up: you're out of parts for " + k.name + " (" + kitText(k) + ")."); else if (cm !== null && cm < 5) toast("You have parts to make " + cm + " of " + k.name + "."); }
   if (t.name === "itemId" && t.closest(".line.inv")) { const it = byId("items", t.value), row = t.closest(".line"); if (it) { const lp = f.elements.customerId && f.elements.customerId.value ? lastPrice(f.elements.customerId.value, it.id) : null; row.querySelector("[name=desc]").value = it.desc || it.name; row.querySelector("[name=rate]").value = lp ? lp.rate : (it.price || ""); if (lp && lp.rate !== +it.price) toast(`Using ${custName(f.elements.customerId.value)}’s last price: ${money(lp.rate)} (list ${money(it.price)})`); row.querySelector("[name=taxable]").checked = it.taxable !== false && +(f.elements.taxRate?.value || 0) > 0; shipRowCheck(row); } recalc(f); }
   if (t.name === "ref" && t.closest(".line.buy") && t.value.startsWith("i:")) { const it = byId("items", t.value.slice(2)), row = t.closest(".line"); if (it && !row.querySelector("[name=rate]").value) row.querySelector("[name=rate]").value = it.cost || ""; if (it && !row.querySelector("[name=memo]").value) row.querySelector("[name=memo]").value = it.name; recalc(f); }
   if (act === "itemType") toggleItemType();
