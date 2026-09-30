@@ -95,6 +95,14 @@ a.btn.primary{color:var(--primary-ink)}
 .ledger b{font-family:'Barlow Condensed',system-ui,sans-serif;font-size:26px;font-weight:600;font-variant-numeric:tabular-nums}
 
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.bcol{background:var(--bg, rgba(0,0,0,.03));border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0}
+.bcol-h{display:flex;justify-content:space-between;gap:6px;align-items:baseline;margin-bottom:8px;font-size:13.5px}
+.bcard{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-bottom:8px;font-size:13.5px}
+.bc-t{display:block;font-weight:600;color:inherit;text-decoration:none;overflow-wrap:anywhere}.bc-t:hover{text-decoration:underline}
+.bc-s{margin-top:4px;font-size:12.5px}.bc-a{margin-top:7px}
+@media (max-width:1100px){.board{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){.board{grid-template-columns:1fr}}
 .grid2 > .panel{margin-bottom:0}
 
 .list{display:flex;flex-direction:column}
@@ -636,7 +644,7 @@ function route(){ const h = location.hash.replace(/^#\/?/, ""); const [view, id]
 const go = h => { location.hash = "#/" + h; };
 
 const NAV_ALL = [["home","Home"],["inbox","Inbox"],["customers","Customers"],["email","Email"],["sales","Sales"],["expenses","Expenses"],["banking","Banking"],["investments","Investments"],["taxes","Taxes"],["pay","Pay"],["inventory","Inventory"],["reports","Reports"],["accounts","Chart of accounts"],["settings","Settings"],["help","Help"]];
-const SECTION = {pos:"expenses", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"sales", estimate:"sales", bills:"expenses", checks:"expenses", card:"expenses", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
+const SECTION = {pos:"expenses", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"sales", estimate:"sales", bills:"expenses", checks:"expenses", card:"expenses", balance:"banking", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
 const ICONS = {
   home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   customers:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.8 3.1 2.5 3.5 5.2"/>',
@@ -754,11 +762,13 @@ VIEWS.home = () => {
   if (nb) todo.push(`<a class="item" href="#/banking"><div><div class="t">Review ${nb} bank transaction${nb > 1 ? "s" : ""}</div><div class="s">Match or categorize imported statement lines</div></div><div class="r muted">›</div></a>`);
   low.filter(it => !onOrder(it.id)).forEach(it => todo.push(`<div class="item" data-act="reorderItem" data-id="${it.id}"><div><div class="t">Reorder ${esc(it.name)}</div><div class="s">${onHand(it)} on hand · reorder at ${esc(it.reorder)}</div></div><div class="r"><span class="badge warn">Low stock</span></div></div>`));
   const recent = S.invoices.slice().sort((a, b) => (b.date + b.num) > (a.date + a.num) ? 1 : -1).slice(0, 6);
+  const board = invBoard();
   const hour = new Date().getHours();
   return `
   <div class="pagehead"><div><h1>Good ${hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"}</h1><p>${new Date().toLocaleDateString("en-US", {weekday:"long", month:"long", day:"numeric"})}</p></div>
     <div class="actions"><button class="btn primary" data-act="newInvoice">New invoice</button><button class="btn" data-act="receivePayment">Receive payment</button>${MCP ? `<button class="btn" data-act="checkMyEmail">Check my email</button>` : ""}<button class="btn" data-act="newBill">Enter bill</button><button class="btn" data-act="newCustomer">New customer</button><button class="btn" data-act="newTrip">Log a trip</button>${MCP ? `<button class="btn" data-act="calSyncNow" ${UI.calBusy ? "disabled" : ""}>${UI.calBusy ? "Syncing calendar…" : "Sync to Google Calendar"}</button>` : ""}</div></div>
-  <div class="ledger"><div><span>Cash in bank</span><b>${money(cash)}</b></div><div><span>Customers owe you</span><b>${money(ar)}</b></div><div><span>You owe vendors</span><b>${money(ap)}</b></div><div><span>Sales this month</span><b>${money(monthSales)}</b></div></div>
+  <div class="ledger"><div><span>Cash in bank <a href="#/balance" class="small" style="font-weight:400">Balance</a></span><b>${money(cash)}</b></div><div><span>Customers owe you</span><b>${money(ar)}</b></div><div><span>You owe vendors</span><b>${money(ap)}</b></div><div><span>Sales this month</span><b>${money(monthSales)}</b></div></div>
+  ${board}
   <div class="grid2">
     <section class="panel"><div class="panel-head"><h2>To do</h2><button class="btn small" data-act="newFollowup">Add follow-up</button></div>
       <div class="list">${todo.join("") || empty("You're all caught up. Follow-ups, overdue invoices, bills due this week and low stock show up here.")}</div></section>
@@ -767,6 +777,21 @@ VIEWS.home = () => {
   </div>`;
 };
 
+function invBoard(){
+  const t = todayISO(), cols = [["new","Not started"],["ordered","Parts ordered"],["production","Engraving"],["ready","Ready for pickup"],["pay","Delivered · waiting on payment"]];
+  const cur = S.invoices.filter(i => { const paid = invBalance(i) <= 0.004; return (i.jobStatus && i.jobStatus !== "done") || !paid; });
+  const stageOf = i => !i.jobStatus || i.jobStatus === "done" ? "pay" : i.jobStatus;
+  const card = i => { const st = stageOf(i), bal = invBalance(i), paid = bal <= 0.004, od = !paid && i.due && i.due < t, ix = JOB.findIndex(j => j[0] === i.jobStatus), nxt = st !== "pay" ? JOB[Math.min(ix + 1, JOB.length - 1)] : null;
+    return `<div class="bcard"><a href="#/invoice/${i.id}" class="bc-t">#${esc(i.num)} · ${esc(custName(i.customerId))}</a>
+    <div class="bc-s">${paid ? '<span class="badge good">Paid</span>' : `<b class="num">${money(bal)}</b>${bal < invTotals(i).total - 0.004 ? ' <span class="small muted">left</span>' : ""}`} ${od ? `<span class="badge bad">${daysBetween(i.due, t)}d overdue</span>` : ""} ${!paid && !i.emailedAt && !i.sentAt ? '<span class="badge">Not sent</span>' : ""}</div>
+    ${st !== "pay" && i.neededBy ? `<div class="bc-s ${i.neededBy < t ? "neg" : ""}">Needed ${fmtDate(i.neededBy)} (${dueText(i.neededBy)})</div>` : st === "pay" && i.due && !od ? `<div class="bc-s muted">Due ${fmtDate(i.due)}</div>` : ""}
+    <div class="bc-a">${nxt ? `<button class="btn small" data-act="jobStatus" data-id="${i.id}" data-val="${nxt[0]}">→ ${esc(nxt[1])}</button>` : `<button class="btn small" data-act="receivePayment" data-customer="${i.customerId}" data-invoice="${i.id}">Receive payment</button>${!i.emailedAt && !i.sentAt ? ` <button class="btn small" data-act="emailInvoice" data-id="${i.id}">Email</button>` : ""}`}</div></div>`; };
+  const sortK = i => (stageOf(i) === "pay" ? (i.due || "9999") : (i.neededBy || "9999")) + (i.date || "");
+  const all = UI.boardAll || {};
+  const html = cols.map(([k, l]) => { const list = cur.filter(i => stageOf(i) === k).sort((a, b) => sortK(a) < sortK(b) ? -1 : 1), tot = list.reduce((s, i) => s + invBalance(i), 0), shownL = all[k] ? list : list.slice(0, 6);
+    return `<div class="bcol"><div class="bcol-h"><b>${esc(l)}</b><span class="small muted">${list.length}${tot > 0.004 ? " · " + money(tot) : ""}</span></div>${shownL.map(card).join("") || '<div class="small muted" style="padding:6px 2px">None</div>'}${list.length > shownL.length ? `<button class="linkbtn small" data-act="boardMore" data-val="${k}">Show all ${list.length}</button>` : ""}</div>`; }).join("");
+  return `<section class="panel" style="margin-bottom:18px"><div class="panel-head"><h2>Current invoices</h2><a href="#/sales">All invoices</a></div>
+  ${cur.length ? `<div class="board">${html}</div>` : empty("No open invoices. Everything is delivered and paid.", '<button class="btn primary" data-act="newInvoice">New invoice</button>')}</section>`; }
 let CSTAT = null, CSTATV = -1;
 function custStats(){ if (CSTATV === version && CSTAT) return CSTAT; const m = new Map(), y = todayISO().slice(0, 4);
   const add = (cid, date, amt, key) => { let r = m.get(cid); if (!r) m.set(cid, r = {life:0, year:0, last:"", first:"9999", orders:new Set()}); r.life += amt; if (date.slice(0, 4) === y) r.year += amt; if (date > r.last) r.last = date; if (date < r.first) r.first = date; r.orders.add(key); };
@@ -942,6 +967,48 @@ function cardRows(acct){ const g = new Map();
     else if (x.src === "Bill payment") { kind = "Bill paid by card"; act = "viewBillpay"; }
     else if (x.src === "Journal entry") { kind = "Journal entry"; act = "editJournal"; }
     return {...x, charge, kind, what, cats, act, note:cardNote(x.srcId)}; }).sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0); }
+const SPEND_TYPES = ["expense","cogs","oexpense","fixed","equity","ocasset"];
+const spendAccts = () => sortedAccts(a => SPEND_TYPES.includes(a.type) && ![SYS.OBE, SYS.RE, SYS.INV, SYS.AR].includes(a.id) && !a.inactive);
+const spendOpts = (sel, blank) => `<option value="">${esc(blank || "Choose category")}</option>${spendAccts().map(a => `<option value="a:${a.id}" ${sel === "a:" + a.id ? "selected" : ""}>${esc(a.name)}</option>`).join("")}<option value="__split">Split into several categories…</option>`;
+const refName = ref => String(ref || "").startsWith("i:") ? (byId("items", ref.slice(2))?.name || "Item") : (byId("accounts", String(ref || "").slice(2))?.name || "Uncategorized");
+function cardSpend(acct, from, to){ const m = new Map();
+  for (const e of S.expenses) if (e.fromAcct === acct && (!from || e.date >= from) && (!to || e.date <= to)) for (const l of e.lines || []) { const [a, amt] = buyPost(l); const k = String(l.ref || "").startsWith("i:") ? acctName(a).replace(/^\d+ · /, "") : refName(l.ref); m.set(k, r2((m.get(k) || 0) + amt)); }
+  return [...m.entries()].filter(([, v]) => Math.abs(v) > 0.004).sort((a, b) => b[1] - a[1]); }
+function cardRange(k){ const t = todayISO(), y = t.slice(0, 4), mo = t.slice(0, 7);
+  if (k === "last") { const d = new Date(+y, +t.slice(5, 7) - 2, 1), lm = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); return [lm + "-01", lm + "-31", "Last month"]; }
+  if (k === "year") return [y + "-01-01", t, "This year"]; if (k === "lastyear") return [(+y - 1) + "-01-01", (+y - 1) + "-12-31", "Last year"];
+  return [mo + "-01", mo + "-31", "This month"]; }
+function itemizeForm(o){ // o: {expenseId} or {txId}
+  const e = o.expenseId ? byId("expenses", o.expenseId) : null, t = o.txId ? byId("banktx", o.txId) : null; if (!e && !t) return;
+  const total = e ? r2(linesTotal(e.lines)) : r2(Math.abs(t.amount));
+  const sg = t ? txSuggest(t) : null;
+  const lines = e ? (e.lines || []).map(l => ({ref:l.ref, amt:r2((+l.qty || 0) * (+l.rate || 0)), memo:l.memo || ""})) : [{ref:sg?.rule ? "a:" + sg.rule.acct : "", amt:total, memo:""}];
+  if (lines.length < 2) lines.push({ref:"", amt:"", memo:""});
+  const who = e ? (e.vendorId ? vendName(e.vendorId) : e.payee) : t.desc;
+  openSheet("Itemize charge", `<form data-form="itemize" data-exp="${e ? e.id : ""}" data-tx="${t ? t.id : ""}" data-total="${total}">
+  <p style="margin-top:0"><b>${esc(who || "Card charge")}</b><br><span class="muted">${fmtDate(e ? e.date : t.date)} · total ${money(total)}</span></p>
+  <p class="small muted">Put each part of the receipt in its own category. For example, a Costco run could be $40 Shop Supplies + $25 Office Supplies + $30 Owner's Draw (personal).</p>
+  <div data-itz>${lines.map(itzRow).join("")}</div>
+  <button type="button" class="btn small" data-act="itzAdd">+ Add another category</button>
+  <p data-itz-left class="small" style="font-weight:600;margin:12px 0 4px"></p>
+  <details style="margin-top:8px"><summary class="small">Need a category that isn't listed?</summary><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><input data-newcat placeholder="e.g. Trade show fees" style="flex:1;min-width:180px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:inherit"><button type="button" class="btn small" data-act="newCat">Add category</button></div></details>
+  <label class="f full" style="margin-top:12px">Note for my books<input name="note" value="${esc(e ? cardNote(e.id).note || "" : "")}" placeholder="Optional: what this was for"></label>
+  ${foot(null, "Save categories")}</form>`);
+  itzLeft($("#sheetBody form")); }
+function itzRow(l){ return `<div class="itz-row" style="display:grid;grid-template-columns:minmax(0,2fr) 110px minmax(0,1.5fr) 32px;gap:8px;margin-bottom:8px;align-items:center">
+  <select name="itzRef" aria-label="Category">${buyRefOpts(l.ref || "").replace('Choose account or item', 'Choose category')}</select>
+  <input name="itzAmt" type="number" step="0.01" placeholder="Amount" aria-label="Amount" value="${l.amt === "" || l.amt === undefined ? "" : esc(l.amt)}" data-itz-amt>
+  <input name="itzMemo" placeholder="What was it? (optional)" aria-label="What was it" value="${esc(l.memo || "")}">
+  <button type="button" class="x" data-act="itzDel" aria-label="Remove this line">×</button></div>`; }
+function itzLeft(f){ const tot = +f.dataset.total, used = r2($$("[name=itzAmt]", f).reduce((s, i) => s + (+i.value || 0), 0)), left = r2(tot - used), el = f.querySelector("[data-itz-left]");
+  el.textContent = Math.abs(left) < 0.005 ? "All " + money(tot) + " is assigned." : left > 0 ? money(left) + " still to assign (of " + money(tot) + ")" : "Over by " + money(-left) + ". Lower an amount.";
+  el.style.color = Math.abs(left) < 0.005 ? "var(--good)" : "var(--bad, #b3261e)"; return left; }
+async function cardQuickCat(sel){ const v = sel.value;
+  if (v === "__split") { sel.value = sel.dataset.cur || ""; return sel.dataset.tx ? itemizeForm({txId:sel.dataset.tx}) : itemizeForm({expenseId:sel.dataset.exp}); }
+  if (!v) return;
+  if (sel.dataset.tx) { const t = byId("banktx", sel.dataset.tx); if (!t) return; await txCreate(t, v.slice(2), "", t.desc); toast("Added to " + refName(v)); return; }
+  const e = byId("expenses", sel.dataset.exp); if (!e) return; const l = (e.lines || [])[0] || {qty:1, rate:0};
+  await put("expenses", {...clone(e), lines:[{...l, ref:v}]}); toast("Category: " + refName(v)); }
 VIEWS.card = id => {
   const cards = cardAccts(); const acct = byId("accounts", id)?.type === "ccard" ? id : (UI.cardAcct && byId("accounts", UI.cardAcct)?.type === "ccard" ? UI.cardAcct : cards[0]?.id); UI.cardAcct = acct;
   const a = byId("accounts", acct);
@@ -951,14 +1018,25 @@ VIEWS.card = id => {
   const rows = all.filter(r => (f === "all" || (f === "charges" ? r.charge > 0 : f === "payments" ? r.charge < 0 : f === "unchecked" ? !r.note.ok : f === "nonote" ? !r.note.note : true)) && (!q || [r.name, r.what, r.cats, r.note.note, r.kind].join(" ").toLowerCase().includes(q)));
   const chg = all.filter(r => r.date.startsWith(mo) && r.charge > 0).reduce((s, r) => s + r.charge, 0), paid = all.filter(r => r.date.startsWith(mo) && r.charge < 0).reduce((s, r) => s - r.charge, 0);
   const lastPay = all.find(r => r.kind === "Payment");
+  const pend = S.banktx.filter(t => t.acct === acct && t.status === "new").sort((x, y) => x.date < y.date ? 1 : -1);
+  const rk = UI.filter.cardRange || "month", [rf, rt, rl] = cardRange(rk), spend = cardSpend(acct, rf, rt), spendTot = r2(spend.reduce((s, x) => s + x[1], 0));
+  const catCell = r => { const e = r.act === "editExpense" && r.kind !== "Payment" ? byId("expenses", r.srcId) : null; if (!e) return `<span class="small muted">${esc(r.cats || "")}</span>`;
+    const ls = e.lines || []; if (ls.length === 1 && String(ls[0].ref || "").startsWith("a:") && spendAccts().some(a => "a:" + a.id === ls[0].ref)) return `<select data-card-cat data-exp="${e.id}" data-cur="${esc(ls[0].ref)}" style="max-width:190px;padding:5px 6px;font-size:13.5px">${spendOpts(ls[0].ref)}</select>`;
+    if (!ls.length || (ls.length === 1 && !ls[0].ref)) return `<select data-card-cat data-exp="${e.id}" data-cur="" style="max-width:190px;padding:5px 6px;font-size:13.5px">${spendOpts("", "Uncategorized")}</select>`;
+    return `<button class="linkbtn small" data-act="itemize" data-id="${e.id}" style="text-align:left">${ls.length > 1 ? "Split: " : ""}${ls.map(l => esc(refName(l.ref)) + (ls.length > 1 ? " " + money((+l.qty || 0) * (+l.rate || 0)) : "")).join(", ")}</button>`; };
   return expHead("card") + (cards.length > 1 ? `<nav class="seg" aria-label="Cards" style="margin-top:-6px">${cards.map(x => `<a href="#/card/${x.id}" ${x.id === acct ? 'aria-current="page"' : ""}>${esc(x.name)}</a>`).join("")}</nav>` : "") + `
   <div class="ledger"><div><span>Balance owed on ${esc(a.name)}</span><b class="${owed > 0 ? "neg" : ""}">${money(owed)}</b></div><div><span>Charges this month</span><b>${money(chg)}</b></div><div><span>Paid this month</span><b>${money(paid)}</b></div><div><span>Last payment</span><b style="font-size:20px">${lastPay ? fmtDate(lastPay.date) + " · " + money(-lastPay.charge) : "None yet"}</b></div></div>
+  ${pend.length ? `<section class="panel" style="margin-bottom:18px"><div class="panel-head"><h2>To categorize (${pend.length})</h2><span class="small muted">From your imported card statement</span></div>
+  <div class="tbl"><table><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Category</th><th></th></tr></thead><tbody>${pend.map(t => { const sg = txSuggest(t); return `<tr><td>${fmtDate(t.date)}</td><td>${esc(t.desc || "")}</td><td class="num">${money(-t.amount)}</td><td>${t.amount < 0 ? `<select data-card-cat data-tx="${t.id}" data-cur="" style="max-width:210px;padding:5px 6px;font-size:13.5px">${spendOpts(sg.rule ? "" : "", sg.rule ? "Suggested: " + (byId("accounts", sg.rule.acct)?.name || "") : "Choose category")}</select>` : '<span class="small muted">Payment or refund</span>'}</td><td style="white-space:nowrap">${t.amount < 0 ? `${sg.rule ? `<button class="btn small primary" data-act="txQuick" data-id="${t.id}" data-acct="${sg.rule.acct}" data-vendor="${sg.rule.vendorId || ""}">Use suggestion</button> ` : ""}<button class="btn small" data-act="itemizeTx" data-id="${t.id}">Split…</button>` : `<a class="btn small" href="#/banking/${acct}">Review</a>`}</td></tr>`; }).join("")}</tbody></table></div></section>` : ""}
   <div class="panel"><div class="panel-head"><h2>${esc(a.name)}</h2><div class="actions"><button class="btn primary small" data-act="cardPay" data-id="${acct}">Pay card</button><button class="btn small" data-act="cardCharge" data-id="${acct}">Add a charge</button><a class="btn small" href="#/banking/${acct}">Import card statement</a></div></div>
-  <p class="small muted" style="margin-top:0">Every charge, refund and payment on this card. Tap <b>Note</b> to write what it was for, and <b>✓</b> once you've checked it against your statement. Tap a row to change the category or amount.</p>
+  <p class="small muted" style="margin-top:0">Every charge, refund and payment on this card. Pick a <b>Category</b> for each charge, or tap <b>Itemize</b> to split one receipt into several categories. <b>Note</b> is for what it was for, and <b>✓</b> marks it checked against your statement.</p>
   <div class="toolbar"><input class="search" type="search" placeholder="Search payee, note or category" data-q="card" id="cardQ" value="${esc(UI.q.card || "")}"><div class="chips">${[["all","All"],["charges","Charges"],["payments","Payments"],["unchecked","Not checked"],["nonote","No note"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="card" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
-  <div class="tbl"><table><thead><tr><th>Date</th><th>Type</th><th>Payee / what</th><th>Note for my books</th><th class="num">Amount</th><th></th></tr></thead><tbody>
-  ${rows.map(r => `<tr ${r.act ? `class="click" data-act="${r.act}" data-id="${r.srcId}"` : ""}><td>${fmtDate(r.date)}</td><td>${esc(r.kind)}</td><td>${esc(r.name || r.what || "")}${r.cats ? `<div class="small muted">${esc(r.cats)}</div>` : ""}</td><td>${r.note.note ? `<span class="pre">${esc(r.note.note)}</span>` : '<span class="small muted">—</span>'}</td><td class="num ${r.charge < 0 ? "pos" : ""}">${r.charge < 0 ? "−" + money(-r.charge) : money(r.charge)}</td><td style="white-space:nowrap"><button class="btn small" data-act="cardNote" data-id="${r.srcId}" data-label="${esc(fmtDate(r.date) + " · " + (r.name || r.kind) + " · " + money(Math.abs(r.charge)))}">Note</button> <button class="chip" style="padding:3px 9px" data-act="cardOk" data-id="${r.srcId}" aria-pressed="${!!r.note.ok}" title="Checked against statement" aria-label="Checked against statement">✓</button></td></tr>`).join("") || `<tr><td colspan="6">${empty(all.length ? "Nothing matches." : "No card activity yet. Add a charge, import your card statement, or record a payment.")}</td></tr>`}
-  </tbody></table></div></div>`;
+  <div class="tbl"><table><thead><tr><th>Date</th><th>Type</th><th>Payee / what</th><th>Category</th><th>Note for my books</th><th class="num">Amount</th><th></th></tr></thead><tbody>
+  ${rows.map(r => `<tr ${r.act ? `class="click" data-act="${r.act}" data-id="${r.srcId}"` : ""}><td>${fmtDate(r.date)}</td><td>${esc(r.kind)}</td><td>${esc(r.name || r.what || "")}</td><td data-act="none">${catCell(r)}</td><td>${r.note.note ? `<span class="pre">${esc(r.note.note)}</span>` : '<span class="small muted">—</span>'}</td><td class="num ${r.charge < 0 ? "pos" : ""}">${r.charge < 0 ? "−" + money(-r.charge) : money(r.charge)}</td><td><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;min-width:120px">${r.act === "editExpense" && r.kind !== "Payment" ? `<button class="btn small" data-act="itemize" data-id="${r.srcId}">Itemize</button> ` : ""}<button class="btn small" data-act="cardNote" data-id="${r.srcId}" data-label="${esc(fmtDate(r.date) + " · " + (r.name || r.kind) + " · " + money(Math.abs(r.charge)))}">Note</button> <button class="chip" style="padding:3px 9px" data-act="cardOk" data-id="${r.srcId}" aria-pressed="${!!r.note.ok}" title="Checked against statement" aria-label="Checked against statement">✓</button></div></td></tr>`).join("") || `<tr><td colspan="7">${empty(all.length ? "Nothing matches." : "No card activity yet. Add a charge, import your card statement, or record a payment.")}</td></tr>`}
+  </tbody></table></div></div>
+  <section class="panel" style="margin-top:18px"><div class="panel-head"><h2>Where the money went</h2><div class="chips">${[["month","This month"],["last","Last month"],["year","This year"],["lastyear","Last year"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="cardRange" data-val="${k}" aria-pressed="${rk === k}">${l}</button>`).join("")}</div></div>
+  ${spend.length ? `<div class="list">${spend.map(([k, v]) => `<div class="item" style="cursor:default"><div style="flex:1"><div class="t">${esc(k)}</div><div style="height:6px;border-radius:3px;background:var(--line);margin-top:6px"><div style="height:6px;border-radius:3px;background:var(--brand, #1e3a5f);width:${spendTot > 0 ? Math.max(2, Math.round(v / spendTot * 100)) : 0}%"></div></div></div><div class="r num">${money(v)}<div class="small muted">${spendTot > 0 ? Math.round(v / spendTot * 100) : 0}%</div></div></div>`).join("")}<div class="item" style="cursor:default"><div class="t"><b>Total on card · ${esc(rl)}</b></div><div class="r num"><b>${money(spendTot)}</b></div></div></div>` : empty("No card charges for " + rl.toLowerCase() + ".")}
+  </section>`;
 };
 function cardPayForm(acct){ const cards = cardAccts(); if (!cards.length) { toast("Add your credit card under Chart of accounts first."); go("accounts"); return; }
   acct = byId("accounts", acct)?.type === "ccard" ? acct : (UI.cardAcct && byId("accounts", UI.cardAcct)?.type === "ccard" ? UI.cardAcct : cards[0].id);
@@ -1016,6 +1094,7 @@ const HELP = [
   ["It says \"Reconnect Google\" at the top. What do I do?", `Just tap <b>Reconnect</b> and choose your Google account. Google only lets the app stay signed in for about an hour at a time, so this is normal. Nothing you entered is lost; it's saved on the device and syncs as soon as you reconnect. About once a week Google may ask you to approve the app again. Click <b>Continue</b> when it does.`],
   ["How do I put the app on my phone or computer?", `<b>iPhone:</b> open the app's address in <b>Safari</b> → tap the Share button → <b>Add to Home Screen</b>. Open it from the new icon and tap <b>Connect Google</b>.<br><b>Computer:</b> open it in Chrome → click the install icon at the right of the address bar (or ⋮ → Cast, save and share → Install page as app).`]]],
  ["Invoices", [
+  ["Where are all my open invoices?", `On <b>Home</b> under <b>Current invoices</b>. Every invoice that isn't finished and paid shows in its stage: Not started → Parts ordered → Engraving → Ready for pickup → Delivered · waiting on payment. Tap the <b>→</b> button to move a job to the next stage. Once it's delivered, it waits in the last column until you tap <b>Receive payment</b>. Badges show overdue, not-sent and paid invoices.`],
   ["How do I bill someone new, or change who an invoice goes to?", `In the invoice (or estimate), under the customer, tap <b>Change bill to / contact</b>. Pick someone already on file from <b>Quick pick</b>, or choose <b>+ Someone new</b> and type their name, email and billing address. That changes <i>this invoice only</i>: the printed invoice shows "Attn:" that person, and <b>Email invoice</b> goes to their email.<br><br>If this person is now the main contact for the account, also tick <b>Save to the account as the main contact</b>. The old contact is kept under Other contacts. You can also do this from the customer's page with <b>Change contact</b>.`],
   ["How do I make an invoice?", `<ol><li>Tap <b>New invoice</b> (Home or Sales).</li><li>Pick the customer. New customer? Choose "+ Add a new customer" at the top of the list.</li><li>Add lines: pick an item (or "+ New item"), type a description, quantity and price. The customer's past prices show on the right.</li><li>Check the tax rate. It fills in from the customer's file (7.5% for Lakewood, 0 for tax-exempt).</li><li>Press <b>Save</b>.</li></ol>`],
   ["Is shipping taxed?", `No. Any line for shipping, delivery, freight or postage is saved without sales tax, even if the Tax box was checked. Colorado doesn't tax delivery charges when they're on their own line and the customer could have picked up instead. So always put shipping on a separate line. Lakewood is a home-rule city with its own tax rules, so confirm with your accountant.`],
@@ -1046,6 +1125,8 @@ const HELP = [
   ["How do I find items that fit a customer's budget?", `Go to <b>Inventory</b>. In the gold <b>Fit a budget</b> bar, type their total budget and how many pieces they need (for example $300 for 12 medals). You'll see the most you can charge each, and only the items that fit, nicest first, with the total for all the pieces. Check <b>Include sales tax</b> if they aren't tax-exempt. You can also set a price range each (like $10 to $25). Items with low stock show "only N in stock". Press <b>Clear</b> to see everything again.`],
   ["How do I know what's running low?", `Home lists low-stock items. Set a "reorder at" number on each item (Inventory → the item → Edit) so the app knows when to warn you.`]]],
  ["Expenses, banking and taxes", [
+  ["My cash in bank doesn't match Navy Federal. How do I fix it?", `Banking → <b>Balance the books</b> (or tap <b>Balance</b> next to Cash in bank on Home).<ol><li>Type the balance Navy Federal shows and the date.</li><li>The app shows the difference and the likely reasons: imported transactions you haven't added yet, a possible duplicate, something entered backwards, or an amount that exactly matches the difference. Tap a name to open and fix it.</li><li>Still can't find it? <b>Adjust my books</b> adds one adjustment so the numbers match. Use this for small leftovers, and tell your accountant about big ones.</li></ol>For a thorough check, open <b>Tick off each transaction</b> and tick everything that's on your statement. Anything left unticked (like a check that hasn't been cashed) explains the rest. This works for the credit card too.`],
+  ["How do I itemize credit card charges into categories?", `Expenses → <b>Credit card</b>.<ul><li>Each charge has a <b>Category</b> box. Pick where the money went (Shop Supplies, Office Supplies, Advertising, Owner's Draw for personal, etc.).</li><li>One receipt covering several things? Tap <b>Itemize</b> (or choose "Split into several categories…"). Add a line per category with its amount. The app shows how much is left to assign and won't save until it adds up to the charge.</li><li>Imported your card statement? New charges show under <b>To categorize</b> at the top. Pick a category or tap <b>Split…</b>.</li><li>Need a new category? Inside Itemize, open "Need a category that isn't listed?" and add it.</li><li><b>Where the money went</b> at the bottom totals your card spending by category for this month, last month, this year or last year.</li></ul>`],
   ["How do I pay my credit card or add notes to card charges?", `Go to Expenses → <b>Credit card</b>. You'll see what you owe and every charge, refund and payment.<ul><li><b>Pay card</b>: records a payment from checking to the card. It only records it in your books. Make the actual payment on Navy Federal's website or app.</li><li><b>Add a charge</b>: something you bought with the card. Pick the category so your taxes come out right.</li><li><b>Note</b>: write what a charge was for (for example, which order or event it was for). Notes show in the list and can be searched.</li><li><b>✓</b>: mark a line once you've checked it against your statement. Use the <b>Not checked</b> filter to see what's left.</li></ul>Paid the card from Banking instead? Categorize that bank line to the card account and it shows here as a payment.`],
   ["How do I enter a bill or a purchase?", `Bill you'll pay later: <b>Enter bill</b> on Home. Something already paid by card or check: Expenses → <b>Write check / card charge</b>. Pick the right category so your taxes come out right.`],
   ["How do I bring in my bank statement?", `Download a CSV from Navy Federal, then Banking → <b>Import statement</b>. Match or categorize each line. Rules you create sort similar lines automatically next time.`],
@@ -1279,6 +1360,61 @@ function txSuggest(t){
   const d = (t.desc || "").toLowerCase(); out.rule = S.bankrules.find(r => r.text && d.includes(r.text.toLowerCase()));
   return out;
 }
+const SRC_ACT = {"Check":"editExpense", "Card charge":"editExpense", "Bill payment":"viewBillpay", "Journal entry":"editJournal", "Payment":"editPayment"};
+function acctItems(acct){ const g = new Map();
+  for (const l of journal()) if (l.acct === acct) { const k = l.src + "|" + l.srcId; const x = g.get(k) || {key:k, date:l.date, src:l.src, srcId:l.srcId, name:l.name, memo:"", raw:0}; x.raw = r2(x.raw + l.amt); if (!x.memo && l.memo) x.memo = l.memo; g.set(k, x); }
+  return [...g.values()].filter(x => Math.abs(x.raw) > 0.004).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0); }
+const balSt = acct => (UI.balSt || {})[acct] || {date:todayISO(), bal:""};
+async function discAcct(){ let a = S.accounts.find(x => /reconciliation discrepanc/i.test(x.name)); if (a) return a.id;
+  const id = await put("accounts", {id:"a6990", number:"6990", name:"Reconciliation Discrepancies", type:"expense", openBal:0}); return id || "a6990"; }
+VIEWS.balance = id => {
+  const accts = bankAccts(), acct = byId("accounts", id) ? id : (UI.balAcct && byId("accounts", UI.balAcct) ? UI.balAcct : accts[0]?.id); UI.balAcct = acct;
+  const a = byId("accounts", acct); if (!a) return `<div class="panel">${empty("Add your bank account under Chart of accounts first.")}</div>`;
+  const card = a.type === "ccard", st = balSt(acct), books = shown(a, balances(null, st.date)[acct]);
+  const bank = st.bal === "" || isNaN(+st.bal) ? null : r2(+st.bal), diff = bank === null ? null : r2(bank - books);
+  const cleared = a.cleared || {}, items = acctItems(acct).filter(x => x.date <= st.date), isClr = x => x.src === "Opening balance" || !!cleared[x.key];
+  const clearedBal = shown(a, items.filter(isClr).reduce((s, x) => s + x.raw, 0)), fdiff = bank === null ? null : r2(bank - clearedBal);
+  const unrev = S.banktx.filter(t => t.acct === acct && t.status === "new"), full = UI.balFull, showAll = UI.balAll;
+  const inn = x => card ? x.raw < 0 : x.raw > 0, amtOf = x => Math.abs(x.raw);
+  const link = x => SRC_ACT[x.src] ? `<button class="linkbtn" data-act="${SRC_ACT[x.src]}" data-id="${x.srcId}" style="text-align:left">${esc(x.name || x.memo || x.src)}</button>` : esc(x.name || x.memo || x.src);
+  // likely reasons
+  const hints = [];
+  if (diff !== null && Math.abs(diff) > 0.004) {
+    if (unrev.length) hints.push(`<b>${unrev.length} imported transaction${unrev.length > 1 ? "s are" : " is"} still waiting in Banking.</b> They aren't in your books until you add or match them. <a href="#/banking/${acct}">Review them</a>`);
+    const same = items.filter(x => Math.abs(amtOf(x) - Math.abs(diff)) < 0.005).slice(-3);
+    same.forEach(x => hints.push(`A ${money(amtOf(x))} ${inn(x) ? (card ? "charge" : "deposit") : (card ? "payment" : "payment")} on ${fmtDate(x.date)} (${link(x)}) is exactly the difference. It may be entered twice, or not have hit the bank yet.`));
+    const half = items.filter(x => Math.abs(amtOf(x) * 2 - Math.abs(diff)) < 0.005).slice(-2);
+    half.forEach(x => hints.push(`${money(amtOf(x))} on ${fmtDate(x.date)} (${link(x)}) is half the difference. It might be entered backwards (money in vs. money out).`));
+    const dups = []; for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length && dups.length < 5; j++) { const x = items[i], y = items[j]; if (x.src === "Opening balance" || y.src === "Opening balance") continue; if (Math.abs(x.raw - y.raw) < 0.005 && Math.abs(daysBetween(x.date, y.date)) <= 4 && x.key !== y.key) dups.push([x, y]); }
+    dups.forEach(([x, y]) => hints.push(`Possible duplicate: ${money(amtOf(x))} on ${fmtDate(x.date)} (${link(x)}) and ${fmtDate(y.date)} (${link(y)}). If it's the same thing, delete one.`));
+    const old = items.filter(x => !isClr(x) && daysBetween(x.date, st.date) > 45 && !inn(x) && !card);
+    if (old.length && !full) hints.push(`You have checks or payments older than 45 days that you haven't ticked off. If a check was never cashed, the bank won't show it yet. Use <b>Tick off each transaction</b> below to find it.`);
+    hints.push(card ? (diff < 0 ? `Your books show you owe more than the bank does. Look for a card payment or refund on the statement that isn't in your books, or a charge entered twice.` : `The bank shows you owe more. Look for charges or card fees on the statement that aren't in your books yet.`)
+      : (diff < 0 ? `Your books show more cash than the bank. Look for something paid out that never got entered (bank fees, a card payment, a transfer, a check), or a deposit entered twice.` : `The bank shows more cash than your books. Look for a deposit that never got entered (a customer payment, a Square or Venmo payout, a transfer in), or an expense entered twice.`));
+  }
+  const unt = items.filter(x => !isClr(x)), rows = (showAll ? items : unt).slice().reverse();
+  const recs = (a.recons || []).slice(-5).reverse();
+  return `<div class="pagehead"><div><h1>Balance the books</h1><p>Make the app's ${card ? "card balance" : "cash in bank"} match what Navy Federal shows.</p></div><div class="actions"><a class="btn" href="#/banking/${acct}">Banking</a></div></div>
+  <nav class="seg" aria-label="Accounts">${accts.map(x => `<a href="#/balance/${x.id}" ${x.id === acct ? 'aria-current="page"' : ""}>${esc(x.name)}</a>`).join("")}</nav>
+  <section class="panel"><h2 style="margin-bottom:6px">1. What does the bank say?</h2><p class="small muted" style="margin-top:0">Look at Navy Federal online or your statement. Enter the ${card ? "balance you owe" : "balance"} and the date it's for.</p>
+  <div class="fields"><label class="f">Date<input type="date" id="balDate" data-bal="date" value="${esc(st.date)}"></label><label class="f">${card ? "Balance owed" : "Bank balance"}<input type="number" step="0.01" id="balAmt" data-bal="bal" value="${esc(st.bal)}" placeholder="0.00"></label></div></section>
+  <div class="ledger" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:18px"><div><span>Your books on ${fmtDate(st.date)}</span><b>${money(books)}</b></div><div><span>Bank says</span><b>${bank === null ? "—" : money(bank)}</b></div><div><span>Difference</span><b style="color:${diff === null ? "inherit" : Math.abs(diff) < 0.005 ? "var(--good)" : "var(--bad, #b3261e)"}">${diff === null ? "—" : Math.abs(diff) < 0.005 ? "Balanced ✓" : money(diff)}</b></div></div>
+  ${diff === null ? "" : Math.abs(diff) < 0.005 ? `<section class="panel" style="margin-top:18px"><p style="margin:0;color:var(--good);font-weight:600">Your books match the bank on ${fmtDate(st.date)}.</p><div class="formfoot"><div class="right"><button class="btn primary" data-act="balSave" data-id="${acct}">Save: balanced on ${fmtDate(st.date)}</button></div></div></section>` : `
+  <section class="panel" style="margin-top:18px"><h2 style="margin-bottom:6px">2. Where the ${money(Math.abs(diff))} might be coming from</h2><p class="small muted" style="margin-top:0">Your books are ${money(Math.abs(diff))} ${diff < 0 ? "higher" : "lower"} than the bank. Check these first:</p>
+  <ul style="margin:0 0 4px 18px;padding:0;line-height:1.6">${hints.map(h => `<li>${h}</li>`).join("")}</ul></section>
+  <section class="panel" style="margin-top:18px"><h2 style="margin-bottom:6px">3. Can't find it? Make the books match</h2><p class="small muted" style="margin-top:0">This adds one adjustment of ${money(diff)} dated ${fmtDate(st.date)} to a "Reconciliation Discrepancies" account, so your ${card ? "card balance" : "cash in bank"} matches the bank. Don't use it for checks that just haven't cleared yet. It's fine for small leftovers, but tell your accountant about big ones.</p>
+  <div class="formfoot"><div class="right"><button class="btn primary" data-act="balAdjust" data-id="${acct}" data-diff="${diff}">Adjust my books by ${money(diff)}</button></div></div></section>`}
+  <details class="panel" style="margin-top:18px" ${full ? "open" : ""} data-act-toggle="balFull"><summary style="cursor:pointer;font-weight:600">Tick off each transaction (full check, like QuickBooks reconcile)</summary>
+  <p class="small muted">Tick each item that appears on your statement up to ${fmtDate(st.date)}. Items left unticked are ones the bank hasn't seen yet (like checks not cashed) or shouldn't be in your books.</p>
+  <div class="ledger" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><span>Ticked balance</span><b>${money(clearedBal)}</b></div><div><span>Bank says</span><b>${bank === null ? "—" : money(bank)}</b></div><div><span>Left to find</span><b style="color:${fdiff !== null && Math.abs(fdiff) < 0.005 ? "var(--good)" : "inherit"}">${fdiff === null ? "—" : Math.abs(fdiff) < 0.005 ? "0.00 ✓" : money(fdiff)}</b></div></div>
+  <div class="toolbar" style="margin-top:12px"><div class="chips"><button class="chip" data-act="balShow" data-val="" aria-pressed="${!showAll}">Not ticked (${unt.length})</button><button class="chip" data-act="balShow" data-val="1" aria-pressed="${!!showAll}">All</button></div><button class="btn small" data-act="balTickAll" data-id="${acct}">Tick everything through ${fmtDate(st.date)}</button></div>
+  <div class="tbl"><table><thead><tr><th>Date</th><th>Type</th><th>Name</th><th class="num">${card ? "Charges" : "Money in"}</th><th class="num">${card ? "Payments" : "Money out"}</th><th>On statement</th></tr></thead><tbody>
+  ${rows.slice(0, 300).map(x => `<tr><td>${fmtDate(x.date)}</td><td>${esc(x.src)}</td><td>${link(x)}${x.memo && x.name ? `<div class="small muted">${esc(x.memo)}</div>` : ""}</td><td class="num">${inn(x) ? money(amtOf(x)) : ""}</td><td class="num">${inn(x) ? "" : money(amtOf(x))}</td><td>${x.src === "Opening balance" ? '<span class="small muted">Starting balance</span>' : `<button class="chip" style="padding:3px 10px" data-act="balTick" data-id="${acct}" data-key="${esc(x.key)}" aria-pressed="${isClr(x)}" aria-label="On statement">✓</button>`}</td></tr>`).join("") || `<tr><td colspan="6">${empty(showAll ? "No transactions up to this date." : "Everything up to this date is ticked.")}</td></tr>`}
+  </tbody></table></div>
+  ${fdiff !== null && Math.abs(fdiff) < 0.005 && Math.abs(diff) > 0.004 ? `<p class="small" style="color:var(--good);font-weight:600">Everything you ticked matches the bank. The rest of the difference is items the bank hasn't seen yet, so no adjustment is needed.</p><div class="formfoot"><div class="right"><button class="btn primary" data-act="balSave" data-id="${acct}">Save: balanced on ${fmtDate(st.date)}</button></div></div>` : ""}
+  </details>
+  ${recs.length ? `<section class="panel" style="margin-top:18px"><h2>Past balancing</h2><div class="list">${recs.map(r => `<div class="item" style="cursor:default"><div><div class="t">${fmtDate(r.date)} · bank ${money(r.bal)}</div><div class="s">${r.adj ? "Adjusted by " + money(r.adj) : "Balanced"}</div></div></div>`).join("")}</div></section>` : ""}`;
+};
 VIEWS.banking = id => {
   const accts = bankAccts(); const acct = byId("accounts", id) ? id : (UI.bankAcct && byId("accounts", UI.bankAcct) ? UI.bankAcct : accts[0]?.id); UI.bankAcct = acct;
   const a = byId("accounts", acct); if (!a) return `<div class="panel">${empty("Add a bank or credit card account under Chart of accounts first.")}</div>`;
@@ -1294,7 +1430,7 @@ VIEWS.banking = id => {
     if (sg.rule) acts.push(`<button class="btn small ${acts.length ? "" : "primary"}" data-act="txQuick" data-id="${t.id}" data-acct="${sg.rule.acct}" data-vendor="${sg.rule.vendorId || ""}">Add to ${esc(byId("accounts", sg.rule.acct)?.name || "?")}</button>`);
     acts.push(`<button class="btn small" data-act="txCategorize" data-id="${t.id}">Categorize…</button>`, `<button class="btn small" data-act="txExclude" data-id="${t.id}">Exclude</button>`);
     return `<div class="item" style="cursor:default"><div><div class="t">${esc(t.desc || "(no description)")}</div><div class="s">${fmtDate(t.date)}${t.check ? " · check " + esc(t.check) : ""}</div><div class="actions" style="margin-top:8px">${acts.join("")}</div></div><div class="r num ${t.amount < 0 ? "neg" : ""}" style="align-self:start">${money(t.amount)}</div></div>`; };
-  return `<div class="pagehead"><div><h1>Banking</h1><p>Import statements from Navy Federal, then match or categorize each transaction.</p></div><div class="actions"><button class="btn primary" data-act="bankImport">Import statement file</button></div></div>
+  return `<div class="pagehead"><div><h1>Banking</h1><p>Import statements from Navy Federal, then match or categorize each transaction.</p></div><div class="actions"><button class="btn primary" data-act="bankImport">Import statement file</button><a class="btn" href="#/balance/${acct}">Balance the books</a></div></div>
   <nav class="seg" aria-label="Accounts">${accts.map(x => `<a href="#/banking/${x.id}" ${x.id === acct ? 'aria-current="page"' : ""}>${esc(x.name)}</a>`).join("")}</nav>
   <div class="ledger" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div><span>${a.type === "ccard" ? "Card balance owed" : "Balance in your books"}</span><b>${money(bal)}</b></div><div><span>To review</span><b>${review.length}</b></div><div><span>Last statement check</span><b style="font-size:20px">${rec.date ? fmtDate(rec.date) : "Not yet"}</b></div></div>
   <section class="panel"><div class="panel-head"><h2>To review</h2></div><div class="list">${review.map(row).join("") || empty(txs.length ? "Everything is reviewed." : "Download transactions from Navy Federal online banking (CSV, or the Quicken/QuickBooks format), then use Import statement file.", txs.length ? "" : '<button class="btn primary" data-act="bankImport">Import statement file</button>')}</div></section>
@@ -2568,6 +2704,16 @@ const FORMS = {
     const eid = await put("expenses", {fromAcct:val(f, "fromAcct") || SYS.CHK, date:val(f, "date") || todayISO(), vendorId:"", payee:a.name, ref:val(f, "ref"), lines:[{ref:"a:" + card, qty:1, rate:amt, memo:"Credit card payment"}]});
     if (val(f, "note")) await setCardNote(eid, {note:val(f, "note")});
     toast("Payment of " + money(amt) + " recorded"); go("card/" + card); },
+  async itemize(f){ const tot = +f.dataset.total, rows = $$(".itz-row", f).map(r => ({ref:r.querySelector("[name=itzRef]").value, amt:r2(+r.querySelector("[name=itzAmt]").value || 0), memo:r.querySelector("[name=itzMemo]").value.trim()})).filter(r => r.ref || r.amt);
+    if (!rows.length) return formErr(f, "Add at least one category.");
+    if (rows.some(r => !r.ref)) return formErr(f, "Choose a category on each line (or remove the empty one).");
+    const left = r2(tot - rows.reduce((s, r) => s + r.amt, 0)); if (Math.abs(left) > 0.004) return formErr(f, left > 0 ? money(left) + " still needs a category." : "The amounts add up to more than the charge by " + money(-left) + ".");
+    const lines = rows.map(r => ({ref:r.ref, qty:1, rate:r.amt, memo:r.memo}));
+    let eid = f.dataset.exp;
+    if (eid) { const e = byId("expenses", eid); await put("expenses", {...clone(e), lines}); }
+    else { const t = byId("banktx", f.dataset.tx); eid = await put("expenses", {fromAcct:t.acct, date:t.date, vendorId:"", payee:(t.desc || "Card charge").slice(0, 60), ref:t.check || "", lines}); await put("banktx", {...clone(t), status:"added", link:{src:byId("accounts", t.acct)?.type === "ccard" ? "Card charge" : "Check", srcId:eid, created:true, col:"expenses"}, reviewedAt:Date.now()}); }
+    const nt = f.elements.note ? f.elements.note.value.trim() : ""; if (nt !== (cardNote(eid).note || "")) await setCardNote(eid, {note:nt});
+    toast(rows.length > 1 ? "Split into " + rows.length + " categories" : "Categorized"); },
   async cardNote(f){ await setCardNote(f.dataset.id, {note:f.elements.note.value.trim(), ok:f.elements.ok.checked}); toast("Note saved"); },
   async changeContact(f){ const c = byId("customers", f.dataset.id); if (!c) return;
     const v = {contact:val(f, "contact"), email:val(f, "email"), phone:val(f, "phone")};
@@ -2714,7 +2860,27 @@ const ACT = {
   btToggle(el){ const box = el.closest("[data-billto]"), ed = box.querySelector("[data-bt-edit]"), open = ed.hidden; ed.hidden = !open; box.dataset.open = open ? "1" : ""; el.textContent = open ? "Done" : "Change bill to / contact"; el.setAttribute("aria-expanded", open); if (open) box.querySelector("[name=btContact]").focus(); },
   btReset(el){ const f = el.closest("form"), box = el.closest("[data-billto]"); f._bt = {}; box.dataset.open = "1"; renderBillTo(f); toast("Back to the account's usual bill to"); },
   cardPay: el => cardPayForm(el.dataset.id), cardCharge: el => expenseForm({date:todayISO(), fromAcct:el.dataset.id || UI.cardAcct || cardAccts()[0]?.id || SYS.CHK, lines:[]}),
-  cardNote: el => cardNoteForm(el.dataset.id, el.dataset.label), async cardOk(el){ const n = cardNote(el.dataset.id); await setCardNote(el.dataset.id, {ok:!n.ok}); },
+  cardNote: el => cardNoteForm(el.dataset.id, el.dataset.label),
+  boardMore(el){ UI.boardAll = {...(UI.boardAll || {}), [el.dataset.val]:true}; render(); },
+  balShow(el){ UI.balAll = !!el.dataset.val; UI.balFull = true; render(); },
+  async balTick(el){ const a = byId("accounts", el.dataset.id), c = {...(a.cleared || {})}; if (c[el.dataset.key]) delete c[el.dataset.key]; else c[el.dataset.key] = 1; UI.balFull = true; await put("accounts", {...clone(a), cleared:c}); },
+  async balTickAll(el){ const a = byId("accounts", el.dataset.id), st = balSt(a.id), c = {...(a.cleared || {})}; acctItems(a.id).filter(x => x.date <= st.date).forEach(x => c[x.key] = 1); UI.balFull = true; await put("accounts", {...clone(a), cleared:c}); toast("Ticked everything through " + fmtDate(st.date)); },
+  async balSave(el){ const a = byId("accounts", el.dataset.id), st = balSt(a.id); await put("accounts", {...clone(a), recon:{date:st.date, balance:r2(+st.bal)}, recons:[...(a.recons || []), {date:st.date, bal:r2(+st.bal), at:new Date().toISOString(), adj:0}]}); toast("Saved. Books balanced on " + fmtDate(st.date)); },
+  balAdjust(el){ const acct = el.dataset.id, diff = r2(+el.dataset.diff), a = byId("accounts", acct), st = balSt(acct);
+    confirmBox(`Add an adjustment of ${money(diff)} on ${fmtDate(st.date)} so ${a.name} matches the bank?`, "Adjust books", async () => {
+      const disc = await discAcct(), raw = DEBIT_NORMAL.has(a.type) ? diff : -diff, memo = "Balance to bank statement";
+      const jid = await put("journals", {date:st.date, memo, lines:[{acct, debit:raw > 0 ? raw : 0, credit:raw < 0 ? -raw : 0, memo}, {acct:disc, debit:raw < 0 ? -raw : 0, credit:raw > 0 ? raw : 0, memo}]});
+      const a2 = byId("accounts", acct); await put("accounts", {...clone(a2), cleared:{...(a2.cleared || {}), ["Journal entry|" + jid]:1}, recon:{date:st.date, balance:r2(+st.bal)}, recons:[...(a2.recons || []), {date:st.date, bal:r2(+st.bal), at:new Date().toISOString(), adj:diff}]});
+      toast("Adjusted. " + a.name + " now matches the bank."); }); },
+  itemize: el => itemizeForm({expenseId:el.dataset.id}), itemizeTx: el => itemizeForm({txId:el.dataset.id}),
+  itzAdd(el){ const f = el.closest("form"); f.querySelector("[data-itz]").insertAdjacentHTML("beforeend", itzRow({ref:"", amt:(v => v > 0.004 ? v : "")(itzLeft(f)), memo:""})); itzLeft(f); },
+  itzDel(el){ const f = el.closest("form"), rows = f.querySelectorAll(".itz-row"); if (rows.length > 1) el.closest(".itz-row").remove(); else { el.closest(".itz-row").querySelectorAll("input").forEach(i => i.value = ""); } itzLeft(f); },
+  async newCat(el){ const f = el.closest("form"), inp = f.querySelector("[data-newcat]"), name = inp.value.trim(); if (!name) { inp.focus(); return; }
+    let a = S.accounts.find(x => x.name.toLowerCase() === name.toLowerCase());
+    if (!a) { const nums = S.accounts.filter(x => x.type === "expense").map(x => +x.number).filter(n => n >= 6000 && n < 7000); let n = 6010; while (nums.includes(n) || S.accounts.some(x => +x.number === n)) n += 10; if (n >= 7000) n = 6999; const id = await put("accounts", {number:String(n), name, type:"expense", openBal:0}); a = byId("accounts", id); }
+    f.querySelectorAll("[name=itzRef]").forEach(sel => { const cur = sel.value; sel.innerHTML = buyRefOpts(cur).replace('Choose account or item', 'Choose category'); });
+    const empty1 = [...f.querySelectorAll("[name=itzRef]")].find(sel => !sel.value); if (empty1) empty1.value = "a:" + a.id;
+    inp.value = ""; toast("Category added: " + name); }, async cardOk(el){ const n = cardNote(el.dataset.id); await setCardNote(el.dataset.id, {ok:!n.ok}); },
   cardAmt(el){ const f = el.closest("form"); f.elements.amount.value = el.dataset.v === "owed" ? r2(+f.elements.card.selectedOptions[0].dataset.owed || 0) : r2(+el.dataset.v); },
   changeContact(el){ const c = byId("customers", el.dataset.id); if (!c) return; const others = (c.contacts || []);
     openSheet("Change main contact", `<form data-form="changeContact" data-id="${c.id}"><p class="muted" style="margin-top:0">${esc(c.name)} · now: <b>${esc([c.contact, c.email].filter(Boolean).join(" · ") || "no contact")}</b></p>
@@ -2977,7 +3143,9 @@ document.addEventListener("click", e => {
   if (e.target === $("#sheet")) closeSheet();
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); if (e.key === "Enter" && e.target.matches("tr[data-href]")) location.hash = e.target.dataset.href; });
+document.addEventListener("toggle", e => { const t = e.target; if (t.dataset && t.dataset.actToggle === "balFull") UI.balFull = t.open; }, true);
 document.addEventListener("change", e => { const t = e.target; if (!t.dataset) return;
+  if (t.dataset.cardCat !== undefined) { cardQuickCat(t); return; }
   if (t.name === "desc" && t.closest(".line.inv")) { shipRowCheck(t.closest(".line")); const ff = t.closest("form"); if (ff) recalc(ff); }
   if (t.dataset.budTax !== undefined) { UI.bud = {...(UI.bud || {}), tax:t.checked}; render(); return; }
   if (t.dataset.mailCat) { UI.mailCat = {...(UI.mailCat || {}), [t.dataset.mailCat]:t.value}; render(); }
@@ -2985,6 +3153,8 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
   else if (t.dataset.mailVend) { UI.mailVend = {...(UI.mailVend || {}), [t.dataset.mailVend]:t.value}; render(); } });
 document.addEventListener("input", e => {
   const t = e.target;
+  if (t.dataset && t.dataset.bal) { const acct = UI.balAcct; UI.balSt = {...(UI.balSt || {}), [acct]:{...balSt(acct), [t.dataset.bal]:t.value}}; render(); return; }
+  if (t.dataset && t.dataset.itzAmt !== undefined) { itzLeft(t.closest("form")); return; }
   if (t.dataset && t.dataset.btIn !== undefined) { btSummary(t.closest("form")); return; }
   if (t.dataset && t.dataset.bud) { UI.bud = {...(UI.bud || {}), [t.dataset.bud]:t.value}; render(); return; }
   if (t.dataset.q) { UI.q[t.dataset.q] = t.value; render(); return; }
