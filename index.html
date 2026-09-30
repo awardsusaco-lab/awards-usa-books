@@ -98,6 +98,14 @@ a.btn.primary{color:var(--primary-ink)}
 .dropzone{display:flex;flex-direction:column;gap:4px;align-items:center;text-align:center;border:2px dashed var(--line);border-radius:12px;padding:22px 16px;margin-bottom:18px;cursor:pointer;background:var(--surface);color:var(--muted, #667)}
 .dropzone b{color:var(--ink, inherit);font-size:16px}.dropzone:hover,body.dragging .dropzone{border-color:var(--brand, #1e3a5f);background:rgba(30,58,95,.06)}
 body.dragging::after{content:"Drop statement to import";position:fixed;inset:12px;border:3px dashed var(--brand, #1e3a5f);border-radius:16px;background:rgba(30,58,95,.08);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--brand, #1e3a5f);z-index:9999;pointer-events:none}
+.ordcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.ordcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.ordlines{margin:10px 0 12px;padding-left:18px;line-height:1.55}.ordcard .actions{display:flex;flex-wrap:wrap;gap:8px}
+.ordrow{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--surface)}
+.or-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:start}
+.or-grid{display:grid;grid-template-columns:80px 110px minmax(0,1.4fr) minmax(0,1.6fr) 100px;gap:8px;margin-top:8px}
+.or-grid .f{margin:0}.or-note{margin-top:6px}
+@media (max-width:760px){.or-grid{grid-template-columns:1fr 1fr}.or-grid .f:nth-child(3),.or-grid .f:nth-child(4){grid-column:1/-1}.ordcards{grid-template-columns:1fr}}
 .board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
 .bcol{background:var(--bg, rgba(0,0,0,.03));border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0}
 .bcol-h{display:flex;justify-content:space-between;gap:6px;align-items:baseline;margin-bottom:8px;font-size:13.5px}
@@ -267,6 +275,7 @@ label.check{display:flex;gap:8px;align-items:center;font-size:14px}
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+<input type="file" id="orderFile" accept=".pdf,application/pdf" hidden>
 <input type="file" id="bankFile" accept=".pdf,.csv,.ofx,.qfx,.qbo,.txt,text/csv,application/pdf" multiple hidden>
 
 <script>
@@ -647,7 +656,7 @@ function route(){ const h = location.hash.replace(/^#\/?/, ""); const [view, id]
 const go = h => { location.hash = "#/" + h; };
 
 const NAV_ALL = [["home","Home"],["inbox","Inbox"],["customers","Customers"],["email","Email"],["sales","Sales"],["expenses","Expenses"],["banking","Banking"],["investments","Investments"],["taxes","Taxes"],["pay","Pay"],["inventory","Inventory"],["reports","Reports"],["accounts","Chart of accounts"],["settings","Settings"],["help","Help"]];
-const SECTION = {pos:"expenses", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"sales", estimate:"sales", bills:"expenses", checks:"expenses", card:"expenses", balance:"banking", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
+const SECTION = {pos:"inventory", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"sales", estimate:"sales", bills:"expenses", checks:"expenses", card:"expenses", balance:"banking", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
 const ICONS = {
   home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   customers:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.8 3.1 2.5 3.5 5.2"/>',
@@ -756,8 +765,8 @@ VIEWS.home = () => {
   repeatRadar(30).filter(r => !r.contacted).slice(0, 5).forEach(r => todo.push(`<a class="item" href="#/repeat"><div><div class="t">Reach out to ${esc(r.c.name)} about their yearly order</div><div class="s">Usually orders around ${fmtDate(r.expected)}</div></div><div class="r muted">›</div></a>`));
   openJobs().filter(i => i.neededBy && i.neededBy <= addDays(t, 7) && i.jobStatus !== "ready").sort((a, b) => a.neededBy < b.neededBy ? -1 : 1).forEach(i => todo.push(`<a class="item" href="#/invoice/${i.id}"><div><div class="t">Finish order for ${esc(custName(i.customerId))} (#${esc(i.num)})</div><div class="s">${dueText(i.neededBy)} · ${jobLabel(i.jobStatus)}</div></div><div class="r muted">›</div></a>`));
   taxDeadlines().filter(x => !x.filed && x.due <= addDays(t, 14)).forEach(x => todo.push(`<a class="item" href="#/taxes"><div><div class="t">${esc(x.title)} · ${esc(x.period.label)}</div><div class="s">${dueText(x.due)}</div></div><div class="r num">${x.amount ? money(x.amount) : ""}</div></a>`));
-  S.pos.filter(o => o.status === "shipped" && (o.deliveredHint || (o.expected && o.expected <= addDays(t, 1)))).forEach(o => todo.push(`<a class="item" href="#/pos"><div><div class="t">Check in delivery from ${esc(vendName(o.vendorId) || "supplier")}</div><div class="s">${o.deliveredHint ? "Email says it was delivered" : "Expected " + fmtDate(o.expected)} · tap Received when it's here</div></div><div class="r muted">›</div></a>`));
-  S.pos.filter(o => o.status === "placed" && daysBetween(o.date, t) >= 10).forEach(o => todo.push(`<a class="item" href="#/pos"><div><div class="t">Order from ${esc(vendName(o.vendorId) || "supplier")} hasn't shipped</div><div class="s">Placed ${fmtDate(o.date)}${o.orderNo ? " · order #" + esc(o.orderNo) : ""}</div></div><div class="r muted">›</div></a>`));
+  S.pos.filter(o => o.status === "shipped" && (o.deliveredHint || (o.expected && o.expected <= addDays(t, 1)))).forEach(o => todo.push(`<a class="item" href="#/inventory/onorder"><div><div class="t">Check in delivery from ${esc(vendName(o.vendorId) || "supplier")}</div><div class="s">${o.deliveredHint ? "Email says it was delivered" : "Expected " + fmtDate(o.expected)} · tap Received when it's here</div></div><div class="r muted">›</div></a>`));
+  S.pos.filter(o => o.status === "placed" && daysBetween(o.date, t) >= 10).forEach(o => todo.push(`<a class="item" href="#/inventory/onorder"><div><div class="t">Order from ${esc(vendName(o.vendorId) || "supplier")} hasn't shipped</div><div class="s">Placed ${fmtDate(o.date)}${o.orderNo ? " · order #" + esc(o.orderNo) : ""}</div></div><div class="r muted">›</div></a>`));
   { const rr = openReplies().filter(r => r.kind === "real"); if (rr.length) todo.unshift(`<a class="item" href="#/email"><div><div class="t">${rr.length} customer${rr.length > 1 ? "s" : ""} replied to your emails</div><div class="s">${esc(rr.slice(0, 3).map(r => r.c.name).join(", "))}${rr.length > 3 ? "…" : ""}</div></div><div class="r"><span class="badge good">New</span></div></a>`); }
   if (inboxWaiting()) todo.unshift(`<a class="item" href="#/inbox"><div><div class="t">${inboxWaiting()} email${inboxWaiting() > 1 ? "s" : ""} to sort</div><div class="s">Customers, suppliers and junk from your inbox</div></div><div class="r"><span class="badge brass">Inbox</span></div></a>`);
   if (MCP && !UI.inboxAuto && (!S.company.inboxChecked || S.company.inboxChecked.slice(0, 10) < t) && S.accounts.length) { UI.inboxAuto = true; setTimeout(() => scanInbox(true), 6000); }
@@ -948,7 +957,7 @@ VIEWS.expenses = () => {
 };
 function expHead(active){
   return `<div class="pagehead"><div><h1>Expenses</h1></div><div class="actions"><button class="btn primary" data-act="newBill">Enter bill</button><button class="btn" data-act="payBills">Pay bills</button><button class="btn" data-act="newExpense">Write check / card charge</button><button class="btn" data-act="cardPay">Pay credit card</button></div></div>
-  <nav class="seg" aria-label="Expense sections"><a href="#/expenses" ${active === "bills" ? 'aria-current="page"' : ""}>Bills</a><a href="#/checks" ${active === "checks" ? 'aria-current="page"' : ""}>Checks &amp; charges</a><a href="#/card" ${active === "card" ? 'aria-current="page"' : ""}>Credit card</a><a href="#/vendors" ${active === "vendors" ? 'aria-current="page"' : ""}>Vendors</a><a href="#/pos" ${active === "pos" ? 'aria-current="page"' : ""}>Supplier orders</a><a href="#/mileage" ${active === "mileage" ? 'aria-current="page"' : ""}>Mileage</a></nav>`;
+  <nav class="seg" aria-label="Expense sections"><a href="#/expenses" ${active === "bills" ? 'aria-current="page"' : ""}>Bills</a><a href="#/checks" ${active === "checks" ? 'aria-current="page"' : ""}>Checks &amp; charges</a><a href="#/card" ${active === "card" ? 'aria-current="page"' : ""}>Credit card</a><a href="#/vendors" ${active === "vendors" ? 'aria-current="page"' : ""}>Vendors</a><a href="#/inventory/onorder" ${active === "pos" ? 'aria-current="page"' : ""}>Supplier orders</a><a href="#/mileage" ${active === "mileage" ? 'aria-current="page"' : ""}>Mileage</a></nav>`;
 }
 VIEWS.checks = () => {
   const rows = [
@@ -1065,7 +1074,28 @@ VIEWS.vendors = () => {
   </div></div>`;
 };
 
-VIEWS.inventory = () => {
+function invHead(tab){
+  const open = S.pos.filter(o => o.status === "placed" || o.status === "shipped"), low = S.items.filter(it => it.type === "inventory" && (isLow(it) || onHand(it) < 0));
+  const value = S.items.filter(it => it.type === "inventory").reduce((s, it) => s + Math.max(0, onHand(it)) * (+it.cost || 0), 0);
+  const la = UI.lastArrived && byId("pos", UI.lastArrived);
+  return `<div class="pagehead"><div><h1>Inventory</h1><p>${S.items.filter(i => i.type === "inventory").length} stocked items worth ${money(value)} at cost${open.length ? ` · ${open.length} order${open.length > 1 ? "s" : ""} on the way` : ""}</p></div><div class="actions"><button class="btn" data-act="newPO">Log order by hand</button><button class="btn" data-act="adjustStock">Count stock</button><button class="btn" data-act="newItem">New item</button></div></div>
+  ${la && la.status === "received" ? `<div class="notice" style="margin-bottom:12px">✓ Order from <b>${esc(vendName(la.vendorId) || "supplier")}</b> added to stock. <button class="linkbtn" data-act="poUnreceive" data-id="${la.id}">Undo</button> <button class="linkbtn" data-act="dismissArrived" style="margin-left:8px">Dismiss</button></div>` : ""}
+  <div class="dropzone" data-act="orderPick" role="button" tabindex="0"><b>Drop a supplier order or invoice (PDF) here</b><span>or tap to choose it. The app reads the items, you check the names, and it goes to <b>On order</b>.</span></div>
+  <nav class="seg" aria-label="Inventory sections"><a href="#/inventory" ${tab === "stock" ? 'aria-current="page"' : ""}>Stock</a><a href="#/inventory/onorder" ${tab === "onorder" ? 'aria-current="page"' : ""}>On order${open.length ? " (" + open.length + ")" : ""}</a><a href="#/inventory/reorder" ${tab === "reorder" ? 'aria-current="page"' : ""}>Reorder${low.length ? " (" + low.length + ")" : ""}</a><a href="#/inventory/received" ${tab === "received" ? 'aria-current="page"' : ""}>Arrived</a></nav>`; }
+function invOnOrder(){ const open = S.pos.filter(o => o.status === "placed" || o.status === "shipped").sort((a, b) => (a.date || "") < (b.date || "") ? -1 : 1);
+  return invHead("onorder") + (open.length ? `<div class="ordcards">${open.map(poCard).join("")}</div>` : `<div class="panel">${empty("Nothing on order. Drop a supplier's order confirmation PDF above, or tap Log order by hand.")}</div>`) +
+  `<p class="small muted">Stock goes up only when you tap <b>Arrived</b>, so your counts match the shelf. Tapping Arrived also records the purchase (on your card, from checking, or as a bill to pay later).</p>`; }
+function invReceived(){ const done = S.pos.filter(o => o.status === "received").sort((a, b) => (b.receivedAt || "") < (a.receivedAt || "") ? -1 : 1).slice(0, 40);
+  return invHead("received") + (done.length ? `<div class="ordcards">${done.map(poCard).join("")}</div>` : `<div class="panel">${empty("Orders you mark as arrived show up here.")}</div>`); }
+function invReorder(){ const low = S.items.filter(it => it.type === "inventory" && (isLow(it) || onHand(it) < 0)).sort(byName), by = new Map();
+  low.forEach(it => { const k = it.vendorId || ""; if (!by.has(k)) by.set(k, []); by.get(k).push(it); });
+  const need = it => { const oh = onHand(it), rp = it.reorder !== "" && it.reorder != null ? +it.reorder : 0; return Math.max(1, Math.ceil((rp ? rp * 2 : 10) - Math.max(0, oh) - onOrder(it.id))); };
+  const noRP = S.items.filter(it => it.type === "inventory" && (it.reorder === "" || it.reorder == null)).length;
+  return invHead("reorder") + (low.length ? [...by.entries()].sort((a, b) => vendName(a[0]).localeCompare(vendName(b[0]))).map(([vid, its]) => `<section class="panel" style="margin-bottom:14px" data-reorder-v="${vid}"><div class="panel-head"><h2>${esc(vid ? vendName(vid) : "No supplier set")}</h2><button class="btn small primary" data-act="reorderGroup" data-v="${vid}">Start an order with these</button></div>
+    <div class="tbl"><table><thead><tr><th></th><th>Item</th><th class="num">On hand</th><th class="num">Reorder at</th><th class="num">On order</th><th class="num">Order qty</th><th class="num">Last cost</th></tr></thead><tbody>${its.map(it => { const oo = onOrder(it.id), oh = onHand(it); return `<tr><td><input type="checkbox" data-ro="${it.id}" ${oo ? "" : "checked"} aria-label="Include ${esc(it.name)}"></td><td><b>${esc(it.name)}</b>${oh < 0 ? ' <span class="badge bad">Count needed</span>' : ""}${it.sku && it.sku !== it.name ? `<div class="small muted">${esc(it.sku)}</div>` : ""}</td><td class="num ${oh <= 0 ? "neg" : ""}">${oh}</td><td class="num">${it.reorder === "" || it.reorder == null ? "—" : it.reorder}</td><td class="num">${oo || ""}</td><td class="num"><input type="number" min="1" step="1" data-roq="${it.id}" value="${need(it)}" style="width:80px;text-align:right;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--surface)"></td><td class="num">${it.cost ? money(it.cost) : ""}</td></tr>`; }).join("")}</tbody></table></div></section>`).join("") : `<div class="panel">${empty("Nothing is running low.")}</div>`) +
+  `<p class="small muted">An item shows here when stock drops to its <b>Reorder when down to</b> number (set it on the item), or goes below zero. ${noRP ? noRP + " stocked items have no reorder number yet." : ""} Negative stock usually means an order arrived that wasn't logged. Use <b>Count stock</b> to fix the number.</p>`; }
+VIEWS.inventory = id => {
+  if (id === "onorder") return invOnOrder(); if (id === "reorder") return invReorder(); if (id === "received") return invReceived();
   const f = UI.filter.item || "all";
   const q = (UI.q.item || "").toLowerCase();
   const B = UI.bud = UI.bud || {}, bn = k => { const v = parseFloat(String(B[k] || "").replace(/[$,]/g, "")); return isFinite(v) && v > 0 ? v : 0; };
@@ -1081,7 +1111,7 @@ VIEWS.inventory = () => {
     ${budgetOn ? `<button class="btn small" data-act="budClear">Clear</button>` : ""}
     ${eachCap ? `<div class="small" style="flex-basis:100%">Up to <b>${money(eachCap)}</b> each${B.tax ? " before tax" : ""} for ${bQty} piece${bQty > 1 ? "s" : ""}. ${rows.length} item${rows.length === 1 ? "" : "s"} fit, nicest first.</div>` : budgetOn ? `<div class="small" style="flex-basis:100%">${rows.length} item${rows.length === 1 ? "" : "s"} in that price range, highest price first.</div>` : ""}</div>`;
   const value = S.items.filter(it => it.type === "inventory").reduce((s, it) => s + Math.max(0, onHand(it)) * (+it.cost || 0), 0);
-  return `<div class="pagehead"><div><h1>Items &amp; inventory</h1><p>Stock on hand is worth ${money(value)} at cost</p></div><div class="actions"><button class="btn primary" data-act="newItem">New item</button><button class="btn" data-act="adjustStock">Adjust stock</button><button class="btn" data-act="exportItems">Export CSV</button></div></div>
+  void value; return invHead("stock") + `
   <div class="panel"><div class="toolbar"><input class="search" id="searchItem" type="search" placeholder="Search name or SKU" value="${esc(UI.q.item || "")}" data-q="item" aria-label="Search items"><div class="chips">${[["all","All"],["inventory","Stocked"],["low","Low stock"],["noninventory","Non-stocked"],["service","Services"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="item" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
   ${budgetBar}
   <div class="tbl"><table><thead><tr><th>Item</th><th>SKU</th><th>Type</th><th class="num">On hand</th><th class="num">Reorder at</th><th class="num">Cost</th><th class="num">Price</th>${eachCap ? `<th class="num">${bQty} pcs${B.tax ? " + tax" : ""}</th>` : ""}</tr></thead><tbody>
@@ -1097,6 +1127,10 @@ const HELP = [
   ["Where is my work saved?", `On the device you're using <b>and</b> in a private file in your Google Drive. The bottom of the side menu shows "Synced to Google Drive" with the time. Your phone and computer pick up each other's changes within a minute or two. If it says "Changes waiting to sync", tap <b>Reconnect</b> at the top of the page.`],
   ["It says \"Reconnect Google\" at the top. What do I do?", `Just tap <b>Reconnect</b> and choose your Google account. Google only lets the app stay signed in for about an hour at a time, so this is normal. Nothing you entered is lost; it's saved on the device and syncs as soon as you reconnect. About once a week Google may ask you to approve the app again. Click <b>Continue</b> when it does.`],
   ["How do I put the app on my phone or computer?", `<b>iPhone:</b> open the app's address in <b>Safari</b> → tap the Share button → <b>Add to Home Screen</b>. Open it from the new icon and tap <b>Connect Google</b>.<br><b>Computer:</b> open it in Chrome → click the install icon at the right of the address bar (or ⋮ → Cast, save and share → Install page as app).`]]],
+ ["Inventory and ordering", [
+  ["How do I log a supplier order?", `Go to <b>Inventory</b> and drag the supplier's order confirmation or invoice PDF onto the box at the top (or tap it to pick the file). The app reads each line: part number, description, quantity and cost. For every line you see what it matched in your inventory:<ul><li><b>✓ Matched by part #</b>: it found the item.</li><li><b>Best guess · check it</b>: it found something similar. Make sure it's right.</li><li><b>New item</b>: nothing matched, so a new stocked item is created.</li></ul>Change <b>Goes to</b> to pick a different item, and edit <b>Name in your inventory</b> to rename it. The app remembers each supplier's part numbers, so next time it matches on its own. Save, and the order shows under <b>On order</b>.`],
+  ["The order arrived. What do I do?", `Inventory → <b>On order</b> → tap <b>✓ Arrived: add to stock</b>. Your stock counts go up and the purchase is recorded (on your card, from checking, or as a bill, depending on how you paid). Something missing? Tap <b>Some items missing?</b> and enter what actually came. Tapped it by mistake? Tap <b>Undo</b>.`],
+  ["How do I know what to reorder?", `Inventory → <b>Reorder</b> lists items at or below their <b>Reorder when down to</b> number (set it on each item), grouped by supplier, with a suggested quantity. Tick what you want and tap <b>Start an order with these</b>. Items below zero are marked <b>Count needed</b>. Use <b>Count stock</b> to set the real number.`]]],
  ["Invoices", [
   ["Where are all my open invoices?", `On <b>Home</b> under <b>Current invoices</b>. Every invoice that isn't finished and paid shows in its stage: Not started → Parts ordered → Engraving → Ready for pickup → Delivered · waiting on payment. Tap the <b>→</b> button to move a job to the next stage. Once it's delivered, it waits in the last column until you tap <b>Receive payment</b>. Badges show overdue, not-sent and paid invoices.`],
   ["How do I bill someone new, or change who an invoice goes to?", `In the invoice (or estimate), under the customer, tap <b>Change bill to / contact</b>. Pick someone already on file from <b>Quick pick</b>, or choose <b>+ Someone new</b> and type their name, email and billing address. That changes <i>this invoice only</i>: the printed invoice shows "Attn:" that person, and <b>Email invoice</b> goes to their email.<br><br>If this person is now the main contact for the account, also tick <b>Save to the account as the main contact</b>. The old contact is kept under Other contacts. You can also do this from the customer's page with <b>Change contact</b>.`],
@@ -2531,7 +2565,8 @@ function trackUrl(n){ n = String(n || "").replace(/\s+/g, ""); if (!n) return ""
   if (/^(\d{12}|\d{15}|\d{20})$/.test(n)) return "https://www.fedex.com/fedextrack/?trknbr=" + n;
   return "https://www.google.com/search?q=track+package+" + encodeURIComponent(n); }
 const poLineText = o => (o.lines || []).map(l => { const it = l.ref && l.ref.startsWith("i:") ? byId("items", l.ref.slice(2)) : null; return (l.qty > 1 ? l.qty + " × " : "") + (it ? it.name : l.memo || "item"); }).slice(0, 3).join(", ");
-VIEWS.pos = () => {
+VIEWS.pos = () => invOnOrder();
+VIEWS.posOld = () => {
   const f = UI.filter.po || "open";
   const rows = S.pos.filter(o => f === "all" || (f === "open" ? o.status === "placed" || o.status === "shipped" : o.status === f)).sort((a, b) => (b.date || "") < (a.date || "") ? -1 : 1);
   const withSite = S.vendors.filter(v => v.website).sort(byName);
@@ -2546,6 +2581,113 @@ VIEWS.pos = () => {
   <p class="small muted">Stock counts go up only when you tap Received, so what's on the shelf always matches your inventory. Items on the way show as "on order" on the Inventory page.</p>`;
 };
 const vendorSite = o => byId("vendors", o.vendorId)?.website || "";
+/* ----- supplier order PDFs ----- */
+const NUM_TOK = /^\(?-?\$?\d[\d,]*(?:\.\d+)?\)?$/, tokNum = t => parseFloat(String(t).replace(/[$,()]/g, "")), r4 = n => Math.round(n * 10000) / 10000;
+const nrm = x => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const UOM_RX = /^(ea|each|pc|pcs|bx|box|cs|case|dz|doz|pk|pack|set|st|rl|roll|sh|sheet|pr|pair)$/i;
+function guessVendor(text){ const low = text.toLowerCase(), own = new Set(((S.company.name || "") + " " + (S.company.address || "") + " lakewood colorado").toLowerCase().split(/[^a-z0-9&]+/));
+  const GEN = /^(inc|llc|co|corp|the|and|award|awards|group|world|company|industries|store|supply|city|of|department|revenue|american|express|credit|card|annual|fee|shopify|ebay|home|usa)$/;
+  let best = null, bs = 0;
+  for (const v of S.vendors) { const n = (v.name || "").toLowerCase().trim(); if (!n || n.length < 3) continue; let sc = 0;
+    const esc2 = w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp("(^|[^a-z])" + esc2(n) + "([^a-z]|$)").test(low)) sc = 3;
+    const dom = String(v.website || v.email || "").toLowerCase().replace(/^.*@/, "").replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+    if (!sc && dom.includes(".") && low.includes(dom)) sc = 2.5;
+    if (!sc) { const w = n.split(/[\s,.]+/).find(x => x.length >= 3 && !GEN.test(x) && !own.has(x)); if (w && new RegExp("(^|[^a-z])" + esc2(w) + "([^a-z]|$)").test(low)) sc = 1 + Math.min(w.length, 10) / 20; }
+    if (sc > bs) { bs = sc; best = v; } }
+  return best; }
+function parseOrderText(lines){
+  const text = lines.join("\n"), out = {lines:[], shipping:0, tax:0, total:null, sub:null, orderNo:"", date:"", vendorId:"", vendorName:""};
+  const v = guessVendor(text); if (v) out.vendorId = v.id; else { const own = (S.company.name || "").toLowerCase(); const top = lines.find(l => /[a-z]{3}/i.test(l) && !/invoice|order|confirmation|page|date|receipt|quote|statement/i.test(l) && !(own && l.toLowerCase().includes(own.split(" ")[0]))); out.vendorName = (top || "").replace(/\s{2,}.*/, "").slice(0, 50); }
+  const on = /\b(?:order|invoice|confirmation|sales[ \t]*order|so|p\.?o\.?|reference)[ \t]*(?:no\.?|number|num|#)?[ \t]*[:#]?[ \t]*([A-Z0-9-]*\d[A-Z0-9-]*)/ig; let m; while ((m = on.exec(text))) { if (m[1].replace(/-/g, "").length >= 4) { out.orderNo = m[1]; break; } }
+  const d1 = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/.exec(text), d2 = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})\b/i.exec(text), d3 = /\b(\d{4})-(\d{2})-(\d{2})\b/.exec(text);
+  if (d1) out.date = parseDateAny(d1[0]); else if (d3) out.date = d3[0]; else if (d2) { const dt = new Date(d2[0].replace(/\./, "")); if (!isNaN(dt)) out.date = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0"); }
+  let last = null;
+  lines.forEach(raw => { const L = raw.replace(/\s+/g, " ").trim(); if (!L) return;
+    const money = [...L.matchAll(/-?\$?\d{1,3}(?:,\d{3})*\.\d{2,4}\b|-?\$?\d+\.\d{2,4}\b/g)].map(x => Math.abs(tokNum(x[0])));
+    const lastM = money.length ? money[money.length - 1] : null;
+    if (lastM !== null && /\b(shipping|freight|handling|delivery|s\s?&\s?h|postage)\b/i.test(L) && !/ship\s*(to|via|date|method)|sold\s*to/i.test(L) && money.length <= 2) { out.shipping = r2(out.shipping + lastM); last = null; return; }
+    if (lastM !== null && /\b(sales\s*tax|tax)\b/i.test(L) && !/tax\s*(id|exempt|able)|non-?taxable|exempt/i.test(L) && money.length <= 2) { out.tax = r2(out.tax + lastM); last = null; return; }
+    if (lastM !== null && /sub\s*-?\s*total/i.test(L)) { out.sub = lastM; last = null; return; }
+    if (lastM !== null && /\b(grand\s*total|order\s*total|invoice\s*total|total\s*due|amount\s*due|balance\s*due|total\s*amount|^total)\b/i.test(L)) { out.total = lastM; last = null; return; }
+    if (/\b(sub\s*total|total|balance|amount due|payment|paid|discount|terms|remit|thank you)\b/i.test(L) && !/\d+\s*x\s*\d+/i.test(L)) { last = null; return; }
+    const toks = L.split(" "), nums = toks.map((t, i) => ({i, t, v:NUM_TOK.test(t) ? tokNum(t) : null, dec:/\.\d/.test(t)})).filter(x => x.v !== null);
+    if (nums.length >= 2 && nums[nums.length - 1].dec) {
+      const ext = nums[nums.length - 1], prev = nums.slice(0, -1).slice(-4); let found = null;
+      for (let a = prev.length - 1; a >= 0 && !found; a--) for (let b = a - 1; b >= 0 && !found; b--) { const x = prev[b], y = prev[a]; if (x.v > 0 && y.v > 0 && Math.abs(x.v * y.v - ext.v) <= Math.max(0.02, ext.v * 0.002)) found = [x, y]; }
+      if (!found && prev.length) { const y = prev[prev.length - 1]; if (Number.isInteger(y.v) && y.v > 0 && Math.abs(ext.v) > 0) found = [y, {i:y.i, v:r4(ext.v / y.v), unitFromExt:true}]; }
+      if (found) { let [x, y] = found, q = x, p = y; if (!y.unitFromExt && !Number.isInteger(x.v) && Number.isInteger(y.v)) { q = y; p = x; }
+        let pre = toks.slice(0, Math.min(x.i, y.i));
+        while (pre.length && (NUM_TOK.test(pre[pre.length - 1]) || UOM_RX.test(pre[pre.length - 1]))) pre.pop();
+        if (pre.length > 1 && /^\d{1,3}\.?$/.test(pre[0])) pre.shift();
+        pre = pre.filter(t => !UOM_RX.test(t));
+        let sku = ""; if (pre.length && /^(?=.*\d)(?=.*[a-z])[a-z0-9][a-z0-9\-.\/]{2,}$/i.test(pre[0])) sku = pre.shift().replace(/[.,]$/, "");
+        const desc = pre.join(" ").replace(/^[-–:]\s*/, "").trim();
+        if (sku || desc.length > 1) { last = {sku, desc, qty:q.v, cost:r4(p.v), ext:ext.v}; out.lines.push(last); return; } } }
+    if (last && !money.length && L.length < 90 && !last.more && !/^(ship|bill|sold)\s*to|^page|^order|^invoice|^date|phone|fax|e-?mail|www\.|\.com\b/i.test(L)) { last.desc = (last.desc + " " + L).trim(); last.more = true; return; }
+    if (money.length) last = null; });
+  out.itemsTotal = r2(out.lines.reduce((t, l) => t + l.qty * l.cost, 0));
+  out.adds = out.total !== null ? Math.abs(out.itemsTotal + out.shipping + out.tax - out.total) < 0.05 : out.sub !== null ? Math.abs(out.itemsTotal - out.sub) < 0.05 : null;
+  return out; }
+const IT_STOP = new Set(["the","and","for","with","of","in","inch","in","ea","each","pcs","pc","w","x","a"]);
+const itWords = x => (String(x || "").toLowerCase().replace(/(\d+(?:\.\d+)?)\s*(?:"|''|inch(?:es)?|in\b)/g, "$1 ").match(/[a-z]{2,}|\d+(?:x\d+)?/g) || []).filter(w => !IT_STOP.has(w));
+function matchItem(l, vendorId){ const items = S.items.filter(i => i.type !== "service"), s = nrm(l.sku), d = nrm(l.desc);
+  let it = items.find(i => (i.aliases || []).some(a => ((s && nrm(a.sku) === s) || (!s && d && nrm(a.desc) === d)) && (!a.v || !vendorId || a.v === vendorId))); if (it) return {it, how:"alias"};
+  if (s) { it = items.find(i => nrm(i.sku) === s || nrm(i.name) === s) || (s.length >= 5 ? items.find(i => nrm(i.name).startsWith(s) || nrm(i.sku).startsWith(s) || nrm(i.name).includes(s)) : null); if (it) return {it, how:"sku"}; }
+  const dw = new Set(itWords(l.desc + " " + l.sku)); if (!dw.size) return null; let best = null, bs = 0;
+  for (const i of items) { const iw = new Set(itWords(i.name + " " + (i.desc || "") + " " + (i.sku || ""))); if (!iw.size) continue; let hit = 0, alpha = 0; dw.forEach(w => { if (!iw.has(w)) return; if (/^[a-z]+$/.test(w)) { hit += 1; alpha++; } else hit += /^\d$/.test(w) ? 0.2 : 1; }); if (!alpha) continue; let sc = hit / Math.max(2, Math.min(dw.size, iw.size)); if (vendorId && i.vendorId === vendorId) sc *= 1.15; if (sc > bs) { bs = sc; best = i; } }
+  return bs >= 0.6 ? {it:best, how:"guess"} : null; }
+let PENDING_ORDER = null;
+async function handleOrderFiles(files, preLines){ const f = [...files].find(x => /\.pdf$/i.test(x.name) || x.type === "application/pdf");
+  if (!f) { toast("Drop the supplier's order confirmation or invoice as a PDF."); return; }
+  toast("Reading " + f.name + "…"); let parsed;
+  try { parsed = parseOrderText(preLines || await pdfLines(await f.arrayBuffer())); } catch(e) { console.error(e); toast(e.message || "Couldn't read that PDF."); return; }
+  if (!parsed.lines.length) { toast("Couldn't find the item lines in that PDF, so fill them in here."); poForm({date:parsed.date || todayISO(), status:"placed", payFrom:"a2200", vendorId:parsed.vendorId, orderNo:parsed.orderNo, shipping:parsed.shipping || "", tax:parsed.tax || "", lines:[{qty:1}], notes:"From " + f.name}); return; }
+  PENDING_ORDER = {parsed, file:f.name}; orderReview(); }
+function orderReview(){ const P = PENDING_ORDER, p = P.parsed, v = byId("vendors", p.vendorId);
+  const items = S.items.filter(i => i.type !== "service").sort(byName);
+  const row = (l, i) => { const m = matchItem(l, p.vendorId), it = m && m.it, sug = (l.sku && l.desc ? l.sku + " " + l.desc : l.sku || l.desc).slice(0, 70);
+    const badge = !m ? '<span class="badge">New item</span>' : m.how === "guess" ? '<span class="badge warn">Best guess · check it</span>' : '<span class="badge good">✓ Matched by part #</span>';
+    return `<div class="ordrow" data-i="${i}" data-sug="${esc(sug)}">
+      <div class="or-top"><label class="check" style="margin:0"><input type="checkbox" name="inc" checked aria-label="Include this line"></label><div style="min-width:0"><div class="small muted">From the PDF</div><div>${l.sku ? `<b>${esc(l.sku)}</b> ` : ""}${esc(l.desc)}</div></div><div>${badge}</div></div>
+      <div class="or-grid">
+        <label class="f">Qty<input name="qty" type="number" step="any" min="0" value="${l.qty}"></label>
+        <label class="f">Cost each<input name="cost" type="number" step="0.0001" min="0" value="${l.cost}"></label>
+        <label class="f">Goes to<select name="to" data-act-change="ordTo"><option value="new" ${it ? "" : "selected"}>➕ New inventory item</option><option value="exp">Supplies (don't count in stock)</option><optgroup label="Your items">${items.map(x => `<option value="${x.id}" ${it && it.id === x.id ? "selected" : ""}>${esc(x.name)}${x.sku && x.sku !== x.name ? " · " + esc(x.sku) : ""}</option>`).join("")}</optgroup></select></label>
+        <label class="f">Name in your inventory<input name="name" value="${esc(it ? it.name : sug)}" placeholder="What you call it"></label>
+        <label class="f">Sell price<input name="price" type="number" step="0.01" min="0" value="${it && it.price ? esc(it.price) : ""}" placeholder="Optional"></label>
+      </div>${it ? `<div class="small muted or-note">${onHand(it)} on hand now${it.cost ? " · last cost " + money(it.cost) : ""}</div>` : `<div class="small muted or-note">A new stocked item will be created.</div>`}</div>`; };
+  const chk = p.adds === true ? `<p class="small" style="color:var(--good);font-weight:600;margin-top:0">✓ Everything was read: items ${money(p.itemsTotal)}${p.shipping ? " + shipping " + money(p.shipping) : ""}${p.tax ? " + tax " + money(p.tax) : ""} = ${money(p.total ?? p.sub)}</p>` : p.adds === false ? `<p class="small" style="color:var(--bad,#b3261e);font-weight:600;margin-top:0">Items add up to ${money(p.itemsTotal)}${p.shipping ? " + shipping " + money(p.shipping) : ""}${p.tax ? " + tax " + money(p.tax) : ""}, but the PDF says ${money(p.total ?? p.sub)}. A line may not have been read. Compare with the PDF before saving.</p>` : `<p class="small muted" style="margin-top:0">Found ${p.lines.length} item line${p.lines.length > 1 ? "s" : ""} (${money(p.itemsTotal)}). Check them against the PDF.</p>`;
+  openSheet("New order from " + (v ? v.name : p.vendorName || "supplier"), `<form data-form="orderIn">
+  <p class="small muted" style="margin-top:0">Read from <b>${esc(P.file)}</b>. Check each line: match it to your item, rename it, or make it a new item. Next time the app will recognize these part numbers.</p>${chk}
+  <div class="fields">
+    <label class="f">Supplier<select name="vendorId" data-act-change="ordVendor">${!v && p.vendorName ? `<option value="__newv" selected>+ Add “${esc(p.vendorName)}” as a supplier</option>` : `<option value="__newv">+ Add a new supplier…</option>`}${opts(S.vendors.slice().sort(byName).map(x => [x.id, x.name]), p.vendorId, v || p.vendorName ? "" : "Choose supplier")}</select></label>
+    <label class="f" data-newv style="${!v && p.vendorName ? "" : "display:none"}">New supplier name<input name="newVendor" value="${esc(p.vendorName || "")}"></label>
+    <label class="f">Order / invoice no.<input name="orderNo" value="${esc(p.orderNo)}"></label>
+    <label class="f">Order date<input name="date" type="date" value="${esc(p.date || todayISO())}"></label>
+    <label class="f">Where is it?<select name="status"><option value="placed" selected>Ordered, not here yet</option><option value="shipped">Shipped, on the way</option><option value="received">Already arrived, add to stock now</option></select></label>
+    <label class="f">How you paid<select name="payFrom">${opts(sortedAccts(a => a.type === "bank" || a.type === "ccard").map(a => [a.id, "Paid with " + a.name]).concat([["bill", "They'll send a bill (pay later)"]]), byId("accounts", "a2200") ? "a2200" : SYS.CHK)}</select></label>
+    <label class="f">Shipping<input name="shipping" type="number" step="0.01" min="0" value="${p.shipping || ""}"></label>
+    <label class="f">Tax charged<input name="tax" type="number" step="0.01" min="0" value="${p.tax || ""}"></label>
+  </div>
+  <h3 style="margin:16px 0 8px">Items (${p.lines.length})</h3>
+  <div class="ordlist">${p.lines.map(row).join("")}</div>
+  ${foot(null, "Save order")}</form>`); }
+async function receivePO(o, qtys, date){ const v = byId("vendors", o.vendorId) || {};
+  const lines = (o.lines || []).map((l, i) => ({...l, qty:qtys ? (+qtys[i] || 0) : +l.qty})).filter(l => l.qty > 0); if (!lines.length) return null;
+  const all = lines.concat(+o.shipping ? [{ref:"a:a6600", qty:1, rate:+o.shipping, memo:"Shipping"}] : [], +o.tax ? [{ref:"a:" + (v.defaultAcct || "a6900"), qty:1, rate:+o.tax, memo:"Sales tax on order"}] : []);
+  let col, rid;
+  if (o.payFrom === "bill") { col = "bills"; rid = await put("bills", {vendorId:o.vendorId, ref:o.orderNo || "", date, terms:v.terms || "Net 30", due:addDays(date, termDays(v.terms || "Net 30")), lines:all}); }
+  else { col = "expenses"; rid = await put("expenses", {fromAcct:o.payFrom || SYS.CHK, date, vendorId:o.vendorId, payee:"", ref:o.orderNo || "", lines:all}); }
+  const short = (o.lines || []).some((l, i) => (qtys ? (+qtys[i] || 0) : +l.qty) < +l.qty);
+  await put("pos", {...clone(o), status:"received", receivedAt:date, received:lines.map(l => ({ref:l.ref, qty:l.qty})), link:{col, id:rid}, short});
+  return {short, n:lines.filter(l => String(l.ref).startsWith("i:")).length}; }
+const poCard = o => { const ls = o.lines || [], nm = l => { const it = String(l.ref || "").startsWith("i:") ? byId("items", l.ref.slice(2)) : null; return it ? it.name : l.memo || acctName(String(l.ref || "").slice(2)); };
+  return `<div class="ordcard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><div class="t" style="font-weight:700;font-size:16px;cursor:pointer" data-act="editPO" data-id="${o.id}">${esc(vendName(o.vendorId) || "Supplier")}${o.orderNo ? " · #" + esc(o.orderNo) : ""}</div>
+    <div class="small muted">Ordered ${fmtDate(o.date)}${o.status === "shipped" ? " · shipped" + (o.expected ? ", arriving " + fmtDate(o.expected) : "") : ""}${o.tracking ? ` · <a href="${esc(trackUrl(o.tracking))}" target="_blank" rel="noopener noreferrer">Track ↗</a>` : ""}${o.deliveredHint ? " · <b>email says delivered</b>" : ""}${o.status === "received" ? " · arrived " + fmtDate(o.receivedAt) + (o.short ? " (some items short)" : "") : ""}</div></div>
+    <div style="text-align:right">${poBadge(o)}<div class="num" style="margin-top:4px;font-weight:600">${money(poTotal(o))}</div></div></div>
+    <ul class="ordlines">${ls.slice(0, 8).map(l => `<li><b class="num">${+l.qty}</b> × ${esc(nm(l))}</li>`).join("")}${ls.length > 8 ? `<li class="muted">and ${ls.length - 8} more</li>` : ""}</ul>
+    <div class="actions">${o.status === "placed" || o.status === "shipped" ? `<button class="btn primary" data-act="poArrived" data-id="${o.id}">✓ Arrived: add to stock</button><button class="btn small" data-act="poReceive" data-id="${o.id}">Some items missing?</button>${o.status === "placed" ? `<button class="btn small" data-act="poShipped" data-id="${o.id}">Mark shipped</button>` : ""}<button class="btn small" data-act="editPO" data-id="${o.id}">Edit</button>${vendorSite(o) ? `<a class="btn small" href="${esc(vendorSite(o))}" target="_blank" rel="noopener noreferrer">Supplier site ↗</a>` : ""}` : `<button class="btn small" data-act="poUnreceive" data-id="${o.id}">Undo arrived</button><button class="btn small" data-act="editPO" data-id="${o.id}">View</button>`}</div></div>`; };
 function poForm(o){ const isNew = !o || !o.id; o = o || {date:todayISO(), status:"placed", payFrom:"a2200", lines:[]};
   const payOpts = sortedAccts(a => a.type === "bank" || a.type === "ccard").map(a => [a.id, "Paid with " + a.name]).concat([["bill", "They'll send me a bill (pay later)"]]);
   const v = byId("vendors", o.vendorId);
@@ -2628,6 +2770,7 @@ function itemForm(it){ it = it || {type:"inventory", taxable:true, incomeAcct:SY
   openSheet(it.id ? "Edit item" : "New item", `<form data-form="item" data-id="${it.id || ""}"><div class="fields">
   <label class="f">Item name<input name="name" required value="${esc(it.name)}" placeholder="e.g. 9x12 walnut plaque"></label>
   <label class="f">SKU / part no.<input name="sku" value="${esc(it.sku)}"></label>
+  ${(it.aliases || []).length ? `<div class="f full small muted">Supplier part numbers the app recognizes: ${(it.aliases || []).map(a => esc([a.sku || a.desc, a.v ? "(" + vendName(a.v) + ")" : ""].filter(Boolean).join(" "))).join(", ")}</div>` : ""}
   <label class="f">Type<select name="type" data-act-change="itemType">${opts([["inventory","Stocked item (track quantity)"],["noninventory","Non-stocked item"],["service","Service (e.g. engraving)"]], it.type)}</select></label>
   <label class="f">Income account<select name="incomeAcct">${acctOpts(it.incomeAcct || SYS.SALES, a => ["income","oincome"].includes(a.type))}</select></label>
   <label class="f full">Description on invoices<input name="desc" value="${esc(it.desc)}"></label>
@@ -2917,7 +3060,11 @@ const FORMS = {
     const old = byId("pos", id) || {}; const status = val(f, "status") || "placed";
     await put("pos", {...clone(old), id, vendorId:vid, orderNo:val(f, "orderNo"), date:val(f, "date"), status:old.status === "received" ? "received" : status, tracking:val(f, "tracking"), expected:val(f, "expected"), payFrom:val(f, "payFrom"), lines, shipping:num(f, "shipping"), tax:num(f, "tax"), notes:val(f, "notes"), shippedAt:status === "shipped" && !old.shippedAt ? todayISO() : old.shippedAt || ""});
     toast(id ? "Order saved" : "Order logged"); if (!id) go("pos"); },
-  async poReceive(f){ const o = byId("pos", f.dataset.id), date = val(f, "date"), v = byId("vendors", o.vendorId) || {};
+  async poReceive(f){ const o = byId("pos", f.dataset.id), date = val(f, "date");
+    const r = await receivePO(o, (o.lines || []).map((l, i) => +(f.querySelector(`[data-rl="${i}"]`)?.value || 0)), date);
+    if (!r) return formErr(f, "Nothing marked as received.");
+    toast("Added to stock" + (r.short ? ". Some items were short. Log a new order for the rest if they're backordered." : "")); },
+  async poReceiveOld(f){ const o = byId("pos", f.dataset.id), date = val(f, "date"), v = byId("vendors", o.vendorId) || {};
     const lines = (o.lines || []).map((l, i) => ({...l, qty:+(f.querySelector(`[data-rl="${i}"]`)?.value || 0)})).filter(l => l.qty > 0);
     if (!lines.length) return formErr(f, "Nothing marked as received.");
     const all = lines.concat(+o.shipping ? [{ref:"a:a6600", qty:1, rate:+o.shipping, memo:"Shipping"}] : [], +o.tax ? [{ref:"a:" + (v.defaultAcct || "a6900"), qty:1, rate:+o.tax, memo:"Sales tax on order"}] : []);
@@ -2927,6 +3074,30 @@ const FORMS = {
     const short = (o.lines || []).some((l, i) => (+(f.querySelector(`[data-rl="${i}"]`)?.value || 0)) < +l.qty);
     await put("pos", {...clone(o), status:"received", receivedAt:date, received:lines.map(l => ({ref:l.ref, qty:l.qty})), link:{col, id:rid}, short});
     toast("Added to inventory" + (short ? ". Some items were short; log a new order for the rest if they're backordered." : "")); },
+  async orderIn(f){ const P = PENDING_ORDER; if (!P) return;
+    let vid = val(f, "vendorId"); if (vid === "__newv") { const nm = val(f, "newVendor"); if (!nm) return formErr(f, "Type the supplier's name."); const ex = S.vendors.find(x => x.name.toLowerCase() === nm.toLowerCase()); vid = ex ? ex.id : await put("vendors", {name:nm}); }
+    if (!vid) return formErr(f, "Choose the supplier.");
+    const rows = $$(".ordrow", f).filter(r => r.querySelector("[name=inc]").checked), plan = [];
+    for (const r of rows) { const src = P.parsed.lines[+r.dataset.i], g = n => r.querySelector(`[name=${n}]`).value.trim();
+      const qty = +g("qty") || 0; if (!qty) continue; const to = g("to"), name = g("name"), price = g("price");
+      if (to === "new") { if (!name) return formErr(f, "Give each new item a name."); const ex = S.items.find(x => x.name.toLowerCase() === name.toLowerCase()); if (ex) return formErr(f, `You already have an item called “${name}”. Pick it under “Goes to” instead of making a new one.`); if (plan.some(p => p.to === "new" && p.name.toLowerCase() === name.toLowerCase())) return formErr(f, `Two new items are both called “${name}”. Give them different names.`); }
+      else if (to !== "exp" && name) { const ex = S.items.find(x => x.id !== to && x.name.toLowerCase() === name.toLowerCase()); if (ex) return formErr(f, `Another item is already called “${name}”. Choose a different name.`); }
+      plan.push({src, qty, cost:+g("cost") || 0, to, name, price}); }
+    if (!plan.length) return formErr(f, "Tick at least one line with a quantity.");
+    const orderNo = val(f, "orderNo"); if (orderNo && !f.dataset.dupOk && S.pos.some(o => o.vendorId === vid && String(o.orderNo) === orderNo)) { f.dataset.dupOk = "1"; return formErr(f, "You already logged order #" + orderNo + " from this supplier. Press Save again if this is a different order."); }
+    const lines = []; let created = 0, renamed = 0;
+    for (const p of plan) { const alias = {v:vid, sku:p.src.sku || "", desc:p.src.desc || ""}; let ref;
+      if (p.to === "exp") ref = "a:" + ((byId("vendors", vid) || {}).defaultAcct || "a6900");
+      else if (p.to === "new") { const nid = await put("items", {type:"inventory", name:p.name, sku:p.src.sku || "", desc:p.src.desc || p.name, cost:p.cost, price:p.price === "" ? "" : +p.price, vendorId:vid, incomeAcct:SYS.SALES, taxable:true, openQty:0, openDate:todayISO(), reorder:"", aliases:[alias]}); ref = "i:" + nid; created++; }
+      else { const it = byId("items", p.to), u = clone(it); if (p.name && p.name !== it.name) { u.name = p.name; renamed++; } if (p.cost) u.cost = p.cost; if (p.price !== "" && +p.price !== +it.price) u.price = +p.price; if (!u.vendorId) u.vendorId = vid; if (!u.sku && p.src.sku) u.sku = p.src.sku;
+        const al = u.aliases || []; if (!al.some(a => a.v === vid && nrm(a.sku) === nrm(alias.sku) && nrm(a.desc) === nrm(alias.desc))) u.aliases = [...al, alias].slice(-12); await put("items", u); ref = "i:" + it.id; }
+      lines.push({ref, qty:p.qty, rate:p.cost, memo:[p.src.sku, p.src.desc].filter(Boolean).join(" ").slice(0, 120)}); }
+    const st = val(f, "status"), date = val(f, "date") || todayISO();
+    const pid = await put("pos", {vendorId:vid, orderNo, date, status:st === "shipped" ? "shipped" : "placed", shippedAt:st === "shipped" ? todayISO() : "", payFrom:val(f, "payFrom"), lines, shipping:num(f, "shipping"), tax:num(f, "tax"), tracking:"", expected:"", notes:"From " + P.file, source:"pdf"});
+    let msg = "Order saved: " + lines.length + " line" + (lines.length > 1 ? "s" : "") + " on order";
+    if (st === "received") { await receivePO(byId("pos", pid), null, todayISO()); msg = "Added to stock: " + lines.length + " line" + (lines.length > 1 ? "s" : ""); UI.lastArrived = pid; }
+    if (created) msg += " · " + created + " new item" + (created > 1 ? "s" : ""); if (renamed) msg += " · " + renamed + " renamed";
+    PENDING_ORDER = null; toast(msg); go("inventory/" + (st === "received" ? "" : "onorder")); },
   async sendReview(f){ const inv = byId("invoices", f.dataset.id), to = val(f, "to");
     if (f.elements.reviewLink) { const l = val(f, "reviewLink"); if (!l) return formErr(f, "Paste your Google review link."); await saveCompany({reviewLink:l}); f.elements.body.value = f.elements.body.value.replace("[your Google review link]", l); }
     if (!validEmail(to)) return formErr(f, "Enter a valid email address.");
@@ -3014,6 +3185,11 @@ const ACT = {
   cardNote: el => cardNoteForm(el.dataset.id, el.dataset.label),
   async scanNow(el){ const acct = el.dataset.id, st = balSt(acct); toast("Scanning…"); const rep = await autoBalance(acct, {from:"", to:st.date, begin:null, end:st.bal === "" ? null : +st.bal}); if (route().view !== "balance") go("balance/" + acct); toast("Scan done: " + (rep.matched + rep.ruled + rep.invoices) + " sorted, " + rep.left + " need you"); },
   autoRepClose(el){ const r = {...(UI.autoRep || {})}; delete r[el.dataset.id]; UI.autoRep = r; render(); },
+  orderPick(){ $("#orderFile").click(); },
+  async poArrived(el){ const o = byId("pos", el.dataset.id); if (!o || o.status === "received") return; const r = await receivePO(o, null, todayISO()); UI.lastArrived = o.id; toast("Arrived. Stock updated for " + (r ? r.n : 0) + " item" + (r && r.n === 1 ? "" : "s")); },
+  dismissArrived(){ UI.lastArrived = null; render(); },
+  reorderGroup(el){ const sec = el.closest("[data-reorder-v]"), vid = el.dataset.v; const lines = $$("[data-ro]", sec).filter(c => c.checked).map(c => { const it = byId("items", c.dataset.ro), q = +(sec.querySelector(`[data-roq="${it.id}"]`)?.value || 1); return {ref:"i:" + it.id, qty:q, rate:it.cost || "", memo:it.name}; });
+    if (!lines.length) { toast("Tick at least one item."); return; } poForm({date:todayISO(), status:"placed", payFrom:"a2200", vendorId:vid, lines}); },
   boardMore(el){ UI.boardAll = {...(UI.boardAll || {}), [el.dataset.val]:true}; render(); },
   balShow(el){ UI.balAll = !!el.dataset.val; UI.balFull = true; render(); },
   async balTick(el){ const a = byId("accounts", el.dataset.id), c = {...(a.cleared || {})}; if (c[el.dataset.key]) delete c[el.dataset.key]; else c[el.dataset.key] = 1; UI.balFull = true; await put("accounts", {...clone(a), cleared:c}); },
@@ -3299,6 +3475,8 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet
 document.addEventListener("toggle", e => { const t = e.target; if (t.dataset && t.dataset.actToggle === "balFull") UI.balFull = t.open; }, true);
 document.addEventListener("change", e => { const t = e.target; if (!t.dataset) return;
   if (t.dataset.cardCat !== undefined) { cardQuickCat(t); return; }
+  if (t.dataset.actChange === "ordTo") { const row = t.closest(".ordrow"), it = byId("items", t.value), nm = row.querySelector("[name=name]"), pr = row.querySelector("[name=price]"), note = row.querySelector(".or-note"); nm.value = it ? it.name : t.value === "exp" ? "" : row.dataset.sug; nm.disabled = t.value === "exp"; pr.disabled = t.value === "exp"; if (it && it.price && !pr.value) pr.value = it.price; if (note) note.textContent = it ? onHand(it) + " on hand now" + (it.cost ? " · last cost " + money(it.cost) : "") : t.value === "exp" ? "Recorded as shop supplies, not counted in stock." : "A new stocked item will be created."; const b = row.querySelector(".or-top .badge"); if (b) { b.className = "badge"; b.textContent = it ? "Your pick" : t.value === "exp" ? "Supplies" : "New item"; } return; }
+  if (t.dataset.actChange === "ordVendor") { const box = t.closest("form").querySelector("[data-newv]"); if (box) box.style.display = t.value === "__newv" ? "" : "none"; return; }
   if (t.dataset.actChange === "impSection" && PENDING_PARTS) { stageParts(t.value === "all" ? PENDING_PARTS.map((_, i) => i) : [+t.value], PENDING_IMPORT?.acct || UI.bankAcct); return; }
   if (t.name === "desc" && t.closest(".line.inv")) { shipRowCheck(t.closest(".line")); const ff = t.closest("form"); if (ff) recalc(ff); }
   if (t.dataset.budTax !== undefined) { UI.bud = {...(UI.bud || {}), tax:t.checked}; render(); return; }
@@ -3358,11 +3536,14 @@ $("#bankFile").addEventListener("change", async e => {
   const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
   try { await handleStatementFiles(files); } catch(err) { console.error(err); toast(err.message || "Couldn't read that file."); }
 });
+$("#orderFile").addEventListener("change", async e => { const files = [...e.target.files]; e.target.value = ""; if (files.length) await handleOrderFiles(files); });
 const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files");
 document.addEventListener("dragover", e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; document.body.classList.add("dragging"); });
 document.addEventListener("dragleave", e => { if (!e.relatedTarget) document.body.classList.remove("dragging"); });
 document.addEventListener("drop", async e => { if (!hasFiles(e)) return; e.preventDefault(); document.body.classList.remove("dragging");
   const files = [...e.dataTransfer.files]; if (!files.length) return; const {view, id} = route();
+  if (view === "inventory" || view === "pos") { try { await handleOrderFiles(files); } catch(err) { console.error(err); toast(err.message || "Couldn't read that file."); } return; }
+  if (!["banking", "balance", "card"].includes(view) && files.length === 1 && /\.pdf$/i.test(files[0].name)) { try { const ln = await pdfLines(await files[0].arrayBuffer()), tx = ln.join("\n"); if (!/beginning balance|statement period|new balance|minimum payment|closing date/i.test(tx) && /qty|quantity|item|sku|part|order|invoice/i.test(tx)) { await handleOrderFiles(files, ln); return; } } catch(err) { console.error(err); } }
   if (view === "banking" || view === "balance" || view === "card") { const aid = view === "card" ? (byId("accounts", id) ? id : UI.cardAcct) : (byId("accounts", id) ? id : null); if (aid) UI.bankAcct = aid; }
   try { await handleStatementFiles(files); } catch(err) { console.error(err); toast(err.message || "Couldn't read that file."); } });
 $("#restoreFile").addEventListener("change", async e => {
