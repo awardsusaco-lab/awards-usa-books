@@ -276,7 +276,7 @@ label.check{display:flex;gap:8px;align-items:center;font-size:14px}
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="restoreFile" accept=".json,application/json" hidden>
-<input type="file" id="orderFile" accept=".pdf,application/pdf" hidden>
+<input type="file" id="orderFile" accept=".pdf,application/pdf,image/png,image/jpeg" hidden>
 <input type="file" id="bankFile" accept=".pdf,.csv,.ofx,.qfx,.qbo,.txt,text/csv,application/pdf" multiple hidden>
 
 <script>
@@ -345,6 +345,10 @@ const GTOOLS = {
     for (const t of (j.threads || [])) { const d = await (await gfetch(GM + "threads/" + t.id + "?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date")).json();
       threads.push({id:t.id, viewUrl:"https://mail.google.com/mail/#all/" + t.id, messages:(d.messages || []).map(m => msgOut(m, t.id))}); }
     return {payload:{threads}}; },
+  async list_attachments(a){ const d = await (await gfetch(GM + "messages/" + a.messageId + "?format=full")).json(); const out = [];
+    (function walk(p){ if (!p) return; if (p.filename && p.body && p.body.attachmentId) out.push({filename:p.filename, mimeType:p.mimeType || "", size:p.body.size || 0, attachmentId:p.body.attachmentId, messageId:a.messageId}); (p.parts || []).forEach(walk); })(d.payload);
+    return {payload:{attachments:out}}; },
+  async get_attachment(a){ const d = await (await gfetch(GM + "messages/" + a.messageId + "/attachments/" + a.attachmentId)).json(); return {payload:{data:d.data || "", size:d.size || 0}}; },
   async get_thread(a){ const d = await (await gfetch(GM + "threads/" + a.threadId + "?format=full")).json(); return {payload:{id:d.id, messages:(d.messages || []).map(m => msgOut(m, d.id))}}; },
   async create_event(a){ const tz = a.timeZone || "America/Denver";
     const ev = {summary:a.summary, description:a.description, transparency:a.availability === "AVAILABILITY_FREE" ? "transparent" : "opaque",
@@ -1088,7 +1092,7 @@ function invHead(tab){
   const la = UI.lastArrived && byId("pos", UI.lastArrived);
   return `<div class="pagehead"><div><h1>Inventory</h1><p>${S.items.filter(i => i.type === "inventory").length} stocked items worth ${money(value)} at cost${open.length ? ` · ${open.length} order${open.length > 1 ? "s" : ""} on the way` : ""}</p></div><div class="actions"><button class="btn" data-act="newPO">Log order by hand</button><button class="btn" data-act="adjustStock">Count stock</button><button class="btn" data-act="newItem">New item</button></div></div>
   ${la && la.status === "received" ? `<div class="notice" style="margin-bottom:12px">✓ Order from <b>${esc(vendName(la.vendorId) || "supplier")}</b> added to stock. <button class="linkbtn" data-act="poUnreceive" data-id="${la.id}">Undo</button> <button class="linkbtn" data-act="dismissArrived" style="margin-left:8px">Dismiss</button></div>` : ""}
-  <div class="dropzone" data-act="orderPick" role="button" tabindex="0"><b>Drop a supplier order or invoice (PDF) here</b><span>or tap to choose it. The app reads the items, you check the names, and it goes to <b>On order</b>.</span></div>
+  <div class="dropzone" data-act="orderPick" role="button" tabindex="0"><b>Drop a supplier order or invoice (PDF or picture) here</b><span>or tap to choose it. The app reads the items, you check the names, and it goes to <b>On order</b>.</span></div>
   <nav class="seg" aria-label="Inventory sections"><a href="#/inventory" ${tab === "stock" ? 'aria-current="page"' : ""}>Stock</a><a href="#/inventory/onorder" ${tab === "onorder" ? 'aria-current="page"' : ""}>On order${open.length ? " (" + open.length + ")" : ""}</a><a href="#/inventory/reorder" ${tab === "reorder" ? 'aria-current="page"' : ""}>Reorder${low.length ? " (" + low.length + ")" : ""}</a><a href="#/inventory/received" ${tab === "received" ? 'aria-current="page"' : ""}>Arrived</a></nav>`; }
 function invOnOrder(){ const open = S.pos.filter(o => o.status === "placed" || o.status === "shipped").sort((a, b) => (a.date || "") < (b.date || "") ? -1 : 1);
   return invHead("onorder") + (open.length ? `<div class="ordcards">${open.map(poCard).join("")}</div>` : `<div class="panel">${empty("Nothing on order. Drop a supplier's order confirmation PDF above, or tap Log order by hand.")}</div>`) +
@@ -1193,6 +1197,7 @@ const HELP = [
   ["How do I download all my taxes as a PDF or Excel file?", `<b>Taxes</b> → <b>Download tax report (PDF / Excel)</b>. Pick the period (this year, last year, a quarter, a month, or your own dates) and tap <b>Download PDF</b> or <b>Download Excel</b>. The file has: sales tax by month and by invoice (Colorado DOR and Lakewood separately), what you've paid and still owe, the income tax estimate, profit and loss, deadlines, plus payroll and 1099 contractors if you have them. The Excel file has a separate tab for each part, with totals that update if you change a number.`],
   ["How do I bring in my Navy Federal statements (PDF)?", `Go to <b>Banking</b> and drag the statement PDF onto the box that says "Drop Navy Federal statements here" (or tap it to pick files). You can drop several at once. The app:<ol><li>Reads every line and checks that they add up to the statement's beginning and ending balance.</li><li>Puts a checking statement into checking and a card statement into the credit card automatically.</li><li>Matches lines to things already in your books, records deposits that match an invoice from that customer, and sorts merchants it has learned.</li><li>Balances against the statement and shows <b>Everything is in order ✓</b>, or exactly what still needs you.</li></ol>`],
   ["Why were some statement lines marked \"covered by QuickBooks\"?", `When you moved from QuickBooks, the app got one starting entry with your balances and this year's totals up to that day. Bank or card lines on or before that date are already inside those totals, so importing them again would count the money twice. The app keeps those lines for reference but doesn't add them to your books. Import and balance statements from after that date.`],
+  ["Can the app read invoices and orders that come by email?", `Yes. Tap <b>Check my email</b> (Home or Inbox). Emails with a PDF or picture attached show <b>📎 Read it &amp; add to my books</b>. Tap it:<ul><li><b>From a supplier</b> (an order confirmation or invoice): the items are read and you get the same review screen as dropping a PDF on Inventory. Match or rename items, then save, and it goes to <b>On order</b> (or straight into stock if it already arrived). The email is attached to the order.</li><li><b>From a customer</b> (their purchase order): a new order opens in <b>Sales → Orders</b> with their items and due date filled in. Check it and save, then turn it into an invoice when you're ready.</li></ul>If the app can't tell who it's from, it asks once and remembers. Pictures (PNG/JPG) are read with text recognition, which takes a few extra seconds. Check the numbers before saving.`],
   ["How does the app learn my categories?", `Every time you put a bank or card line in a category, the app remembers that merchant. After you've picked the same category for a merchant <b>twice</b>, new lines from them are sorted automatically when you import a statement. Seen only once, it's shown as a suggestion you can accept with one tap. If you change your mind, just pick a different category a few times and it learns the new one.`],
   ["My cash in bank doesn't match Navy Federal. How do I fix it?", `Banking → <b>Balance the books</b> (or tap <b>Balance</b> next to Cash in bank on Home).<ol><li>Type the balance Navy Federal shows and the date.</li><li>The app shows the difference and the likely reasons: imported transactions you haven't added yet, a possible duplicate, something entered backwards, or an amount that exactly matches the difference. Tap a name to open and fix it.</li><li>Still can't find it? <b>Adjust my books</b> adds one adjustment so the numbers match. Use this for small leftovers, and tell your accountant about big ones.</li></ol>For a thorough check, open <b>Tick off each transaction</b> and tick everything that's on your statement. Anything left unticked (like a check that hasn't been cashed) explains the rest. This works for the credit card too.`],
   ["How do I itemize credit card charges into categories?", `Expenses → <b>Credit card</b>.<ul><li>Each charge has a <b>Category</b> box. Pick where the money went (Shop Supplies, Office Supplies, Advertising, Owner's Draw for personal, etc.).</li><li>One receipt covering several things? Tap <b>Itemize</b> (or choose "Split into several categories…"). Add a line per category with its amount. The app shows how much is left to assign and won't save until it adds up to the charge.</li><li>Imported your card statement? New charges show under <b>To categorize</b> at the top. Pick a category or tap <b>Split…</b>.</li><li>Need a new category? Inside Itemize, open "Need a category that isn't listed?" and add it.</li><li><b>Where the money went</b> at the bottom totals your card spending by category for this month, last month, this year or last year.</li></ul>`],
@@ -2366,17 +2371,39 @@ function suggestMail(m){ const e = emailOf(m.from), text = (m.subject + " " + m.
   if (/unsubscribe|newsletter|no-?reply|donotreply|%off|% off|sale ends|limited time|webinar|winner|crypto|bitcoin|seo service|rank your website|guest post/.test(text + " " + e)) return {cat:"spam", why:"looks like marketing or junk"};
   if (/trophy|trophies|plaque|award|medal|badge|name tag|engrav|sign|quote|pricing|price|banquet|recognition|order/.test(text)) return {cat:"lead", why:"mentions things you sell"};
   return {cat:"", why:""}; }
+/* ----- email attachments → books ----- */
+const b64toBytes = d => { const bin = atob(String(d || "").replace(/-/g, "+").replace(/_/g, "/")); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+const attOK = a => /\.(pdf|png|jpe?g)$/i.test(a.filename || "") || /pdf|image\/(png|jpe?g)/i.test(a.mimeType || "");
+async function mailAttachments(m){ const out = []; for (const mid of (m.msgIds || []).slice(-6).reverse()) { try { const r = await MCP.callTool(GMAIL, "list_attachments", {messageId:mid}); ((r.payload && r.payload.attachments) || []).filter(attOK).forEach(a => out.push(a)); } catch(e) { console.error(e); } } return out; }
+async function readMailAttachment(m, a){ toast("Opening " + a.filename + "…");
+  const r = await MCP.callTool(GMAIL, "get_attachment", {messageId:a.messageId, attachmentId:a.attachmentId}); const bytes = b64toBytes(r.payload && r.payload.data);
+  const file = new File([bytes], a.filename || "attachment", {type:a.mimeType || (/\.pdf$/i.test(a.filename) ? "application/pdf" : "image/png")});
+  const lines = await fileLines(file); return {file, lines}; }
+function attachKind(m){ const s2 = m.s || {}, cat = (UI.mailCat || {})[m.id] ?? s2.cat ?? "", e = emailOf(m.from);
+  if (SUP_CATS.has(cat) || (!CUST_CATS.has(cat) && vendForEmail(e))) return "supplier"; if (CUST_CATS.has(cat) || cat === "lead" || custForEmail(e)) return "customer"; return ""; }
+async function mailAttToBooks(m, a, kind){ let got; try { got = await readMailAttachment(m, a); } catch(e) { console.error(e); toast("Couldn't open that attachment: " + (e.message || e)); return; }
+  if (!got.lines.length) { toast("Couldn't find any text in that file."); return; }
+  kind = kind || attachKind(m);
+  if (!kind) { UI.attPending = {m, a, got}; openSheet("What is this attachment?", `<p style="margin-top:0"><b>${esc(a.filename)}</b> from ${esc(m.from)}</p><p class="small muted">Tell the app what it is and it will put it in the right place. Next time it remembers this sender.</p><div class="actions"><button class="btn primary" data-act="attKind" data-kind="supplier">Something I bought (supplier order or invoice)</button><button class="btn" data-act="attKind" data-kind="customer">An order from a customer</button></div>`, true); return; }
+  if (kind === "supplier") { const v = (UI.mailVend || {})[m.id] ? byId("vendors", UI.mailVend[m.id]) : vendForEmail(emailOf(m.from)); await handleOrderFiles([got.file], got.lines, {vendorId:v ? v.id : "", mail:m}); return; }
+  const p = parseOrderText(got.lines), c = byId("customers", (UI.mailCust || {})[m.id] || "") || custForEmail(emailOf(m.from)), txt = got.lines.join("\n");
+  const need = /(?:need(?:ed)? by|due|deliver(?:y)? by|event date|in hand by)[:\s]*(\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}-\d{2}-\d{2})/i.exec(txt);
+  const details = (p.lines.length ? p.lines.map(l => `${l.qty} × ${[l.sku, l.desc].filter(Boolean).join(" ")}${l.cost ? " @ " + money(l.cost) : ""}`).join("\n") : got.lines.slice(0, 40).join("\n")) + (p.orderNo ? "\nTheir PO / order #: " + p.orderNo : "") + "\n(From " + a.filename + ")";
+  UI.pendingOrderMail = m;
+  orderForm({fresh:true, status:"new", customerId:c ? c.id : "", due:need ? parseDateAny(need[1]) : "", from:m.from, subject:m.subject || a.filename, details, threadId:m.id, viewUrl:m.url, po:p.orderNo || ""}); toast(p.lines.length ? "Read " + p.lines.length + " line" + (p.lines.length > 1 ? "s" : "") + " from the order. Check them and save." : "Here's the text from the attachment. Check it and save the order."); }
 function inboxWaiting(){ return (UI.inbox || []).filter(m => !byId("mail", m.id)).length; }
 async function scanInbox(quiet){
   if (!MCP || UI.inboxBusy) return; UI.inboxBusy = true; UI.inboxMsg = ""; if (!quiet) render();
   let err = "", auto = 0; const me = emailOf(S.company.email);
   try {
     const r = await MCP.callTool(GMAIL, "search_threads", {query:"in:inbox newer_than:30d -category:promotions -category:social -from:me", pageSize:40});
+    let attIds = new Set(); try { const ra = await MCP.callTool(GMAIL, "search_threads", {query:"in:inbox newer_than:30d has:attachment (filename:pdf OR filename:png OR filename:jpg OR filename:jpeg) -from:me", pageSize:40}); attIds = new Set(((ra.payload && ra.payload.threads) || []).map(t => t.id)); } catch(e) { console.error(e); }
     const list = [];
     for (const t of ((r.payload && r.payload.threads) || [])) { if (byId("mail", t.id)) continue;
       const msg = (t.messages || []).find(x => emailOf(x.sender) !== me) || (t.messages || [])[0]; if (!msg) continue;
-      const d = new Date(msg.date || ""); const m = {id:t.id, from:msg.sender || "", subject:msg.subject || "", snippet:String(msg.snippet || "").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").slice(0, 240), date:isNaN(d) ? "" : d.toISOString(), url:t.viewUrl || msg.viewUrl || ""};
+      const d = new Date(msg.date || ""); const m = {id:t.id, from:msg.sender || "", subject:msg.subject || "", snippet:String(msg.snippet || "").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").slice(0, 240), date:isNaN(d) ? "" : d.toISOString(), url:t.viewUrl || msg.viewUrl || "", msgIds:(t.messages || []).map(x => x.id).filter(Boolean), att:attIds.has(t.id)};
       m.s = suggestMail(m);
+      if (m.att && m.s.rule && m.s.rule.n >= 2 && (m.s.cat === "spam" || m.s.cat === "other")) m.att = false;
       if (m.s.rule && m.s.rule.n >= 2 && (m.s.cat === "spam" || m.s.cat === "other")) { await fileMail(m, {cat:m.s.cat, customerId:m.s.customerId, vendorId:m.s.vendorId, auto:true}); auto++; continue; }
       list.push(m); }
     UI.inbox = list;
@@ -2407,6 +2434,7 @@ function mailCard(m){ const s = m.s || {}, cat = UI.mailCat[m.id] ?? s.cat ?? ""
   const key = e, dom = domainOf(e);
   return `<div class="item mailcard" style="cursor:default;align-items:start" data-mail="${m.id}"><div style="min-width:0">
     <div class="t">${esc(m.subject || "(no subject)")}</div><div class="s">${esc(m.from)}${m.date ? " · " + fmtDate(iso0(new Date(m.date))) : ""}</div><div class="small" style="margin:4px 0 8px">${esc(m.snippet)}</div>
+    ${m.att && MCP ? `<div class="notice" style="margin:0 0 8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">📎 <span>This email has a PDF or picture attached${attachKind(m) === "supplier" ? " (looks like a supplier order or invoice)" : attachKind(m) === "customer" ? " (looks like a customer order)" : ""}.</span><button class="btn small primary" data-act="mailAtt" data-id="${m.id}">Read it &amp; add to my books</button></div>` : ""}
     <div class="fields" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"><label class="f">What is this?<select data-mail-cat="${m.id}">${opts(MAILCATS, cat, "Choose…")}</select></label>${extra}</div>
     ${s.why && cat === s.cat ? `<p class="small muted" style="margin:6px 0 0">Suggested because ${esc(s.why)}.</p>` : ""}
     ${cat ? `<label class="check" style="margin-top:6px"><input type="checkbox" data-mail-learn="${m.id}" checked> Always sort ${!FREE_MAIL.test(e) && dom && (SUP_CATS.has(cat) || cat === "spam") ? `anything from <b>@${esc(dom)}</b>` : `emails from <b>${esc(key)}</b>`} this way</label>` : ""}
@@ -2856,7 +2884,9 @@ function guessVendor(text){ const low = text.toLowerCase(), own = new Set(((S.co
   return best; }
 function parseOrderText(lines){
   const text = lines.join("\n"), out = {lines:[], shipping:0, tax:0, total:null, sub:null, orderNo:"", date:"", vendorId:"", vendorName:""};
-  const v = guessVendor(text); if (v) out.vendorId = v.id; else { const own = (S.company.name || "").toLowerCase(); const top = lines.find(l => /[a-z]{3}/i.test(l) && !/invoice|order|confirmation|page|date|receipt|quote|statement/i.test(l) && !(own && l.toLowerCase().includes(own.split(" ")[0]))); out.vendorName = (top || "").replace(/\s{2,}.*/, "").slice(0, 50); }
+  const v = guessVendor(text); if (v) out.vendorId = v.id; else { const own = (S.company.name || "").toLowerCase(); const hdr = l => (l.match(/\b(qty|quantity|description|price|total|sku|item|amount|each|unit)\b/gi) || []).length >= 2;
+    const top = lines.map(l => l.replace(/\b(sales\s+)?(invoice|receipt|order confirmation|purchase order|packing slip|statement|quote)\b.*$/i, "").trim()).find(l => /[a-z]{3}/i.test(l) && !hdr(l) && !/^(order|page|date|bill|ship|sold)\b/i.test(l) && !(own && l.toLowerCase().includes(own.split(" ")[0])));
+    out.vendorName = (top || "").replace(/\s{2,}.*/, "").slice(0, 50); }
   const on = /\b(?:order|invoice|confirmation|sales[ \t]*order|so|p\.?o\.?|reference)[ \t]*(?:no\.?|number|num|#)?[ \t]*[:#]?[ \t]*([A-Z0-9-]*\d[A-Z0-9-]*)/ig; let m; while ((m = on.exec(text))) { if (m[1].replace(/-/g, "").length >= 4) { out.orderNo = m[1]; break; } }
   const d1 = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/.exec(text), d2 = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})\b/i.exec(text), d3 = /\b(\d{4})-(\d{2})-(\d{2})\b/.exec(text);
   if (d1) out.date = parseDateAny(d1[0]); else if (d3) out.date = d3[0]; else if (d2) { const dt = new Date(d2[0].replace(/\./, "")); if (!isNaN(dt)) out.date = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0"); }
@@ -2875,10 +2905,12 @@ function parseOrderText(lines){
       for (let a = prev.length - 1; a >= 0 && !found; a--) for (let b = a - 1; b >= 0 && !found; b--) { const x = prev[b], y = prev[a]; if (x.v > 0 && y.v > 0 && Math.abs(x.v * y.v - ext.v) <= Math.max(0.02, ext.v * 0.002)) found = [x, y]; }
       if (!found && prev.length) { const y = prev[prev.length - 1]; if (Number.isInteger(y.v) && y.v > 0 && Math.abs(ext.v) > 0) found = [y, {i:y.i, v:r4(ext.v / y.v), unitFromExt:true}]; }
       if (found) { let [x, y] = found, q = x, p = y; if (!y.unitFromExt && !Number.isInteger(x.v) && Number.isInteger(y.v)) { q = y; p = x; }
-        let pre = toks.slice(0, Math.min(x.i, y.i));
+        const lo = Math.min(x.i, y.i), hi = Math.max(x.i, y.i);
+        let pre = toks.slice(0, lo);
         while (pre.length && (NUM_TOK.test(pre[pre.length - 1]) || UOM_RX.test(pre[pre.length - 1]))) pre.pop();
         if (pre.length > 1 && /^\d{1,3}\.?$/.test(pre[0])) pre.shift();
         pre = pre.filter(t => !UOM_RX.test(t));
+        if (!y.unitFromExt && hi > lo + 1) { const mid = toks.slice(lo + 1, hi).filter(t => !NUM_TOK.test(t) && !UOM_RX.test(t)); if (mid.length) pre = pre.concat(mid); }
         let sku = ""; if (pre.length && /^(?=.*\d)(?=.*[a-z])[a-z0-9][a-z0-9\-.\/]{2,}$/i.test(pre[0])) sku = pre.shift().replace(/[.,]$/, "");
         const desc = pre.join(" ").replace(/^[-–:]\s*/, "").trim();
         if (sku || desc.length > 1) { last = {sku, desc, qty:q.v, cost:r4(p.v), ext:ext.v}; out.lines.push(last); return; } } }
@@ -2896,12 +2928,20 @@ function matchItem(l, vendorId){ const items = S.items.filter(i => i.type !== "s
   for (const i of items) { const iw = new Set(itWords(i.name + " " + (i.desc || "") + " " + (i.sku || ""))); if (!iw.size) continue; let hit = 0, alpha = 0; dw.forEach(w => { if (!iw.has(w)) return; if (/^[a-z]+$/.test(w)) { hit += 1; alpha++; } else hit += /^\d$/.test(w) ? 0.2 : 1; }); if (!alpha) continue; let sc = hit / Math.max(2, Math.min(dw.size, iw.size)); if (vendorId && i.vendorId === vendorId) sc *= 1.15; if (sc > bs) { bs = sc; best = i; } }
   return bs >= 0.6 ? {it:best, how:"guess"} : null; }
 let PENDING_ORDER = null;
-async function handleOrderFiles(files, preLines){ const f = [...files].find(x => /\.pdf$/i.test(x.name) || x.type === "application/pdf");
-  if (!f) { toast("Drop the supplier's order confirmation or invoice as a PDF."); return; }
+let TESS = null;
+async function loadTess(){ if (window.Tesseract) return window.Tesseract;
+  await new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"; sc.onload = res; sc.onerror = () => rej(new Error("Couldn't load the picture reader. Check your internet connection.")); document.head.appendChild(sc); });
+  return window.Tesseract; }
+async function ocrLines(blob){ const T = await loadTess(); toast("Reading the picture… this takes about 10–20 seconds"); const r = await T.recognize(blob, "eng"); return String((r && r.data && r.data.text) || "").split("\n").map(x => x.replace(/\s+/g, " ").trim()).filter(Boolean); }
+const isImg = f => /\.(png|jpe?g)$/i.test(f.name || "") || /^image\/(png|jpe?g)/.test(f.type || "");
+async function fileLines(f){ if (isImg(f)) return ocrLines(f); return pdfLines(await f.arrayBuffer()); }
+async function handleOrderFiles(files, preLines, extra){ const f = [...files].find(x => /\.pdf$/i.test(x.name) || x.type === "application/pdf" || isImg(x));
+  if (!f) { toast("Drop the supplier's order confirmation or invoice as a PDF or a picture (PNG/JPG)."); return; }
   toast("Reading " + f.name + "…"); let parsed;
-  try { parsed = parseOrderText(preLines || await pdfLines(await f.arrayBuffer())); } catch(e) { console.error(e); toast(e.message || "Couldn't read that PDF."); return; }
+  try { parsed = parseOrderText(preLines || await fileLines(f)); } catch(e) { console.error(e); toast(e.message || "Couldn't read that file."); return; }
+  extra = extra || {}; if (extra.vendorId && !parsed.vendorId) parsed.vendorId = extra.vendorId;
   if (!parsed.lines.length) { toast("Couldn't find the item lines in that PDF, so fill them in here."); poForm({date:parsed.date || todayISO(), status:"placed", payFrom:"a2200", vendorId:parsed.vendorId, orderNo:parsed.orderNo, shipping:parsed.shipping || "", tax:parsed.tax || "", lines:[{qty:1}], notes:"From " + f.name}); return; }
-  PENDING_ORDER = {parsed, file:f.name}; orderReview(); }
+  PENDING_ORDER = {parsed, file:f.name, mail:extra.mail || null}; orderReview(); }
 function orderReview(){ const P = PENDING_ORDER, p = P.parsed, v = byId("vendors", p.vendorId);
   const items = S.items.filter(i => i.type !== "service" && i.type !== "kit").sort(byName);
   const row = (l, i) => { const m = matchItem(l, p.vendorId), it = m && m.it, sug = (l.sku && l.desc ? l.sku + " " + l.desc : l.sku || l.desc).slice(0, 70);
@@ -3382,6 +3422,7 @@ const FORMS = {
       lines.push({ref, qty:p.qty, rate:p.cost, memo:[p.src.sku, p.src.desc].filter(Boolean).join(" ").slice(0, 120)}); }
     const st = val(f, "status"), date = val(f, "date") || todayISO();
     const pid = await put("pos", {vendorId:vid, orderNo, date, status:st === "shipped" ? "shipped" : "placed", shippedAt:st === "shipped" ? todayISO() : "", payFrom:val(f, "payFrom"), lines, shipping:num(f, "shipping"), tax:num(f, "tax"), tracking:"", expected:"", notes:"From " + P.file, source:"pdf"});
+    if (P.mail) { await attachMail("pos", pid, P.mail); await fileMail(P.mail, {cat:"supplier_bill", vendorId:vid, link:{col:"pos", id:pid, label:"Order" + (orderNo ? " #" + orderNo : "")}}); }
     let msg = "Order saved: " + lines.length + " line" + (lines.length > 1 ? "s" : "") + " on order";
     if (st === "received") { await receivePO(byId("pos", pid), null, todayISO()); msg = "Added to stock: " + lines.length + " line" + (lines.length > 1 ? "s" : ""); UI.lastArrived = pid; }
     if (created) msg += " · " + created + " new item" + (created > 1 ? "s" : ""); if (renamed) msg += " · " + renamed + " renamed";
@@ -3420,6 +3461,7 @@ Answer with JSON only: {"subject": "...", "body": "..."}`;
   async order(f){ const id = f.dataset.id || undefined;
     const o = {...clone(byId("orders", id) || {}), id, customerId:val(f, "customerId"), due:val(f, "due"), from:val(f, "from"), subject:val(f, "subject"), details:f.elements.details.value, status:val(f, "status"), threadId:val(f, "threadId"), viewUrl:val(f, "viewUrl")};
     const oid = await put("orders", o); toast("Order saved");
+    { const pm = UI.pendingOrderMail; if (pm && pm.id === o.threadId) { UI.pendingOrderMail = null; try { await fileMail(pm, {cat:"order", customerId:o.customerId, link:{col:"orders", id:oid, label:"Order"}}); } catch(e) { console.error(e); } } }
     if (f.dataset.toInvoice) { const cust = byId("customers", o.customerId); if (!cust) { toast("Choose or add the customer first."); return "keep"; }
       closeSheet(); invoiceForm({customerId:cust.id, date:todayISO(), terms:cust.terms || "Net 30", num:nextInvNum(), taxRate:custTax(cust), neededBy:o.due, memo:S.company.defaultMemo ?? "Thank you for your business!", jobStatus:"new", lines:[{qty:1, desc:(o.details || o.subject || "").slice(0, 300), taxable:cust.taxable !== false}], fromOrder:oid}); return "keep"; } },
   async holding(f){ const id = f.dataset.id || undefined, old = byId("holdings", id) || {};
@@ -3542,6 +3584,15 @@ const ACT = {
   scanInbox(){ scanInbox(false); },
   inboxTab(el){ UI.inboxTab = el.dataset.tab; render(); },
   fileMail(el){ doFileMail(el.dataset.id); },
+  async mailAtt(el){ const m = (UI.inbox || []).find(x => x.id === el.dataset.id); if (!m) return; el.disabled = true; el.textContent = "Reading…";
+    try { const list = await mailAttachments(m); if (!list.length) { toast("Couldn't find a PDF or picture in this email."); return; }
+      if (list.length === 1) { await mailAttToBooks(m, list[0]); return; }
+      UI.attList = {m, list}; openSheet("Which attachment?", `<div class="list">${list.map((a, i) => `<div class="item" data-act="attPick" data-i="${i}"><div><div class="t">${esc(a.filename)}</div><div class="s">${esc(a.mimeType)}${a.size ? " · " + Math.round(a.size / 1024) + " KB" : ""}</div></div><div class="r muted">›</div></div>`).join("")}</div>`, true); }
+    catch(e) { console.error(e); toast("Couldn't read the attachments: " + (e.message || e)); } finally { el.disabled = false; el.textContent = "Read it & add to my books"; } },
+  async attPick(el){ const L = UI.attList; if (!L) return; closeSheet(); await mailAttToBooks(L.m, L.list[+el.dataset.i]); },
+  async attKind(el){ const P = UI.attPending; if (!P) return; closeSheet(); UI.mailCat = {...(UI.mailCat || {}), [P.m.id]:el.dataset.kind === "supplier" ? "supplier_bill" : "order"};
+    if (el.dataset.kind === "supplier") { const v = vendForEmail(emailOf(P.m.from)); await handleOrderFiles([P.got.file], P.got.lines, {vendorId:v ? v.id : "", mail:P.m}); }
+    else await mailAttToBooks(P.m, P.a, "customer"); },
   skipMail(el){ UI.mailSkip = {...(UI.mailSkip || {}), [el.dataset.id]:true}; render(); },
   async unfileMail(el){ const x = byId("mail", el.dataset.id); if (!x) return; await remove("mail", x.id); UI.inbox = [...(UI.inbox || []), {id:x.id, from:x.from, subject:x.subject, snippet:x.snippet, date:x.date, url:x.url, s:{cat:x.cat, customerId:x.customerId, vendorId:x.vendorId, why:"you sorted it this way before"}}]; UI.inboxTab = "sort"; render(); },
   delRule(el){ confirmBox("Stop sorting this sender automatically?", "Remove", async () => { await remove("mailrules", el.dataset.id); }); },
