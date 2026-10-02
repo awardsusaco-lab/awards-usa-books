@@ -737,13 +737,14 @@ function custTax(c){ if (!c) return coRate(); if (c.taxable === false) return 0;
 async function rememberTaxRate(customerId, rate){ const c = byId("customers", customerId); if (!c || isNaN(rate) || Math.abs(custTax(c) - rate) < 0.0005) return;
   const upd = {...clone(c)}; if (rate === 0) { upd.taxable = false; } else { upd.taxable = true; upd.taxRate = Math.abs(rate - coRate()) < 0.0005 ? "" : rate; }
   await put("customers", upd); toast(rate === 0 ? `${c.name} saved as tax exempt` : `Saved ${rate}% as ${c.name}'s sales tax rate`); }
+const MIME = {pdf:"application/pdf", xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", csv:"text/csv", zip:"application/zip"};
 async function saveFile(filename, data){
   if (DL) {
     try { await DL.save({filename, data}); toast("Saved " + filename); }
     catch(e) { if (e && e.code !== "declined") toast("Couldn't save the file here."); }
     return;
   }
-  try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data])); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); }
+  try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], {type:MIME[(filename.split(".").pop() || "").toLowerCase()] || "application/octet-stream"})); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); }
   catch(e) { toast("Downloads aren't available here."); }
 }
 const csv = rows => rows.map(r => r.map(v => { v = v == null ? "" : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(",")).join("\n");
@@ -1188,6 +1189,7 @@ const HELP = [
   ["How do I find items that fit a customer's budget?", `Go to <b>Inventory</b>. In the gold <b>Fit a budget</b> bar, type their total budget and how many pieces they need (for example $300 for 12 medals). You'll see the most you can charge each, and only the items that fit, nicest first, with the total for all the pieces. Check <b>Include sales tax</b> if they aren't tax-exempt. You can also set a price range each (like $10 to $25). Items with low stock show "only N in stock". Press <b>Clear</b> to see everything again.`],
   ["How do I know what's running low?", `Home lists low-stock items. Set a "reorder at" number on each item (Inventory → the item → Edit) so the app knows when to warn you.`]]],
  ["Expenses, banking and taxes", [
+  ["How do I download all my taxes as a PDF or Excel file?", `<b>Taxes</b> → <b>Download tax report (PDF / Excel)</b>. Pick the period (this year, last year, a quarter, a month, or your own dates) and tap <b>Download PDF</b> or <b>Download Excel</b>. The file has: sales tax by month and by invoice (Colorado DOR and Lakewood separately), what you've paid and still owe, the income tax estimate, profit and loss, deadlines, plus payroll and 1099 contractors if you have them. The Excel file has a separate tab for each part, with totals that update if you change a number.`],
   ["How do I bring in my Navy Federal statements (PDF)?", `Go to <b>Banking</b> and drag the statement PDF onto the box that says "Drop Navy Federal statements here" (or tap it to pick files). You can drop several at once. The app:<ol><li>Reads every line and checks that they add up to the statement's beginning and ending balance.</li><li>Puts a checking statement into checking and a card statement into the credit card automatically.</li><li>Matches lines to things already in your books, records deposits that match an invoice from that customer, and sorts merchants it has learned.</li><li>Balances against the statement and shows <b>Everything is in order ✓</b>, or exactly what still needs you.</li></ol>`],
   ["Why were some statement lines marked \"covered by QuickBooks\"?", `When you moved from QuickBooks, the app got one starting entry with your balances and this year's totals up to that day. Bank or card lines on or before that date are already inside those totals, so importing them again would count the money twice. The app keeps those lines for reference but doesn't add them to your books. Import and balance statements from after that date.`],
   ["How does the app learn my categories?", `Every time you put a bank or card line in a category, the app remembers that merchant. After you've picked the same category for a merchant <b>twice</b>, new lines from them are sorted automatically when you import a statement. Seen only once, it's shown as a suggestion you can accept with one tap. If you change your mind, just pick a different category a few times and it learns the new one.`],
@@ -1740,6 +1742,137 @@ function taxCard(x){
     ${x.filed ? `<button class="linkbtn small" data-act="taxUnfile" data-key="${esc(x.key)}" style="margin-top:4px">Undo</button>` : ""}
   </div><div class="r num">${x.amount ? money(x.amount) : ""}</div></div>`;
 }
+/* ----- tax report export (PDF + Excel) ----- */
+function taxRange(k, f0, t0){ const t = todayISO(), y = +t.slice(0, 4), m = +t.slice(5, 7), q = Math.floor((m - 1) / 3);
+  if (k === "custom" && f0 && t0) return [f0, t0, "Custom dates"];
+  if (k === "lastyear") return [(y - 1) + "-01-01", (y - 1) + "-12-31", String(y - 1)];
+  if (k === "quarter") return [ymd(y, q * 3 + 1, 1), monthEnd(y, q * 3 + 3), "Q" + (q + 1) + " " + y];
+  if (k === "lastq") { let qy = y, qq = q - 1; if (qq < 0) { qq = 3; qy--; } return [ymd(qy, qq * 3 + 1, 1), monthEnd(qy, qq * 3 + 3), "Q" + (qq + 1) + " " + qy]; }
+  if (k === "month") return [ymd(y, m, 1), monthEnd(y, m), MONTHS[m - 1] + " " + y];
+  if (k === "lastmonth") { let ly = y, lm = m - 1; if (!lm) { lm = 12; ly--; } return [ymd(ly, lm, 1), monthEnd(ly, lm), MONTHS[lm - 1] + " " + ly]; }
+  return [y + "-01-01", t, y + " year to date"]; }
+function taxData(from, to, label){
+  const c = S.company, months = []; let [y, m] = from.split("-").map(Number);
+  while (ymd(y, m, 1) <= to) { const f = ymd(y, m, 1) < from ? from : ymd(y, m, 1), e = monthEnd(y, m) > to ? to : monthEnd(y, m); months.push({label:MONTHS[m - 1] + " " + y, from:f, to:e, ...salesTaxDetail(f, e)}); m++; if (m > 12) { m = 1; y++; } }
+  const tot = salesTaxDetail(from, to), comps = [...new Set([...months.flatMap(x => x.comp.map(p => p.name)), ...tot.comp.map(p => p.name)])];
+  const compRate = n => (tot.comp.find(p => p.name === n) || months.flatMap(x => x.comp).find(p => p.name === n) || {}).rate;
+  const compAmt = (d, n) => r2((d.comp.find(p => p.name === n) || {}).amt || 0);
+  const invs = S.invoices.filter(i => i.date >= from && i.date <= to && !(i.lines || []).every(l => l.acct === SYS.OBE)).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.num) < String(b.num) ? -1 : 1).map(i => { const t = invTotals(i), cu = byId("customers", i.customerId) || {}, tb = (i.lines || []).filter(l => l.taxable).reduce((s2, l) => s2 + (+l.qty || 0) * (+l.rate || 0), 0);
+    return {date:i.date, num:String(i.num), customer:custName(i.customerId), sub:r2(t.sub), taxable:t.tax ? r2(tb) : 0, rate:+i.taxRate || 0, tax:r2(t.tax), total:r2(t.total), note:cu.taxable === false ? "Tax-exempt customer" : !t.tax ? "No tax charged" : ""}; });
+  const J = journal().filter(l => l.date >= from && l.date <= to), paidTo = a => r2(J.filter(l => l.acct === a && l.amt > 0 && l.src !== "Invoice").reduce((s2, l) => s2 + l.amt, 0));
+  const B = balances(null, to), owed = a => shown(byId("accounts", a) || {type:"ocliab"}, B[a]);
+  const dl = taxDeadlines(), dlMap = new Map(dl.map(x => [x.key, x]));
+  const payments = S.taxfilings.map(f => ({f, d:dlMap.get(f.id), date:(f.filedAt || "").slice(0, 10)})).filter(x => x.date >= from && x.date <= to).sort((a, b) => a.date < b.date ? -1 : 1).map(x => ({date:x.date, what:x.d ? x.d.title : x.f.id, period:x.d ? x.d.period.label : "", amount:r2(+x.f.amount || 0)}));
+  const pb = balances(from, to), pl = S.accounts.filter(a => PL.has(a.type) && Math.abs(pb[a.id] || 0) > 0.004).sort((a, b) => String(a.number).localeCompare(String(b.number))).map(a => ({acct:(a.number ? a.number + " " : "") + a.name, type:a.type, kind:["income", "oincome"].includes(a.type) ? "Income" : a.type === "cogs" ? "Cost of goods sold" : "Expense", amt:r2(["income", "oincome"].includes(a.type) ? -(pb[a.id] || 0) : (pb[a.id] || 0))}));
+  const profit = r2(-S.accounts.filter(a => PL.has(a.type) && !INV_ACCTS.has(a.id)).reduce((s2, a) => s2 + (pb[a.id] || 0), 0));
+  const yr = to.slice(0, 4), fullYear = from === yr + "-01-01", curYear = yr === todayISO().slice(0, 4);
+  let est = null; if (fullYear) { if (curYear && to >= todayISO()) { const e = estPlan(); est = {kind:"Projected for the full year", profit:e.proj, tax:e.year, paidFed:e.paidFed, paidCO:e.paidCO, mil:e.mil, useMil:e.useMil}; } else { const mil = mileage(yr, to), useMil = c.useMileage !== false && mil.miles > 0, veh = useMil ? shown(byId("accounts", "a6800") || {type:"expense"}, pb.a6800) : 0, p2 = useMil ? profit + veh - mil.amount : profit; const paid = k => S.taxfilings.filter(f => f.id.startsWith(k + "-" + yr)).reduce((s2, f) => s2 + (+f.amount || 0), 0); est = {kind:curYear ? "Based on profit so far" : "For the year", profit:r2(p2), tax:taxOn(Math.max(0, p2)), paidFed:paid("fed"), paidCO:paid("coe"), mil, useMil}; } }
+  const runs = S.payruns.filter(r => r.date >= from && r.date <= to).sort((a, b) => a.date < b.date ? -1 : 1);
+  const ytdY = yr, con = S.vendors.filter(v => v.contractor).map(v => ({name:v.name, w9:!!v.w9, paid:paidToVendor(v.id, ytdY)})).filter(v => v.paid > 0);
+  const deadlines = dl.filter(x => (x.due >= from && x.due <= addDays(to, 60)) || (!x.filed && x.due < todayISO())).map(x => ({due:x.due, what:x.title, period:x.period.label, amount:r2(x.amount || 0), status:x.filed ? "Filed " + fmtDate((x.filing?.filedAt || "").slice(0, 10)) : x.due < todayISO() ? "Not marked filed" : "Upcoming"}));
+  return {from, to, label, months, tot, comps, compRate, compAmt, invs, stPaid:{dor:paidTo("a2100"), lakewood:paidTo("a2110")}, owed:{dor:owed("a2100"), lakewood:owed("a2110")}, payments, pl, profit, est, runs, con, deadlines, freq:c.salesTaxFreq || "monthly"}; }
+const pct = n => (Math.round((+n || 0) * 1000) / 1000) + "%";
+/* tiny .xlsx writer: sheets [{name, rows:[[cell]], widths:[n]}]; cell = string | number | {v, s:"b"|"m"|"bm"|"h"|"t"|"p", f} */
+function xlsxBook(sheets){
+  const X = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
+  const col = n => { let s2 = ""; n++; while (n) { const r = (n - 1) % 26; s2 = String.fromCharCode(65 + r) + s2; n = Math.floor((n - 1) / 26); } return s2; };
+  const SI = {"":0, b:1, m:2, bm:3, h:4, t:5, p:6, n:7};
+  const sheetXml = sh => { const rows = sh.rows.map((r, ri) => `<row r="${ri + 1}">${r.map((cell, ci) => { if (cell === null || cell === undefined || cell === "") return ""; const o = typeof cell === "object" ? cell : {v:cell}, ref = col(ci) + (ri + 1), st = SI[o.s || (typeof o.v === "number" ? "n" : "")] || 0;
+      if (o.f) return `<c r="${ref}" s="${st}"><f>${X(o.f)}</f>${typeof o.v === "number" ? `<v>${o.v}</v>` : ""}</c>`;
+      if (typeof o.v === "number" && isFinite(o.v)) return `<c r="${ref}" s="${st}"><v>${o.v}</v></c>`;
+      return `<c r="${ref}" s="${st}" t="inlineStr"><is><t xml:space="preserve">${X(o.v)}</t></is></c>`; }).join("")}</row>`).join("");
+    const cols = (sh.widths || []).map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("");
+    const pane = sh.freeze ? `<sheetViews><sheetView workbookViewId="0"><pane ySplit="${sh.freeze}" topLeftCell="A${sh.freeze + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` : "";
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${pane}${cols ? `<cols>${cols}</cols>` : ""}<sheetData>${rows}</sheetData><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`; };
+  const names = sheets.map((sh, i) => (sh.name.replace(/[\\/?*\[\]:]/g, " ").slice(0, 31)) || "Sheet" + (i + 1));
+  const files = [
+    {name:"[Content_Types].xml", data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`},
+    {name:"_rels/.rels", data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`},
+    {name:"docProps/core.xml", data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Tax report</dc:title><dc:creator>${X(S.company.name || "")}</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0, 19)}Z</dcterms:created></cp:coreProperties>`},
+    {name:"xl/workbook.xml", data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${names.map((n, i) => `<sheet name="${X(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`},
+    {name:"xl/_rels/workbook.xml.rels", data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name:"xl/styles.xml", data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0.00;[Red]\\-&quot;$&quot;#,##0.00"/><numFmt numFmtId="165" formatCode="0.000&quot;%&quot;"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8EDF3"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top style="thin"><color rgb="FF9AA5B1"/></top><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="164" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`},
+    ...sheets.map((sh, i) => ({name:`xl/worksheets/sheet${i + 1}.xml`, data:sheetXml(sh)}))];
+  return makeZip(files); }
+function taxXlsx(D){ const M = v => ({v:r2(v || 0), s:"m"}), H = t => ({v:t, s:"h"}), B = t => ({v:t, s:"b"}), T = t => ({v:t, s:"t"});
+  const L = n => { let s2 = ""; n++; while (n) { const r = (n - 1) % 26; s2 = String.fromCharCode(65 + r) + s2; n = Math.floor((n - 1) / 26); } return s2; };
+  const sumRow = (label, startCol, endCol, r0, r1, extra) => { const row = [B(label)]; for (let c2 = 1; c2 < startCol; c2++) row.push(extra && extra[c2] !== undefined ? extra[c2] : ""); for (let c2 = startCol; c2 <= endCol; c2++) row.push(r1 >= r0 ? {f:`SUM(${L(c2)}${r0}:${L(c2)}${r1})`, s:"bm"} : {v:0, s:"bm"}); return row; };
+  const co = S.company.name || "", gen = "Made " + fmtDate(todayISO()) + " with the Awards USA Books app";
+  // Summary
+  const sum = [[T(co + " · Tax report")], [D.label + " (" + fmtDate(D.from) + " to " + fmtDate(D.to) + ")"], [gen], [],
+    [H("Sales tax"), H("")], ["Gross sales", M(D.tot.sales)], ["Exempt / non-taxable sales", M(D.tot.exempt)], ["Taxable sales", M(D.tot.taxable)],
+    ...D.comps.map(n => [n + (D.compRate(n) ? " (" + pct(D.compRate(n)) + ")" : ""), M(D.compAmt(D.tot, n))]),
+    [B("Sales tax collected for Colorado DOR"), {v:r2(D.tot.ag.dor || 0), s:"bm"}], [B("Sales tax collected for City of Lakewood"), {v:r2(D.tot.ag.lakewood || 0), s:"bm"}],
+    ["Sales tax paid to Colorado DOR in this period", M(D.stPaid.dor)], ["Sales tax paid to Lakewood in this period", M(D.stPaid.lakewood)],
+    ["Still owed to Colorado DOR on " + fmtDate(D.to), M(D.owed.dor)], ["Still owed to Lakewood on " + fmtDate(D.to), M(D.owed.lakewood)], [],
+    [H("Income"), H("")], ["Business profit for this period", M(D.profit)]];
+  if (D.est) sum.push([D.est.kind + ": profit used for tax", M(D.est.profit)], ["Self-employment tax (estimate)", M(D.est.tax.se)], ["Federal income tax (estimate)", M(D.est.tax.fedIncome)], ["Colorado income tax (estimate)", M(D.est.tax.co)], [B("Total income taxes (estimate)"), {v:D.est.tax.total, s:"bm"}], ["Federal estimated payments made this year", M(D.est.paidFed)], ["Colorado estimated payments made this year", M(D.est.paidCO)], ...(D.est.useMil ? [["Business miles (mileage deduction used)", {v:Math.round(D.est.mil.miles)}], ["Mileage deduction", M(D.est.mil.amount)]] : []));
+  else sum.push(["Income tax estimate", "Pick a full year (or this year to date) to see the estimate"]);
+  if (D.runs.length) sum.push([], [H("Payroll"), H("")], ["Paychecks", {v:D.runs.length}], ["Gross wages", M(D.runs.reduce((s2, r) => s2 + (+r.gross || 0), 0))], ["Payroll taxes (withheld + employer)", M(D.runs.reduce((s2, r) => s2 + ["fedWH","coWH","ssEE","medEE","famliEE","ssER","medER","futa","coUI","famliER"].reduce((t2, k) => t2 + (+r[k] || 0), 0), 0))]);
+  sum.push([], ["These are estimates from your books. Have your CPA review before filing."]);
+  // Sales tax by month
+  const mh = ["Month", "From", "To", "Gross sales", "Exempt / non-taxable", "Taxable sales", ...D.comps.map(n => n + (D.compRate(n) ? " " + pct(D.compRate(n)) : "")), "Colorado DOR total", "Lakewood total", "Total sales tax"];
+  const mrows = D.months.map(x => [x.label, x.from, x.to, M(x.sales), M(x.exempt), M(x.taxable), ...D.comps.map(n => M(D.compAmt(x, n))), M(x.ag.dor || 0), M(x.ag.lakewood || 0), M((x.ag.dor || 0) + (x.ag.lakewood || 0) + (x.ag.other || 0))]);
+  const months = [mh.map(H), ...mrows, sumRow("Total", 3, mh.length - 1, 2, mrows.length + 1)];
+  // invoices
+  const ih = ["Date", "Invoice #", "Customer", "Sales (before tax)", "Taxable amount", "Tax rate %", "Sales tax", "Invoice total", "Note"];
+  const irows = D.invs.map(i => [i.date, i.num, i.customer, M(i.sub), M(i.taxable), {v:i.rate, s:"p"}, M(i.tax), M(i.total), i.note]);
+  const invs = [ih.map(H), ...irows, [B("Total"), "", "", ...(irows.length ? [3, 4].map(c2 => ({f:`SUM(${L(c2)}2:${L(c2)}${irows.length + 1})`, s:"bm"})) : [{v:0, s:"bm"}, {v:0, s:"bm"}]), "", irows.length ? {f:`SUM(G2:G${irows.length + 1})`, s:"bm"} : {v:0, s:"bm"}, irows.length ? {f:`SUM(H2:H${irows.length + 1})`, s:"bm"} : {v:0, s:"bm"}]];
+  // payments
+  const prow = D.payments.map(p => [p.date, p.what, p.period, M(p.amount)]);
+  const pays = [["Date paid", "What", "Period", "Amount"].map(H), ...prow, [B("Total"), "", "", prow.length ? {f:`SUM(D2:D${prow.length + 1})`, s:"bm"} : {v:0, s:"bm"}]];
+  // P&L
+  const plr = D.pl.map(a => [a.acct, a.kind, M(a.amt)]);
+  const pl = [["Account", "Type", "Amount"].map(H), ...plr, [], [B("Profit (income minus costs and expenses)"), "", {v:D.profit, s:"bm"}]];
+  // deadlines
+  const dls = [["Due", "What", "Period", "Amount (estimate)", "Status"].map(H), ...D.deadlines.map(x => [x.due, x.what, x.period, x.amount ? M(x.amount) : "", x.status])];
+  const sheets = [{name:"Summary", rows:sum, widths:[52, 20]}, {name:"Sales tax by month", rows:months, widths:[12, 11, 11, ...Array(mh.length - 3).fill(16)], freeze:1}, {name:"Sales tax by invoice", rows:invs, widths:[11, 10, 32, 16, 15, 10, 12, 14, 22], freeze:1}, {name:"Tax payments", rows:pays, widths:[12, 44, 14, 14], freeze:1}, {name:"Profit and loss", rows:pl, widths:[40, 20, 16], freeze:1}, {name:"Deadlines", rows:dls, widths:[12, 44, 14, 16, 22], freeze:1}];
+  if (D.runs.length) { const K = ["gross","fedWH","coWH","ssEE","medEE","famliEE","ssER","medER","futa","coUI","famliER"], rr = D.runs.map(r => [r.date, r.employee || "", ...K.map(k => M(+r[k] || 0))]);
+    sheets.push({name:"Payroll taxes", rows:[["Date", "Employee", "Gross wages", "Federal WH", "Colorado WH", "Soc. Sec. (employee)", "Medicare (employee)", "FAMLI (employee)", "Soc. Sec. (employer)", "Medicare (employer)", "FUTA", "Colorado unemployment", "FAMLI (employer)"].map(H), ...rr, sumRow("Total", 2, 12, 2, rr.length + 1)], widths:[11, 18, ...Array(11).fill(14)], freeze:1}); }
+  if (D.con.length) sheets.push({name:"1099 contractors", rows:[["Name", "W-9 on file", "Paid in " + D.to.slice(0, 4), "1099-NEC needed"].map(H), ...D.con.map(v => [v.name, v.w9 ? "Yes" : "No", M(v.paid), v.paid >= NEC_MIN ? "Yes" : "No"])], widths:[30, 12, 16, 16], freeze:1});
+  return xlsxBook(sheets); }
+function taxPDF(D){ const P = new MiniPDF(), L = 40, R = 572, gray = [0.35, 0.39, 0.45], brass = [0.62, 0.48, 0.19]; let y = 50, page = 1;
+  const foot = () => { P.text(L, 770, (S.company.name || "") + " · Tax report · " + D.label, {size:7.5, color:gray}); P.text(R, 770, "Page " + page, {size:7.5, color:gray, align:"right"}); };
+  const brk = need => { if (y + need > 748) { foot(); P.add(); page++; y = 50; return true; } return false; };
+  const h2 = t => { brk(40); y += 10; P.text(L, y, t, {size:13, bold:true, color:brass}); y += 6; P.line(L, y, R, y, 0.8); y += 14; };
+  const kv = (k, v, bold) => { brk(16); P.text(L, y, k, {size:10, bold}); P.text(R, y, v, {size:10, bold, align:"right"}); y += 15; };
+  const table = (cols, rows, totals) => { const head = () => { P.rect(L, y - 11, R - L, 16, [0.93, 0.94, 0.96]); let x = L + 4; cols.forEach(c2 => { P.text(c2.a === "r" ? x + c2.w - 8 : x, y, c2.t, {size:7.5, bold:true, color:gray, align:c2.a === "r" ? "right" : undefined}); x += c2.w; }); y += 15; };
+    head(); rows.forEach((r, ri) => { if (brk(13)) head(); let x = L + 4; cols.forEach((c2, ci) => { const v = String(r[ci] ?? ""), txt = wrapText(v, c2.w - 8, 8, false)[0] || ""; P.text(c2.a === "r" ? x + c2.w - 8 : x, y, txt, {size:8, align:c2.a === "r" ? "right" : undefined}); x += c2.w; }); y += 12.5; if (ri % 2 === 1) {} });
+    if (totals) { brk(16); P.line(L, y - 8, R, y - 8, 0.6); let x = L + 4; cols.forEach((c2, ci) => { const v = totals[ci] ?? ""; if (v !== "") P.text(c2.a === "r" ? x + c2.w - 8 : x, y + 2, String(v), {size:8, bold:true, align:c2.a === "r" ? "right" : undefined}); x += c2.w; }); y += 16; } };
+  // header
+  if (S.company.showLogo !== false) { const lh = 44, lw = lh * LOGO_W / LOGO_H; P.image(LOGO_JPG, LOGO_W, LOGO_H, L, 30, lw, lh); }
+  P.text(R, 46, "TAX REPORT", {size:20, bold:true, color:brass, align:"right"}); P.text(R, 62, D.label, {size:10, bold:true, align:"right"}); P.text(R, 75, fmtDate(D.from) + " to " + fmtDate(D.to), {size:9, color:gray, align:"right"}); P.text(R, 87, "Made " + fmtDate(todayISO()), {size:8, color:gray, align:"right"});
+  P.text(L + (S.company.showLogo !== false ? 44 * LOGO_W / LOGO_H + 10 : 0), 56, S.company.name || "", {size:14, bold:true}); y = 108;
+  h2("Sales tax");
+  kv("Gross sales", money(D.tot.sales)); kv("Exempt / non-taxable sales", money(D.tot.exempt)); kv("Taxable sales", money(D.tot.taxable));
+  D.comps.forEach(n => kv("   " + n + (D.compRate(n) ? " (" + pct(D.compRate(n)) + ")" : ""), money(D.compAmt(D.tot, n))));
+  kv("Collected for Colorado Dept. of Revenue", money(D.tot.ag.dor || 0), true); kv("Collected for City of Lakewood", money(D.tot.ag.lakewood || 0), true);
+  kv("Paid to Colorado DOR in this period", money(D.stPaid.dor)); kv("Paid to Lakewood in this period", money(D.stPaid.lakewood));
+  kv("Still owed to Colorado DOR on " + fmtDate(D.to), money(D.owed.dor), true); kv("Still owed to Lakewood on " + fmtDate(D.to), money(D.owed.lakewood), true);
+  h2("Income tax");
+  kv("Business profit for this period", money(D.profit), true);
+  if (D.est) { kv(D.est.kind + ": profit used", money(D.est.profit)); if (D.est.useMil) kv("   includes mileage deduction (" + Math.round(D.est.mil.miles).toLocaleString() + " miles)", money(D.est.mil.amount)); kv("Self-employment tax (estimate)", money(D.est.tax.se)); kv("Federal income tax (estimate)", money(D.est.tax.fedIncome)); kv("Colorado income tax (estimate)", money(D.est.tax.co)); kv("Total income taxes (estimate)", money(D.est.tax.total), true); kv("Federal estimated payments made", money(D.est.paidFed)); kv("Colorado estimated payments made", money(D.est.paidCO)); }
+  else { brk(16); P.text(L, y, "Choose a full year (or this year to date) to include the income tax estimate.", {size:9, color:gray}); y += 15; }
+  if (D.runs.length) { h2("Payroll"); const K = ["fedWH","coWH","ssEE","medEE","famliEE","ssER","medER","futa","coUI","famliER"]; kv("Paychecks", String(D.runs.length)); kv("Gross wages", money(D.runs.reduce((s2, r) => s2 + (+r.gross || 0), 0))); kv("Payroll taxes (withheld + employer)", money(D.runs.reduce((s2, r) => s2 + K.reduce((t2, k) => t2 + (+r[k] || 0), 0), 0)), true); }
+  h2("Sales tax by month");
+  table([{t:"Month", w:70}, {t:"Gross sales", w:78, a:"r"}, {t:"Exempt", w:70, a:"r"}, {t:"Taxable", w:78, a:"r"}, {t:"Colorado DOR", w:84, a:"r"}, {t:"Lakewood", w:76, a:"r"}, {t:"Total tax", w:76, a:"r"}],
+    D.months.map(x => [x.label, money(x.sales), money(x.exempt), money(x.taxable), money(x.ag.dor || 0), money(x.ag.lakewood || 0), money((x.ag.dor || 0) + (x.ag.lakewood || 0) + (x.ag.other || 0))]),
+    ["Total", money(D.tot.sales), money(D.tot.exempt), money(D.tot.taxable), money(D.tot.ag.dor || 0), money(D.tot.ag.lakewood || 0), money((D.tot.ag.dor || 0) + (D.tot.ag.lakewood || 0) + (D.tot.ag.other || 0))]);
+  if (D.payments.length) { h2("Tax payments made"); table([{t:"Date", w:70}, {t:"What", w:250}, {t:"Period", w:90}, {t:"Amount", w:122, a:"r"}], D.payments.map(p => [fmtDate(p.date), p.what, p.period, money(p.amount)]), ["Total", "", "", money(D.payments.reduce((s2, p) => s2 + p.amount, 0))]); }
+  if (D.deadlines.length) { h2("Deadlines"); table([{t:"Due", w:70}, {t:"What", w:220}, {t:"Period", w:80}, {t:"Estimate", w:70, a:"r"}, {t:"Status", w:92}], D.deadlines.map(x => [fmtDate(x.due), x.what, x.period, x.amount ? money(x.amount) : "", x.status])); }
+  h2("Profit and loss");
+  table([{t:"Account", w:300}, {t:"Type", w:120}, {t:"Amount", w:112, a:"r"}], D.pl.map(a => [a.acct, a.kind, money(a.amt)]), ["Profit", "", money(D.profit)]);
+  h2("Sales tax by invoice");
+  table([{t:"Date", w:62}, {t:"Inv #", w:52}, {t:"Customer", w:150}, {t:"Sales", w:66, a:"r"}, {t:"Taxable", w:64, a:"r"}, {t:"Rate", w:42, a:"r"}, {t:"Tax", w:56, a:"r"}, {t:"Note", w:40}],
+    D.invs.map(i => [fmtDate(i.date), i.num, i.customer, money(i.sub), money(i.taxable), i.rate ? pct(i.rate) : "", money(i.tax), i.note === "Tax-exempt customer" ? "Exempt" : ""]),
+    ["Total", "", D.invs.length + " invoices", money(D.invs.reduce((s2, i) => s2 + i.sub, 0)), money(D.invs.reduce((s2, i) => s2 + i.taxable, 0)), "", money(D.invs.reduce((s2, i) => s2 + i.tax, 0)), ""]);
+  if (D.con.length) { h2("1099 contractors"); table([{t:"Name", w:220}, {t:"W-9 on file", w:90}, {t:"Paid", w:110, a:"r"}, {t:"1099-NEC needed", w:112}], D.con.map(v => [v.name, v.w9 ? "Yes" : "No", money(v.paid), v.paid >= NEC_MIN ? "Yes" : "No"])); }
+  brk(30); y += 10; P.text(L, y, "These numbers come from your books and are estimates. Have your CPA review them before filing.", {size:8, color:gray});
+  foot(); return P.bytes(); }
+function taxExportForm(){ openSheet("Download tax report", `<form data-form="taxExport"><p class="small muted" style="margin-top:0">One file with all your taxes: sales tax by month and by invoice (Colorado and Lakewood), what you've paid and still owe, the income tax estimate, profit and loss, deadlines${S.payruns.length ? ", payroll taxes" : ""} and 1099 contractors.</p><div class="fields">
+  <label class="f full">Period<select name="period" data-act-change="taxPeriod">${opts([["ytd", "This year so far"], ["lastyear", "Last year (" + (+todayISO().slice(0, 4) - 1) + ")"], ["quarter", "This quarter"], ["lastq", "Last quarter"], ["month", "This month"], ["lastmonth", "Last month"], ["custom", "Pick dates…"]], "ytd")}</select></label>
+  <label class="f" data-custom style="display:none">From<input name="from" type="date" value="${todayISO().slice(0, 4)}-01-01"></label><label class="f" data-custom style="display:none">To<input name="to" type="date" value="${todayISO()}"></label></div>
+  <div class="formfoot"><div class="right"><button type="button" class="btn" data-act="taxDl" data-kind="pdf">Download PDF</button><button type="button" class="btn primary" data-act="taxDl" data-kind="xlsx">Download Excel</button></div></div></form>`, true); }
 VIEWS.taxes = () => {
   const c = S.company, t = todayISO(), all = taxDeadlines(), b = balances(null, t);
   const open = all.filter(x => !x.filed && (x.due <= addDays(t, 75) || x.due < t)).slice(0, 12);
@@ -1747,7 +1880,7 @@ VIEWS.taxes = () => {
   const done = all.filter(x => x.filed).slice(-8).reverse();
   const owed = k => shown(byId("accounts", k) || {type:"ocliab"}, b[k]);
   const yb = balances(t.slice(0,4) + "-01-01", t); const ytd = -S.accounts.filter(a => PL.has(a.type)).reduce((s, a) => s + (yb[a.id] || 0), 0);
-  return `<div class="pagehead"><div><h1>Taxes</h1><p>Every filing deadline, with a link straight to where you file and pay.</p></div><div class="actions"><a class="btn" href="#/settings">Filing settings</a></div></div>
+  return `<div class="pagehead"><div><h1>Taxes</h1><p>Every filing deadline, with a link straight to where you file and pay.</p></div><div class="actions"><button class="btn primary" data-act="taxExport">Download tax report (PDF / Excel)</button><a class="btn" href="#/settings">Filing settings</a></div></div>
   <div class="ledger"><div><span>Sales tax owed to Colorado</span><b>${money(owed("a2100"))}</b></div><div><span>Sales tax owed to Lakewood</span><b>${money(owed("a2110"))}</b></div><div><span>Profit so far this year</span><b>${money(ytd)}</b></div><div><span>Sales tax filing</span><b style="font-size:20px">${esc({monthly:"Monthly",quarterly:"Quarterly",annual:"Yearly"}[c.salesTaxFreq || "monthly"])}</b></div></div>
   <section class="panel"><div class="panel-head"><h2>Coming up</h2></div><div class="list">${open.map(taxCard).join("") || empty("Nothing due in the next couple of months.")}</div></section>
   ${later.length ? `<section class="panel"><h2>Later</h2><div class="list">${later.map(x => `<div class="item" style="cursor:default"><div><div class="t">${esc(x.title)} · ${esc(x.period.label)}</div><div class="s">${fmtDate(x.due)}</div></div><div class="r">${x.link ? `<a class="small" href="${x.link.url}" target="_blank" rel="noopener noreferrer">${esc(x.link.label)} ↗</a>` : ""}</div></div>`).join("")}</div></section>` : ""}
@@ -3238,6 +3371,12 @@ const ACT = {
   async scanNow(el){ const acct = el.dataset.id, st = balSt(acct); toast("Scanning…"); const rep = await autoBalance(acct, {from:"", to:st.date, begin:null, end:st.bal === "" ? null : +st.bal}); if (route().view !== "balance") go("balance/" + acct); toast("Scan done: " + (rep.matched + rep.ruled + rep.invoices) + " sorted, " + rep.left + " need you"); },
   autoRepClose(el){ const r = {...(UI.autoRep || {})}; delete r[el.dataset.id]; UI.autoRep = r; render(); },
   orderPick(){ $("#orderFile").click(); },
+  taxExport(){ taxExportForm(); },
+  async taxDl(el){ const f = el.closest("form"), [from, to, label] = taxRange(f.elements.period.value, f.elements.from.value, f.elements.to.value);
+    if (!from || !to || from > to) { toast("Check the dates."); return; } el.disabled = true;
+    try { const D = taxData(from, to, label), base = (S.company.name || "Business").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-Tax-Report-" + (label === "Custom dates" ? from + "-to-" + to : label).trim().replace(/[^A-Za-z0-9]+/g, "-").replace(/-$/, "");
+      if (el.dataset.kind === "pdf") await saveFile(base + ".pdf", taxPDF(D)); else await saveFile(base + ".xlsx", taxXlsx(D)); }
+    catch(e) { console.error(e); toast("Couldn't make the file: " + (e.message || e)); } finally { el.disabled = false; } },
   kitAdd(el){ const f = el.closest("form"); f.querySelector("[data-kitparts]").insertAdjacentHTML("beforeend", kitRow({qty:1})); kitSum(f); },
   kitDel(el){ const f = el.closest("form"), rows = f.querySelectorAll(".kitrow"); if (rows.length > 1) el.closest(".kitrow").remove(); else el.closest(".kitrow").querySelector("select").value = ""; kitSum(f); },
   kitFromPick(){ const ids = [...(UI.pick || [])].filter(id => { const i = byId("items", id); return i && i.type !== "kit" && i.type !== "service"; }); if (!ids.length) { toast("Pick stocked items to put in the kit."); return; }
@@ -3539,6 +3678,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet
 document.addEventListener("toggle", e => { const t = e.target; if (t.dataset && t.dataset.actToggle === "balFull") UI.balFull = t.open; }, true);
 document.addEventListener("change", e => { const t = e.target; if (!t.dataset) return;
   if (t.dataset.cardCat !== undefined) { cardQuickCat(t); return; }
+  if (t.dataset.actChange === "taxPeriod") { t.closest("form").querySelectorAll("[data-custom]").forEach(x => x.style.display = t.value === "custom" ? "" : "none"); return; }
   if (t.dataset.invf) { if (t.type === "checkbox") UI.filter[t.dataset.invf] = t.checked; else UI.filter[t.dataset.invf] = t.value; render(); return; }
   if (t.dataset.pick) { UI.pick = UI.pick || new Set(); if (t.checked) UI.pick.add(t.dataset.pick); else UI.pick.delete(t.dataset.pick); render(); return; }
   if (t.dataset.kitItem !== undefined) { kitSum(t.closest("form")); return; }
