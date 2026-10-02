@@ -190,6 +190,15 @@ label.check{display:flex;gap:8px;align-items:center;font-size:14px}
 
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60;max-width:90vw}
 #toast.show{opacity:1}
+#undoBar{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 12px 10px 16px;border-radius:12px;z-index:61;display:flex;gap:10px;align-items:center;flex-wrap:wrap;max-width:calc(100vw - 32px);box-shadow:0 6px 24px rgba(0,0,0,.25)}
+#undoBar[hidden]{display:none}
+body.ubon #toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+#undoBar .ub-msg{font-weight:500}
+#undoBar button{background:transparent;color:var(--bg);border:1px solid currentColor;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer;min-height:36px}
+#undoBar button.ub-undo{background:var(--bg);color:var(--ink)}
+.minv{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.minv:last-child{border-bottom:0}
+.minv .num{margin-left:auto}
 .notice{background:var(--brass-soft);border:1px solid color-mix(in srgb,var(--brass) 40%,transparent);color:var(--ink);padding:10px 14px;border-radius:10px;margin-bottom:16px;font-size:14px}
 
 .doc{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:26px;position:relative;overflow:hidden}
@@ -275,6 +284,7 @@ label.check{display:flex;gap:8px;align-items:center;font-size:14px}
   </div>
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="undoBar" hidden role="status" aria-live="polite"><span class="ub-msg" data-ub-msg></span><button type="button" class="ub-undo" data-act="undoSend">Undo</button><button type="button" data-act="sendNow">Send now</button></div>
 <input type="file" id="restoreFile" accept=".json,application/json" hidden>
 <input type="file" id="orderFile" accept=".pdf,application/pdf,image/png,image/jpeg" hidden>
 <input type="file" id="bankFile" accept=".pdf,.csv,.ofx,.qfx,.qbo,.txt,text/csv,application/pdf" multiple hidden>
@@ -729,12 +739,100 @@ function printSheet(doc, kind){ const label = (kind === "estimate" ? "Estimate "
   <ul class="small"><li><b>Computer:</b> open the saved PDF, then press <b>Ctrl+P</b> (Windows) or <b>⌘P</b> (Mac).</li><li><b>iPhone / iPad:</b> open the PDF, tap the <b>Share</b> button, then <b>Print</b>.</li></ul>
   <div class="actions"><button class="btn primary" data-act="${kind === "estimate" ? "pdfEstimate" : "pdfInvoice"}" data-id="${doc.id}">Save PDF to print</button></div>`); }
 function gmailCompose(to, subject, body, cc){ const me = String(S.company.email || ""); return "https://mail.google.com/mail/?view=cm&fs=1" + (/@gmail\.com$/i.test(me) ? "&authuser=" + encodeURIComponent(me) : "") + "&to=" + encodeURIComponent(to) + (cc && cc.length ? "&cc=" + encodeURIComponent(cc.join(",")) : "") + "&su=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body); }
-function manualEmail(inv, to, subject, body, ask, why, cc){ cc = cc || []; const fname = pdfName(inv); saveFile(fname, docPDF(inv));
+function manualEmail(inv, to, subject, body, ask, why, cc, more){ cc = cc || []; const all = [inv, ...(more || []).filter(x => x && x.id !== inv.id)], ids = all.map(x => x.id).join(",");
+  const fnames = all.map(x => pdfName(x)); all.forEach((x, k) => setTimeout(() => saveFile(fnames[k], docPDF(x)), k * 400));
   const mailto = "mailto:" + encodeURIComponent(to) + "?" + (cc.length ? "cc=" + encodeURIComponent(cc.join(",")) + "&" : "") + "subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
-  openSheet("Email invoice #" + inv.num, `${why ? `<div class="notice">Couldn't send it automatically: ${esc(why)}</div>` : ""}
-  <ol style="padding-left:20px;margin:0 0 14px;line-height:1.7"><li>The PDF <b>${esc(fname)}</b> is saving to your computer.</li><li>Press <b>Open in Gmail</b>. The message to ${esc(to)}${cc.length ? " (CC " + esc(cc.join(", ")) + ")" : ""} is already written.</li><li>Click the paperclip in Gmail, attach the PDF, and press Send.</li></ol>
-  <div class="actions"><a class="btn primary" href="${esc(gmailCompose(to, subject, body, cc))}" target="_blank" rel="noopener noreferrer" data-manual-sent="${inv.id}" data-to="${esc(to)}" data-ask="${ask ? 1 : ""}">Open in Gmail</a><a class="btn" href="${esc(mailto)}" target="_blank" rel="noopener noreferrer" data-manual-sent="${inv.id}" data-to="${esc(to)}" data-ask="${ask ? 1 : ""}">Use another email app</a><button class="btn" data-act="pdfInvoice" data-id="${inv.id}">Save the PDF again</button></div>
-  <p class="small muted" style="margin-top:12px">The invoice gets a SENT stamp once you open the email.</p>`, true); }
+  const many = all.length > 1;
+  openSheet(many ? "Email " + all.length + " invoices" : "Email invoice #" + inv.num, `${why ? `<div class="notice">Couldn't send it automatically: ${esc(why)}</div>` : ""}
+  <ol style="padding-left:20px;margin:0 0 14px;line-height:1.7"><li>${many ? `These PDFs are saving to your computer: <b>${fnames.map(esc).join(", ")}</b>` : `The PDF <b>${esc(fnames[0])}</b> is saving to your computer.`}</li><li>Press <b>Open in Gmail</b>. The message to ${esc(to)}${cc.length ? " (CC " + esc(cc.join(", ")) + ")" : ""} is already written.</li><li>Click the paperclip in Gmail, attach the PDF${many ? "s" : ""}, and press Send.</li></ol>
+  <div class="actions"><a class="btn primary" href="${esc(gmailCompose(to, subject, body, cc))}" target="_blank" rel="noopener noreferrer" data-manual-sent="${ids}" data-to="${esc(to)}" data-ask="${ask ? 1 : ""}">Open in Gmail</a><a class="btn" href="${esc(mailto)}" target="_blank" rel="noopener noreferrer" data-manual-sent="${ids}" data-to="${esc(to)}" data-ask="${ask ? 1 : ""}">Use another email app</a>${many ? "" : `<button class="btn" data-act="pdfInvoice" data-id="${inv.id}">Save the PDF again</button>`}</div>
+  <p class="small muted" style="margin-top:12px">${many ? "The invoices get" : "The invoice gets"} a SENT stamp once you open the email.</p>`, true); }
+
+/* ---------- undo send: hold outgoing invoice emails for a few seconds ---------- */
+const UNDO_SECS = 30;
+let pendingSend = null;
+function showUndo(){ const b = $("#undoBar"); if (!b) return; document.body.classList.toggle("ubon", !!pendingSend); if (!pendingSend) { b.hidden = true; return; }
+  b.hidden = false; b.querySelector("[data-ub-msg]").textContent = pendingSend.label + " in " + pendingSend.left + "s"; }
+function queueSend(job){ if (pendingSend) flushSend();
+  pendingSend = {...job, left:UNDO_SECS}; showUndo();
+  pendingSend.timer = setInterval(() => { const j = pendingSend; if (!j) return; j.left = Math.max(0, UNDO_SECS - Math.round((Date.now() - j.started) / 1000)); if (j.left <= 0) flushSend(); else showUndo(); }, 500);
+  pendingSend.started = Date.now(); }
+async function flushSend(){ const j = pendingSend; if (!j) return; clearInterval(j.timer); pendingSend = null; showUndo();
+  try { await gmailSend(j.args); if (j.after) await j.after(); toast(j.done); }
+  catch(e) { if (j.fail) j.fail(e); else toast("Couldn't send: " + mcpErrText(e)); } }
+function cancelSend(){ const j = pendingSend; if (!j) return; clearInterval(j.timer); pendingSend = null; showUndo();
+  toast("Stopped. Nothing was sent."); if (j.undo) j.undo(); }
+window.addEventListener("beforeunload", e => { if (pendingSend) { e.preventDefault(); e.returnValue = ""; } });
+window.addEventListener("pagehide", () => { if (pendingSend) flushSend(); });
+
+/* ---------- emailing one or several invoices ---------- */
+const openInvsFor = cid => S.invoices.filter(i => i.customerId === cid && invBalance(i) > 0.004).sort((a, b) => (a.date || "") < (b.date || "") ? -1 : 1);
+function invMailSubject(list){ return list.length === 1 ? "Invoice #" + list[0].num + " from " + S.company.name : "Invoices " + list.map(i => "#" + i.num).join(", ") + " from " + S.company.name; }
+function invMailBody(c, list){ const sign = `Thank you for your business!
+
+Parker
+${S.company.name}${S.company.phone ? "\n" + S.company.phone : ""}`;
+  if (list.length === 1) { const inv = list[0], bal = invBalance(inv), t = invTotals(inv);
+    return `Hi ${firstName(c)},
+
+Attached is invoice #${inv.num} for ${money(t.total)}${bal < t.total - 0.004 ? ` (balance due ${money(bal)})` : ""}, due ${fmtDate(inv.due)}.
+
+${sign}`; }
+  const tot = list.reduce((s, i) => s + invBalance(i), 0);
+  return `Hi ${firstName(c)},
+
+Attached are ${list.length} invoices:
+${list.map(i => { const b = invBalance(i), t = invTotals(i); return `  • #${i.num}: ${money(b > 0.004 ? b : t.total)}${b > 0.004 && b < t.total - 0.004 ? " balance due" : ""}, due ${fmtDate(i.due)}`; }).join("\n")}
+
+Total due: ${money(tot)}
+
+${sign}`; }
+function multiPicked(f){ return [...f.querySelectorAll("[name=minv]")].filter(x => x.type === "hidden" || x.checked).map(x => byId("invoices", x.value)).filter(Boolean); }
+function emailInvoicesForm(cid, firstId, preIds){ const c0 = byId("customers", cid) || {}, first = firstId ? byId("invoices", firstId) : null;
+  const bt = first ? billToOf(first) : {email:c0.email, contact:c0.contact}, c = {...c0, email:bt.email || c0.email, contact:bt.contact || c0.contact};
+  let opts = openInvsFor(cid); if (first && !opts.some(i => i.id === first.id)) opts = [first, ...opts];
+  const pre = new Set(preIds || (first ? [first.id] : opts.map(i => i.id)));
+  const list = opts.filter(i => pre.has(i.id)), primary = first || list[0];
+  if (!primary) { toast("No open invoices for this customer."); return; }
+  const body = invMailBody(c, list);
+  const pick = opts.length > 1 ? `<div class="full"><p class="f" style="margin:0 0 4px"><b>Invoices in this email</b> <span class="small muted">Tick as many as you like. They all go as PDFs in one email.</span></p>
+    <div class="panel" style="padding:4px 12px;margin:0">${opts.map(i => `<label class="minv"><input type="checkbox" name="minv" value="${i.id}" ${pre.has(i.id) ? "checked" : ""} data-act-change="minvPick"> <span>#${esc(i.num)} · ${fmtDate(i.date)}${i.emailedAt || i.sentAt ? ' <span class="badge">Sent before</span>' : ""}${invStatus(i) === "overdue" ? ' <span class="badge bad">Overdue</span>' : ""}</span><b class="num">${money(invBalance(i) > 0.004 ? invBalance(i) : invTotals(i).total)}</b></label>`).join("")}</div></div>` : `<input type="hidden" name="minv" value="${primary.id}" checked>`;
+  openSheet(list.length > 1 ? "Email " + list.length + " invoices" : "Email invoice #" + primary.num, `<form data-form="sendInvoice" data-id="${primary.id}" data-cust="${esc(cid)}"><div class="fields">
+    <label class="f full">To<input name="to" type="email" required value="${esc(c.email || "")}"></label>
+    <label class="f full">CC<input name="cc" type="text" inputmode="email" autocapitalize="off" value="${esc(c.billingCc || "")}" placeholder="Optional"></label>
+    <label class="check full"><input type="checkbox" name="saveCc" checked> Always CC these people on this customer's invoices</label>
+    ${pick}
+    <label class="f full">Subject<input name="subject" value="${esc(invMailSubject(list))}"></label>
+    <label class="f full">Message<textarea name="body" style="min-height:180px">${esc(body)}</textarea></label>
+    <label class="check full"><input type="checkbox" name="askReview" data-act-change="reviewToggle"> Also ask them to leave a Google review</label>
+    ${S.company.reviewLink ? "" : `<label class="f full" data-rl hidden>Your Google review link<input name="reviewLink" type="text" inputmode="url" autocapitalize="off" placeholder="https://g.page/r/..."></label>`}
+    </div>${MCP ? `<p class="small muted" data-attnote>${list.length > 1 ? "The invoices are attached as PDFs." : "The invoice is attached as a PDF."} After you press Send you get ${UNDO_SECS} seconds to undo it.</p>${foot(null, "Send")}` : `<p class="small muted">This window can't send through Gmail by itself, so the next step saves the invoice PDF${list.length > 1 ? "s" : ""} and opens this message in Gmail, ready to go. You just attach the PDF${list.length > 1 ? "s" : ""} and press Send.</p>${foot(null, "Save PDF & open email")}`}</form>`, true);
+  const f = $("#sheetBody form[data-form=sendInvoice]"); if (f) { f._auto = body; f._autoSubj = invMailSubject(list); f._c = c; } }
+
+/* ---------- sent the wrong invoice ---------- */
+function wrongSendForm(inv){ const to = inv.emailedTo || "", c0 = byId("customers", inv.customerId) || {}, bt = billToOf(inv), c = {...c0, contact:bt.contact || c0.contact};
+  const when = (inv.emailedAt || inv.sentAt || "").slice(0, 10);
+  const body = `Hi ${firstName(c)},
+
+Please disregard invoice #${inv.num} I sent${when ? " on " + fmtDate(when) : ""}. It went out by mistake. I'll send the correct one shortly.
+
+Sorry for the mix-up!
+
+Parker
+${S.company.name}${S.company.phone ? "\n" + S.company.phone : ""}`;
+  openSheet("Sent invoice #" + inv.num + " by mistake?", `<div class="notice">Once an email is delivered, nobody can pull it back out of the other person's inbox (Gmail, Outlook, nobody). What you <b>can</b> do is set this invoice back to "not sent" and, if you like, send a quick "please disregard" note.</div>
+  <form data-form="unsend" data-id="${inv.id}"><div class="fields">
+    <label class="check full"><input type="checkbox" name="clear" checked> <span>Set invoice #${esc(inv.num)} back to <b>not sent</b> (removes the SENT stamp)</span></label>
+    <label class="check full"><input type="checkbox" name="note" data-act-change="unsendNote" ${to && MCP ? "checked" : ""}> Email them a "please disregard" note</label>
+    <div class="full" data-un ${to && MCP ? "" : "hidden"}><div class="fields">
+      <label class="f full">To<input name="to" type="email" value="${esc(to)}"></label>
+      <label class="f full">Subject<input name="subject" value="${esc("Please disregard invoice #" + inv.num)}"></label>
+      <label class="f full">Message<textarea name="body" style="min-height:150px">${esc(body)}</textarea></label>
+      <label class="check full"><input type="checkbox" name="attach"> Attach the current version of invoice #${esc(inv.num)} (if you've already fixed it)</label>
+    </div></div>
+  </div>${foot(null, "Done")}</form>
+  <p class="small muted">Need to fix the invoice itself? Close this and press <b>Edit</b> on the invoice, then email it again.</p>`, true); }
+
 function coRate(){ const r = S.company.taxRate; return r === "" || r == null || isNaN(+r) ? 7.5 : +r; }
 function hasOwnRate(c){ return !!c && c.taxRate !== undefined && c.taxRate !== null && c.taxRate !== "" && !isNaN(+c.taxRate); }
 function custTax(c){ if (!c) return coRate(); if (c.taxable === false) return 0; return hasOwnRate(c) ? +c.taxRate : coRate(); }
@@ -850,7 +948,7 @@ VIEWS.customer = id => {
   const notes = (c.notes || []).slice().sort((a, b) => a.at < b.at ? 1 : -1);
   return `<a class="back" href="#/customers">‹ Customers</a>
   <div class="pagehead"><div><h1>${esc(c.name)}</h1><p>${esc(c.type || "")} ${c.status === "lead" ? '<span class="badge brass">Lead</span>' : c.status === "past" ? '<span class="badge">Past customer</span>' : c.status === "inactive" ? '<span class="badge">Inactive</span>' : '<span class="badge good">Active</span>'}</p></div>
-  <div class="actions"><button class="btn primary" data-act="newInvoice" data-customer="${id}">New invoice</button><button class="btn" data-act="receivePayment" data-customer="${id}">Receive payment</button><button class="btn" data-act="newEstimate" data-customer="${id}">New estimate</button><button class="btn" data-act="statement" data-id="${id}">Statement</button><button class="btn" data-act="editCustomer" data-id="${id}">Edit</button></div></div>
+  <div class="actions"><button class="btn primary" data-act="newInvoice" data-customer="${id}">New invoice</button><button class="btn" data-act="receivePayment" data-customer="${id}">Receive payment</button><button class="btn" data-act="newEstimate" data-customer="${id}">New estimate</button><button class="btn" data-act="statement" data-id="${id}">Statement</button>${invs.some(i => invBalance(i) > 0.004) ? `<button class="btn" data-act="emailInvoices" data-id="${id}">Email invoices</button>` : ""}<button class="btn" data-act="editCustomer" data-id="${id}">Edit</button></div></div>
   <div class="ledger"><div><span>Open balance</span><b>${money(bal)}</b></div><div><span>Sales this year</span><b>${money(ytd)}</b></div><div><span>Invoices</span><b>${invs.length}</b></div><div><span>Terms</span><b style="font-size:20px">${esc(c.terms || "Net 30")}</b></div></div>
   <div class="grid2">
     <section class="panel"><div class="panel-head"><h2>Contact</h2><button class="btn small" data-act="changeContact" data-id="${id}">Change contact</button></div><div class="contact">
@@ -952,10 +1050,10 @@ VIEWS.invoice = id => {
   const st = invStatus(inv);
   return `<a class="back" href="#/sales">‹ Sales</a>
   <div class="pagehead"><div><h1>Invoice #${esc(inv.num)}</h1><p>${esc(custName(inv.customerId))} ${statusBadge(st)}</p></div>
-  <div class="actions">${st !== "paid" ? `<button class="btn primary" data-act="receivePayment" data-customer="${inv.customerId}" data-invoice="${id}">Receive payment</button>` : ""}<button class="btn" data-act="editInvoice" data-id="${id}">Edit</button><button class="btn" data-act="emailInvoice" data-id="${id}">Email invoice</button><button class="btn" data-act="pdfInvoice" data-id="${id}">Save PDF</button><button class="btn" data-act="printDoc" data-id="${id}" data-kind="invoice">Print</button>${st !== "paid" && !inv.emailedAt && !inv.sentAt ? `<button class="btn" data-act="markSent" data-id="${id}">Mark as sent</button>` : ""}<button class="btn" data-act="copyInvoice" data-id="${id}">Duplicate</button><button class="btn" data-act="askReview" data-id="${id}">Ask for review</button></div></div>
+  <div class="actions">${st !== "paid" ? `<button class="btn primary" data-act="receivePayment" data-customer="${inv.customerId}" data-invoice="${id}">Receive payment</button>` : ""}<button class="btn" data-act="editInvoice" data-id="${id}">Edit</button><button class="btn" data-act="emailInvoice" data-id="${id}">Email invoice</button><button class="btn" data-act="pdfInvoice" data-id="${id}">Save PDF</button><button class="btn" data-act="printDoc" data-id="${id}" data-kind="invoice">Print</button>${st !== "paid" && !inv.emailedAt && !inv.sentAt ? `<button class="btn" data-act="markSent" data-id="${id}">Mark as sent</button>` : ""}${inv.emailedAt || inv.sentAt ? `<button class="btn" data-act="wrongSend" data-id="${id}">Sent by mistake?</button>` : ""}<button class="btn" data-act="copyInvoice" data-id="${id}">Duplicate</button><button class="btn" data-act="askReview" data-id="${id}">Ask for review</button></div></div>
   ${jobBar(inv)}
   ${inv.reviewAskedAt ? `<p class="small muted">Review requested ${fmtDate(inv.reviewAskedAt.slice(0, 10))}.</p>` : ""}
-  ${inv.emailedAt ? `<p class="small muted">Emailed to ${esc(inv.emailedTo)}${inv.emailedCc ? " (CC " + esc(inv.emailedCc) + ")" : ""} on ${fmtDate(inv.emailedAt.slice(0, 10))}.</p>` : ""}${(inv.emails || []).length ? `<p class="small noprint" style="margin:0 0 10px"><b>Related emails:</b> ${(inv.emails || []).map(x => `<a href="${esc(x.url || "#")}" target="_blank" rel="noopener noreferrer">${esc(x.subject || "email")} (${fmtDate((x.date || "").slice(0, 10))})</a>`).join(" · ")}</p>` : ""}${invoiceDoc(inv)}
+  ${(inv.sendLog || []).length ? `<p class="small muted noprint">${inv.sendLog.map(x => esc(fmtDate(x.at.slice(0, 10)) + ": " + x.what)).join(" · ")}</p>` : ""}${inv.emailedAt ? `<p class="small muted">Emailed to ${esc(inv.emailedTo)}${inv.emailedCc ? " (CC " + esc(inv.emailedCc) + ")" : ""} on ${fmtDate(inv.emailedAt.slice(0, 10))}.</p>` : ""}${(inv.emails || []).length ? `<p class="small noprint" style="margin:0 0 10px"><b>Related emails:</b> ${(inv.emails || []).map(x => `<a href="${esc(x.url || "#")}" target="_blank" rel="noopener noreferrer">${esc(x.subject || "email")} (${fmtDate((x.date || "").slice(0, 10))})</a>`).join(" · ")}</p>` : ""}${invoiceDoc(inv)}
   `;
 };
 
@@ -1168,6 +1266,8 @@ const HELP = [
   ["Is shipping taxed?", `No. Any line for shipping, delivery, freight or postage is saved without sales tax, even if the Tax box was checked. Colorado doesn't tax delivery charges when they're on their own line and the customer could have picked up instead. So always put shipping on a separate line. Lakewood is a home-rule city with its own tax rules, so confirm with your accountant.`],
   ["How are invoice numbers and due dates set?", `New invoices automatically get the next number after your highest invoice, even if you made one on your phone. If a number is already used, the app picks the next free one. The due date fills in from the customer's payment terms. To change it, pick a date or tap <b>On receipt</b>, <b>15 days</b>, <b>30 days</b> or <b>45 days</b> under Due date. The due date prints on the invoice. "Needed by" is separate: it's the customer's event date, for your own scheduling.`],
   ["How do I email an invoice?", `Open the invoice → <b>Email invoice</b>. The customer's email and anyone saved as "CC on invoices" are filled in. Check the message and press <b>Send</b>. It goes from your Gmail with the PDF attached, and the invoice gets a blue <b>SENT</b> stamp.<br>If Google isn't connected, the app saves the PDF and opens a ready-to-go Gmail message instead; attach the PDF and send.`],
+   ["Can I send several invoices to the same person in one email?", `Yes. Open the customer → <b>Email invoices</b>. All their unpaid invoices are ticked; untick any you don't want. Or open one invoice → <b>Email invoice</b> and tick the customer's other open invoices in the list. Each invoice goes as its own PDF in the same email, the message lists them with the total due, and every one gets the SENT stamp.`],
+  ["I sent the wrong invoice. Can I unsend it?", `<b>Right after you press Send</b>, a bar at the bottom says "Sending invoice … in 30s". Tap <b>Undo</b> and nothing goes out; the email form comes back so you can fix it. (<b>Send now</b> skips the wait. Keep the app open for the 30 seconds.)<br><br><b>After it has gone out</b>, no email program can pull a message back out of someone else's inbox. Open the invoice → <b>Sent by mistake?</b> That sets the invoice back to "not sent" and can email them a short "please disregard" note (you see and can change the note first). Then fix the invoice with <b>Edit</b> and email it again.`],
   ["How do I copy someone (like a bookkeeper) on a customer's invoices?", `Two ways:<ol><li>Open the customer → <b>Edit</b> → type their email in <b>CC on invoices</b> → Save.</li><li>Or when emailing an invoice, type it in the <b>CC</b> box and leave "Always CC these people" checked.</li></ol>From then on they're copied on every invoice you email that customer. Use commas for more than one person.`],
   ["How do I print or save a PDF?", `Open the invoice → <b>Save PDF</b> to keep a copy, or <b>Print</b>. If the print window doesn't open, the app offers to save the PDF; open it and press Ctrl+P (computer) or Share → Print (iPhone).`],
   ["What do the PAID and SENT stamps mean?", `<b>SENT</b> (blue) = you emailed it or pressed "Mark as sent". <b>PAID</b> (green) = payments cover the full amount; it shows the date and check number. The stamps also appear on the PDF.`],
@@ -3440,15 +3540,32 @@ const FORMS = {
   async sendInvoice(f){ const inv = byId("invoices", f.dataset.id), to = val(f, "to"), cc = ccList(f.elements.cc ? f.elements.cc.value : "");
     if (!validEmail(to)) return formErr(f, "Enter a valid email address.");
     if (cc.some(x => !validEmail(x))) return formErr(f, "Check the CC email address.");
+    let list = multiPicked(f); if (!f.querySelector("[name=minv]")) list = [inv]; if (!list.length) return formErr(f, "Tick at least one invoice to send.");
     { const cu = byId("customers", inv.customerId); if (cu && f.elements.saveCc && f.elements.saveCc.checked && cc.join(", ") !== (cu.billingCc || "")) await put("customers", {...clone(cu), billingCc:cc.join(", ")}); }
     const ask = f.elements.askReview && f.elements.askReview.checked, rlink = f.elements.reviewLink ? val(f, "reviewLink") : "";
     if (ask && !S.company.reviewLink && !rlink) return formErr(f, "Paste your Google review link, or uncheck the review request.");
     if (ask && rlink) { await saveCompany({reviewLink:rlink}); f.elements.body.value = f.elements.body.value.replace("[your Google review link]", rlink); }
-    const pdf = docPDF(inv), fname = pdfName(inv);
-    if (!MCP) return manualEmail(inv, to, val(f, "subject"), f.elements.body.value, ask, "", cc);
-    try { await gmailSend({to:[to], ...(cc.length ? {cc} : {}), subject:val(f, "subject"), body:f.elements.body.value, attachments:[{content:b64bytes(pdf), filename:fname, mimeType:"application/pdf"}]});
-      await put("invoices", {...clone(inv), emailedAt:new Date().toISOString(), emailedTo:to, emailedCc:cc.join(", "), ...(ask ? {reviewAskedAt:new Date().toISOString()} : {})}); toast("Invoice sent to " + to + (cc.length ? " (CC " + cc.join(", ") + ")" : "")); }
-    catch(e) { return manualEmail(inv, to, val(f, "subject"), f.elements.body.value, ask, mcpErrText(e), cc); } },
+    const subject = val(f, "subject"), body = f.elements.body.value, ids = list.map(i => i.id), nums = list.map(i => "#" + i.num).join(", ");
+    if (!MCP) return manualEmail(list[0], to, subject, body, ask, "", cc, list.slice(1));
+    const seen = new Set(), attachments = list.map(i => { let n = pdfName(i); while (seen.has(n)) n = n.replace(/\.pdf$/, "-2.pdf"); seen.add(n); return {content:b64bytes(docPDF(i)), filename:n, mimeType:"application/pdf"}; });
+    const many = list.length > 1;
+    queueSend({args:{to:[to], ...(cc.length ? {cc} : {}), subject, body, attachments},
+      label:(many ? "Sending " + list.length + " invoices" : "Sending invoice #" + list[0].num) + " to " + to,
+      done:(many ? "Invoices " + nums : "Invoice " + nums) + " sent to " + to + (cc.length ? " (CC " + cc.join(", ") + ")" : ""),
+      async after(){ const at = new Date().toISOString(); for (const id of ids) { const x = byId("invoices", id); if (x) await put("invoices", {...clone(x), emailedAt:at, emailedTo:to, emailedCc:cc.join(", "), ...(ask && id === ids[0] ? {reviewAskedAt:at} : {})}); } },
+      fail(e){ manualEmail(list[0], to, subject, body, ask, mcpErrText(e), cc, list.slice(1)); },
+      undo(){ emailInvoicesForm(inv.customerId, inv.id, ids); const g = $("#sheetBody form[data-form=sendInvoice]"); if (g) { g.elements.to.value = to; if (g.elements.cc) g.elements.cc.value = cc.join(", "); g.elements.subject.value = subject; g.elements.body.value = body; } }}); },
+  async unsend(f){ const inv = byId("invoices", f.dataset.id); if (!inv) return;
+    const clear = f.elements.clear.checked, note = f.elements.note.checked;
+    if (!clear && !note) return formErr(f, "Tick at least one of the two choices.");
+    if (note) { const to = val(f, "to"); if (!validEmail(to)) return formErr(f, "Enter the email address the invoice went to.");
+      if (!MCP) { location.href = gmailCompose(to, val(f, "subject"), f.elements.body.value, []); }
+      else { const att = f.elements.attach.checked ? [{content:b64bytes(docPDF(inv)), filename:pdfName(inv), mimeType:"application/pdf"}] : [];
+        queueSend({args:{to:[to], subject:val(f, "subject"), body:f.elements.body.value, ...(att.length ? {attachments:att} : {})}, label:"Sending the \"please disregard\" note to " + to, done:"Note sent to " + to,
+          async after(){ const x = byId("invoices", inv.id); if (x) await put("invoices", {...clone(x), sendLog:[...(x.sendLog || []), {at:new Date().toISOString(), what:"Sent a \"please disregard\" note to " + to + (att.length ? " with the corrected invoice" : "")}], ...(att.length ? {emailedAt:new Date().toISOString(), emailedTo:to} : {})}); }}); } }
+    if (clear) { const x = clone(inv), was = x.emailedTo || "";
+      x.sendLog = [...(x.sendLog || []), {at:new Date().toISOString(), what:"Set back to not sent" + (was ? " (had gone to " + was + ")" : "")}];
+      delete x.emailedAt; delete x.emailedTo; delete x.emailedCc; delete x.sentAt; await put("invoices", x); if (!note) toast("Invoice #" + inv.num + " is back to not sent"); } },
   async po(f){ const id = f.dataset.id || undefined, lines = readLines(f), vid = val(f, "vendorId");
     if (!vid || vid === "__newvend") return formErr(f, "Choose the supplier.");
     if (!lines.length) return formErr(f, "Add at least one line."); if (lines.some(l => !l.ref)) return formErr(f, "Choose an item or account on each line.");
@@ -3869,24 +3986,11 @@ ${text}`, {modelTier:"default"});
       const tag = [UI.filter.invy && UI.filter.invy !== "all" ? UI.filter.invy : "", ({open:"unpaid", overdue:"overdue", paid:"paid", all:"all"})[UI.filter.inv || "open"]].filter(Boolean).join("-");
       saveFile("Awards-USA-invoices-" + tag + "-" + todayISO() + ".zip", makeZip(files)); }, 30); },
   askReview(el){ reviewForm(byId("invoices", el.dataset.id)); },
-  emailInvoice(el){ const inv = byId("invoices", el.dataset.id), c0 = byId("customers", inv.customerId) || {}, bt = billToOf(inv), c = {...c0, email:bt.email, contact:bt.contact};
-    const bal = invBalance(inv), t = invTotals(inv);
-    openSheet("Email invoice #" + inv.num, `<form data-form="sendInvoice" data-id="${inv.id}"><div class="fields">
-    <label class="f full">To<input name="to" type="email" required value="${esc(c.email || "")}"></label>
-    <label class="f full">CC<input name="cc" type="text" inputmode="email" autocapitalize="off" value="${esc(c.billingCc || "")}" placeholder="Optional"></label>
-    <label class="check full"><input type="checkbox" name="saveCc" checked> Always CC these people on this customer's invoices</label>
-    <label class="f full">Subject<input name="subject" value="${esc("Invoice #" + inv.num + " from " + S.company.name)}"></label>
-    <label class="f full">Message<textarea name="body" style="min-height:160px">${esc(`Hi ${firstName(c)},
-
-Attached is invoice #${inv.num} for ${money(t.total)}${bal < t.total - 0.004 ? ` (balance due ${money(bal)})` : ""}, due ${fmtDate(inv.due)}.
-
-Thank you for your business!
-
-Parker
-${S.company.name}${S.company.phone ? "\n" + S.company.phone : ""}`)}</textarea></label>
-    <label class="check full"><input type="checkbox" name="askReview" data-act-change="reviewToggle"> Also ask them to leave a Google review</label>
-    ${S.company.reviewLink ? "" : `<label class="f full" data-rl hidden>Your Google review link<input name="reviewLink" type="text" inputmode="url" autocapitalize="off" placeholder="https://g.page/r/..."></label>`}
-    </div>${MCP ? `<p class="small muted">The invoice is attached as a PDF.</p>${foot(null, "Send")}` : `<p class="small muted">This window can't send through Gmail by itself, so the next step saves the invoice PDF and opens this message in Gmail, ready to go. You just attach the PDF and press Send.</p>${foot(null, "Save PDF & open email")}`}</form>`, true); },
+  emailInvoice(el){ const inv = byId("invoices", el.dataset.id); if (inv) emailInvoicesForm(inv.customerId, inv.id); },
+  emailInvoices(el){ emailInvoicesForm(el.dataset.id, ""); },
+  wrongSend(el){ const inv = byId("invoices", el.dataset.id); if (inv) wrongSendForm(inv); },
+  undoSend(){ cancelSend(); },
+  sendNow(){ flushSend(); },
   taxPay(el){ const x = taxDeadlines().find(d => d.key === el.dataset.key); if (!x) return;
     const owedNow = x.payAcct === "a2100" || x.payAcct === "a2110" ? shown(byId("accounts", x.payAcct), balances(null, todayISO())[x.payAcct]) : 0;
     const amt = x.amount || owedNow || 0;
@@ -3919,7 +4023,7 @@ ${S.company.name}${S.company.phone ? "\n" + S.company.phone : ""}`)}</textarea><
     else if (src === "Opening stock" || src === "Stock adjustment") { const it = byId("items", id) || byId("items", byId("adjustments", id)?.itemId); if (it) itemForm(clone(it)); } else if (src === "Opening balance") accountForm(clone(byId("accounts", id))); }
 };
 document.addEventListener("click", e => {
-  const ms = e.target.closest("[data-manual-sent]"); if (ms) { const inv = byId("invoices", ms.dataset.manualSent); if (inv && !inv.emailedAt) setTimeout(() => put("invoices", {...clone(inv), emailedAt:new Date().toISOString(), emailedTo:ms.dataset.to, ...(ms.dataset.ask ? {reviewAskedAt:new Date().toISOString()} : {})}), 300); return; }
+  const ms = e.target.closest("[data-manual-sent]"); if (ms) { setTimeout(async () => { for (const id of ms.dataset.manualSent.split(",")) { const inv = byId("invoices", id); if (inv && !inv.emailedAt) await put("invoices", {...clone(inv), emailedAt:new Date().toISOString(), emailedTo:ms.dataset.to, ...(ms.dataset.ask ? {reviewAskedAt:new Date().toISOString()} : {})}); } }, 300); return; }
   const rt = e.target.closest("[data-review-text]"); if (rt) { const inv = byId("invoices", rt.dataset.reviewText); if (inv) setTimeout(() => { put("invoices", {...clone(inv), reviewAskedAt:new Date().toISOString()}); closeSheet(); }, 400); return; }
   const a = e.target.closest("[data-act]");
   if (a && ACT[a.dataset.act] && !(a.tagName === "INPUT" && a.type === "checkbox")) { e.preventDefault(); e.stopPropagation(); ACT[a.dataset.act](a); return; }
@@ -3935,6 +4039,15 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
   if (t.dataset.pick) { UI.pick = UI.pick || new Set(); if (t.checked) UI.pick.add(t.dataset.pick); else UI.pick.delete(t.dataset.pick); render(); return; }
   if (t.dataset.kitItem !== undefined) { kitSum(t.closest("form")); return; }
   if (t.dataset.actChange === "ordTo") { const row = t.closest(".ordrow"), it = byId("items", t.value), nm = row.querySelector("[name=name]"), pr = row.querySelector("[name=price]"), note = row.querySelector(".or-note"); nm.value = it ? it.name : t.value === "exp" ? "" : row.dataset.sug; nm.disabled = t.value === "exp"; pr.disabled = t.value === "exp"; if (it && it.price && !pr.value) pr.value = it.price; if (note) note.textContent = it ? onHand(it) + " on hand now" + (it.cost ? " · last cost " + money(it.cost) : "") : t.value === "exp" ? "Recorded as shop supplies, not counted in stock." : "A new stocked item will be created."; const b = row.querySelector(".or-top .badge"); if (b) { b.className = "badge"; b.textContent = it ? "Your pick" : t.value === "exp" ? "Supplies" : "New item"; } return; }
+  if (t.dataset.actChange === "minvPick") { const f = t.closest("form"), list = multiPicked(f);
+    if (list.length) { const nb = invMailBody(f._c || {}, list), ns = invMailSubject(list);
+      if (f.elements.body.value === f._auto) { f.elements.body.value = nb; f._auto = nb; }
+      if (f.elements.subject.value === f._autoSubj) { f.elements.subject.value = ns; f._autoSubj = ns; }
+      f.dataset.id = list[0].id; }
+    const h = $("#sheet h2, #sheetTitle"); if (h && list.length) h.textContent = list.length > 1 ? "Email " + list.length + " invoices" : "Email invoice #" + list[0].num;
+    const n = f.querySelector("[data-attnote]"); if (n) n.textContent = (list.length > 1 ? "The invoices are attached as PDFs." : "The invoice is attached as a PDF.") + " After you press Send you get " + UNDO_SECS + " seconds to undo it.";
+    return; }
+  if (t.dataset.actChange === "unsendNote") { const box = t.closest("form").querySelector("[data-un]"); if (box) box.hidden = !t.checked; return; }
   if (t.dataset.actChange === "expPay") { const box = t.closest("form").querySelector("[data-due]"); if (box) box.style.display = t.value === "bill" ? "" : "none"; return; }
   if (t.dataset.actChange === "ordVendor") { const box = t.closest("form").querySelector("[data-newv]"); if (box) box.style.display = t.value === "__newv" ? "" : "none"; return; }
   if (t.dataset.actChange === "impSection" && PENDING_PARTS) { stageParts(t.value === "all" ? PENDING_PARTS.map((_, i) => i) : [+t.value], PENDING_IMPORT?.acct || UI.bankAcct); return; }
