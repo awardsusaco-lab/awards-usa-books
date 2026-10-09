@@ -198,6 +198,16 @@ body.ubon #toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 #undoBar button.ub-undo{background:var(--bg);color:var(--ink)}
 .minv{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
 .minv:last-child{border-bottom:0}
+.ce-b{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0;background:var(--surface)}
+.ce-bh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.ce-bh h3{margin:0;font-size:16px}
+.ce-sub{margin-left:auto;font-weight:600}
+.ce-row{display:grid;grid-template-columns:150px 110px minmax(0,1fr) 32px;gap:8px;align-items:center;margin-bottom:6px}
+.ce-row input{padding:7px 9px;width:100%;min-width:0;box-sizing:border-box}
+.ce-dup{grid-column:1/-1;font-size:12.5px;color:var(--bad,#b3261e);margin:-2px 0 2px}
+.ce-dup:empty{display:none}
+.ce-tot{display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:space-between;border-top:2px solid var(--line);padding-top:10px;margin-top:10px}
+@media (max-width:600px){.ce-row{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 32px;padding-bottom:6px;border-bottom:1px solid var(--line)}.ce-row input[data-ce=where]{grid-column:1/3;grid-row:2}.ce-row .x{grid-column:3;grid-row:1}}
 .minv .num{margin-left:auto}
 .notice{background:var(--brass-soft);border:1px solid color-mix(in srgb,var(--brass) 40%,transparent);color:var(--ink);padding:10px 14px;border-radius:10px;margin-bottom:16px;font-size:14px}
 
@@ -729,7 +739,7 @@ function openSheet(title, html, narrow){
   const f = $("#sheetBody input:not([type=hidden]):not([type=checkbox]), #sheetBody select, #sheetBody textarea");
   if (f && window.matchMedia("(min-width:861px)").matches) f.focus();
 }
-function closeSheet(){ $("#sheet").hidden = true; $("#sheetBody").innerHTML = ""; document.body.style.overflow = ""; }
+function closeSheet(){ if (CE) { ceSave(); CE = null; } $("#sheet").hidden = true; $("#sheetBody").innerHTML = ""; document.body.style.overflow = ""; }
 let confirmCb = null;
 function confirmBox(msg, label, cb){
   confirmCb = cb;
@@ -1156,7 +1166,7 @@ VIEWS.card = id => {
   <div class="ledger"><div><span>Balance owed on ${esc(a.name)}</span><b class="${owed > 0 ? "neg" : ""}">${money(owed)}</b></div><div><span>Charges this month</span><b>${money(chg)}</b></div><div><span>Paid this month</span><b>${money(paid)}</b></div><div><span>Last payment</span><b style="font-size:20px">${lastPay ? fmtDate(lastPay.date) + " · " + money(-lastPay.charge) : "None yet"}</b></div></div>
   ${pend.length ? `<section class="panel" style="margin-bottom:18px"><div class="panel-head"><h2>To categorize (${pend.length})</h2><span class="small muted">From your imported card statement</span></div>
   <div class="tbl"><table><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Category</th><th></th></tr></thead><tbody>${pend.map(t => { const sg = txSuggest(t); return `<tr><td>${fmtDate(t.date)}</td><td>${esc(t.desc || "")}</td><td class="num">${money(-t.amount)}</td><td>${t.amount < 0 ? `<select data-card-cat data-tx="${t.id}" data-cur="" style="max-width:210px;padding:5px 6px;font-size:13.5px">${spendOpts(sg.rule ? "" : "", sg.rule ? "Suggested: " + (byId("accounts", sg.rule.acct)?.name || "") : "Choose category")}</select>` : '<span class="small muted">Payment or refund</span>'}</td><td style="white-space:nowrap">${t.amount < 0 ? `${sg.rule ? `<button class="btn small primary" data-act="txQuick" data-id="${t.id}" data-acct="${sg.rule.acct}" data-vendor="${sg.rule.vendorId || ""}">Use suggestion</button> ` : ""}<button class="btn small" data-act="itemizeTx" data-id="${t.id}">Split…</button>` : `<a class="btn small" href="#/banking/${acct}">Review</a>`}</td></tr>`; }).join("")}</tbody></table></div></section>` : ""}
-  <div class="panel"><div class="panel-head"><h2>${esc(a.name)}</h2><div class="actions"><button class="btn primary small" data-act="cardPay" data-id="${acct}">Pay card</button><button class="btn small" data-act="cardCharge" data-id="${acct}">Add a charge</button><a class="btn small" href="#/banking/${acct}">Import card statement</a></div></div>
+  <div class="panel"><div class="panel-head"><h2>${esc(a.name)}</h2><div class="actions"><button class="btn primary small" data-act="cardEntry" data-id="${acct}">Type in charges from my statement</button><button class="btn small" data-act="cardPay" data-id="${acct}">Pay card</button><button class="btn small" data-act="cardCharge" data-id="${acct}">Add one charge</button><a class="btn small" href="#/banking/${acct}">Import card statement</a></div></div>
   <p class="small muted" style="margin-top:0">Every charge, refund and payment on this card. Pick a <b>Category</b> for each charge, or tap <b>Itemize</b> to split one receipt into several categories. <b>Note</b> is for what it was for, and <b>✓</b> marks it checked against your statement.</p>
   <div class="toolbar"><input class="search" type="search" placeholder="Search payee, note or category" data-q="card" id="cardQ" value="${esc(UI.q.card || "")}"><div class="chips">${[["all","All"],["charges","Charges"],["payments","Payments"],["unchecked","Not checked"],["nonote","No note"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="card" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
   <div class="tbl"><table><thead><tr><th>Date</th><th>Type</th><th>Payee / what</th><th>Category</th><th>Note for my books</th><th class="num">Amount</th><th></th></tr></thead><tbody>
@@ -1166,6 +1176,66 @@ VIEWS.card = id => {
   ${spend.length ? `<div class="list">${spend.map(([k, v]) => `<div class="item" style="cursor:default"><div style="flex:1"><div class="t">${esc(k)}</div><div style="height:6px;border-radius:3px;background:var(--line);margin-top:6px"><div style="height:6px;border-radius:3px;background:var(--brand, #1e3a5f);width:${spendTot > 0 ? Math.max(2, Math.round(v / spendTot * 100)) : 0}%"></div></div></div><div class="r num">${money(v)}<div class="small muted">${spendTot > 0 ? Math.round(v / spendTot * 100) : 0}%</div></div></div>`).join("")}<div class="item" style="cursor:default"><div class="t"><b>Total on card · ${esc(rl)}</b></div><div class="r num"><b>${money(spendTot)}</b></div></div></div>` : empty("No card charges for " + rl.toLowerCase() + ".")}
   </section>`;
 };
+/* ----- type in card charges from the statement, grouped by category ----- */
+let CE = null;
+const ceKey = card => "awb-card-entry-" + card;
+function ceSave(){ if (!CE) return; try { localStorage.setItem(ceKey(CE.card), JSON.stringify({buckets:CE.buckets, stmt:CE.stmt || ""})); } catch(e) {} }
+function ceDraft(card){ try { return JSON.parse(localStorage.getItem(ceKey(card)) || "null"); } catch(e) { return null; } }
+function ceClearDraft(card){ try { localStorage.removeItem(ceKey(card)); } catch(e) {} }
+const ceAmt = v => { const n = parseFloat(String(v || "").replace(/[$,\s]/g, "")); return isNaN(n) ? 0 : r2(n); };
+function ceLabel(id){ const a = byId("accounts", id); if (!a) return "?"; if (/fuel|gas\b/i.test(a.name)) return "Gas · " + a.name; if (id === "a3100" || /owner.?s? draw/i.test(a.name)) return "Personal · " + a.name; return a.name; }
+function ceQuick(card){ const cnt = {};
+  S.expenses.filter(e => e.fromAcct === card).forEach(e => (e.lines || []).forEach(l => { const r = String(l.ref || ""); if (r.startsWith("a:") && byId("accounts", r.slice(2))) cnt[r.slice(2)] = (cnt[r.slice(2)] || 0) + 1; }));
+  const base = [/fuel|gas/i, /shop suppl|material/i, /office suppl/i, /shipping|postage/i, /software|subscription/i, /meal|food/i, /advertis/i].map(rx => (S.accounts.find(a => SPEND_TYPES.includes(a.type) && !a.inactive && rx.test(a.name)) || {}).id).filter(Boolean);
+  const draw = byId("accounts", "a3100") ? ["a3100"] : [];
+  return [...new Set([...Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(x => x[0]).slice(0, 4), ...base, ...draw])].slice(0, 9); }
+function ceLastDate(){ let d = ""; (CE.buckets || []).forEach(b => b.rows.forEach(r => { if (r.date && r.date > d) d = r.date; })); return d; }
+function ceRowHTML(b, j, r){ return `<div class="ce-row" data-b="${b}" data-r="${j}">
+  <input type="date" data-ce="date" aria-label="Date" value="${esc(r.date || "")}">
+  <input type="text" inputmode="decimal" autocomplete="off" data-ce="amt" aria-label="Amount" placeholder="0.00" value="${esc(r.amt || "")}">
+  <input type="text" data-ce="where" aria-label="Where (optional)" placeholder="Where / what (optional)" list="ceWhere" value="${esc(r.where || "")}">
+  <button type="button" class="x" data-act="ceDelRow" data-b="${b}" data-r="${j}" aria-label="Remove this charge">×</button>
+  <div class="ce-dup" data-ce-dup></div></div>`; }
+function ceBucketsHTML(){ return CE.buckets.map((bk, i) => `<section class="ce-b" data-b="${i}"><div class="ce-bh"><h3>${esc(ceLabel(bk.acct))}</h3><span class="ce-sub" data-ce-sub="${i}"></span><button type="button" class="linkbtn small" data-act="ceDelBucket" data-b="${i}">Remove</button></div>
+  ${bk.rows.map((r, j) => ceRowHTML(i, j, r)).join("")}
+  <button type="button" class="btn small" data-act="ceAddRow" data-b="${i}">+ Another ${esc(ceLabel(bk.acct).split(" · ")[0].toLowerCase())} charge</button></section>`).join("") || `<p class="muted" style="margin:14px 0">Tap a category above to start.</p>`; }
+function cardEntryForm(card){ card = byId("accounts", card)?.type === "ccard" ? card : (UI.cardAcct || cardAccts()[0]?.id); if (!card) { toast("Add your credit card under Chart of accounts first."); return; }
+  const d = ceDraft(card), resumed = !!(d && d.buckets && d.buckets.some(b => b.rows.some(r => r.amt)));
+  CE = {card, buckets:resumed ? d.buckets : [], stmt:resumed ? d.stmt || "" : ""};
+  const quick = ceQuick(card), wheres = [...new Set(S.expenses.filter(e => e.fromAcct === card).map(e => e.payee || vendName(e.vendorId)).filter(Boolean))].slice(0, 200);
+  openSheet("Type in charges · " + (byId("accounts", card)?.name || "card"), `<form data-form="cardEntry" data-card="${card}">
+  ${resumed ? `<div class="notice" style="margin-top:0">Picking up where you left off. <button type="button" class="linkbtn" data-act="ceStartOver">Start over</button></div>` : ""}
+  <p class="small muted" style="margin-top:0">Go down your statement. Tap a category (like <b>Gas</b>), then type the <b>date</b> and <b>amount</b> of each charge in it. Press <b>Enter</b> to go to the next one. The app adds everything up. For a refund, put a minus in front (−20.00).</p>
+  <div class="chips" style="flex-wrap:wrap;gap:6px">${quick.map(id => `<button type="button" class="chip" data-act="ceBucket" data-acct="${id}">+ ${esc(ceLabel(id))}</button>`).join("")}
+    <select data-act-change="ceBucketSel" aria-label="Other category" style="width:auto;max-width:230px;padding:5px 8px">${spendOpts("", "+ Other category…").replace(/<option value="__split">[^<]*<\/option>/, "")}</select></div>
+  <datalist id="ceWhere">${wheres.map(w => `<option value="${esc(w)}">`).join("")}</datalist>
+  <div data-ce-buckets>${ceBucketsHTML()}</div>
+  <div class="ce-tot"><div><b data-ce-total>$0.00</b> <span class="muted" data-ce-count></span></div>
+    <label class="small" style="display:flex;align-items:center;gap:8px">Statement total (optional) <input type="text" inputmode="decimal" data-ce-stmt value="${esc(CE.stmt)}" placeholder="0.00" style="width:110px;padding:6px 8px"></label>
+    <div class="small" data-ce-diff style="width:100%;font-weight:600"></div></div>
+  ${foot(null, "Save charges")}</form>`);
+  ceTotals(); }
+function ceRerender(focus){ const box = $("#sheetBody [data-ce-buckets]"); if (!box) return; box.innerHTML = ceBucketsHTML(); ceTotals(); ceSave();
+  if (focus) { const el = box.querySelector(`.ce-row[data-b="${focus.b}"][data-r="${focus.r}"] [data-ce="${focus.f || "date"}"]`); if (el) { el.focus(); try { if (el.type === "text") el.select(); } catch(e) {} } } }
+function ceAddRow(b, focusField){ const bk = CE.buckets[b]; if (!bk) return; const last = bk.rows[bk.rows.length - 1];
+  if (last && !last.amt && !last.where) return ceRerender({b, r:bk.rows.length - 1, f:focusField || "date"});
+  bk.rows.push({date:(last && last.date) || ceLastDate() || "", amt:"", where:""}); ceRerender({b, r:bk.rows.length - 1, f:focusField || "date"}); }
+function ceAddBucket(acct){ if (!acct) return; let b = CE.buckets.findIndex(x => x.acct === acct);
+  if (b < 0) { CE.buckets.push({acct, rows:[{date:ceLastDate(), amt:"", where:""}]}); b = CE.buckets.length - 1; return ceRerender({b, r:0, f:"date"}); }
+  ceAddRow(b); }
+function ceTotals(){ const f = $("#sheetBody form[data-form=cardEntry]"); if (!f) return; let tot = 0, n = 0;
+  CE.buckets.forEach((bk, i) => { const sub = r2(bk.rows.reduce((s2, r) => s2 + ceAmt(r.amt), 0)), c = bk.rows.filter(r => ceAmt(r.amt)).length; tot += sub; n += c;
+    const el = f.querySelector(`[data-ce-sub="${i}"]`); if (el) el.textContent = c ? c + " charge" + (c > 1 ? "s" : "") + " · " + money(sub) : ""; });
+  tot = r2(tot); f.querySelector("[data-ce-total]").textContent = "Total " + money(tot); f.querySelector("[data-ce-count]").textContent = n ? "(" + n + " charge" + (n > 1 ? "s" : "") + ")" : "";
+  const st = ceAmt(CE.stmt), dEl = f.querySelector("[data-ce-diff]");
+  dEl.textContent = !CE.stmt ? "" : Math.abs(st - tot) < 0.005 ? "✓ Matches your statement" : st > tot ? money(r2(st - tot)) + " left to enter" : "Over the statement by " + money(r2(tot - st));
+  dEl.style.color = !CE.stmt ? "" : Math.abs(st - tot) < 0.005 ? "var(--good)" : "var(--bad, #b3261e)";
+  const btn = f.querySelector(".formfoot button:not([type=button])") || f.querySelector("button.primary"); if (btn) btn.textContent = n ? "Save " + n + " charge" + (n > 1 ? "s" : "") : "Save charges";
+  // flag ones that look already entered
+  const have = journal().filter(l => l.acct === CE.card && l.amt < 0);
+  f.querySelectorAll(".ce-row").forEach(row => { const r = (CE.buckets[+row.dataset.b] || {rows:[]}).rows[+row.dataset.r] || {}, a = ceAmt(r.amt), box = row.querySelector("[data-ce-dup]");
+    const hit = a > 0 && r.date ? have.find(l => Math.abs(-l.amt - a) < 0.005 && Math.abs(daysBetween(l.date, r.date)) <= 4) : null;
+    box.textContent = hit ? "Looks like this is already in your books (" + (hit.name || hit.src) + ", " + fmtDate(hit.date) + "). Remove it if so." : ""; }); }
 function cardPayForm(acct){ const cards = cardAccts(); if (!cards.length) { toast("Add your credit card under Chart of accounts first."); go("accounts"); return; }
   acct = byId("accounts", acct)?.type === "ccard" ? acct : (UI.cardAcct && byId("accounts", UI.cardAcct)?.type === "ccard" ? UI.cardAcct : cards[0].id);
   const b = balances(null, todayISO()), owedOf = id => shown(byId("accounts", id), b[id]), owed = owedOf(acct), rec = byId("accounts", acct).recon || {};
@@ -1303,6 +1373,7 @@ const HELP = [
   ["How do I file my Colorado and Lakewood sales tax?", `On <b>Taxes</b>, each sales tax return has <b>Filing sheet: PDF / Excel</b>. It lists, line by line, what that return asks for, using your invoices for that month. The Colorado sheet follows the DR 0100 lines and the State, RTD/CD and County columns. The Lakewood sheet follows the city's return lines. Open the return on Revenue Online or Lakewood Business Pro and type in the numbers. The Excel version also lists every invoice in the period. (Colorado's XML and spreadsheet upload options only accept files from state-approved software, so typing in the numbers is the way to go for one location.)`],
   ["A number on my tax return is wrong. How do I fix it?", `On <b>Taxes</b>, tap <b>Review &amp; edit numbers</b> on that return. Every number starts with what your invoices say: gross sales, deductions, each tax rate and the tax you collected. Change anything that's wrong and the totals update as you type. Save, and the filing sheet (PDF/Excel) and the Colorado XML use your numbers. The return shows an <b>Edited</b> badge. To undo, open it again and tap <b>Go back to the numbers from my invoices</b>. To change your account, license or location numbers, use <b>Tax account numbers</b> at the top of Taxes (the <b>Edit</b> button).`],
   ["How do I download all my taxes as a PDF or Excel file?", `<b>Taxes</b> → <b>Download tax report (PDF / Excel)</b>. Pick the period (this year, last year, a quarter, a month, or your own dates) and tap <b>Download PDF</b> or <b>Download Excel</b>. The file has: sales tax by month and by invoice (Colorado DOR and Lakewood separately), what you've paid and still owe, the income tax estimate, profit and loss, deadlines, plus payroll and 1099 contractors if you have them. The Excel file has a separate tab for each part, with totals that update if you change a number.`],
+  ["What's the fastest way to put in my credit card charges?", `<b>Expenses → Credit card → Type in charges from my statement</b>. Go down your statement: tap a category like <b>Gas</b>, type the <b>date</b> and <b>amount</b>, press <b>Enter</b>, and type the next gas charge. Each category keeps its own running total (for example "Gas · 5 charges · $212.40"), and the bottom shows the total of everything. Type your statement total to see what's left to enter. "Where" is optional; if you fill it in, the app learns it for next time. If a charge already looks like it's in your books, it tells you. Closed it halfway? It picks up where you left off.`],
   ["Square (or a card app) took a fee. How do I record the deposit?", `Square keeps its cut and sends the rest to your bank, so the deposit is a little less than the invoice. The invoice is still paid in full; the difference is a business expense.<ul><li><b>Easiest:</b> record the payment as usual (method <b>Square</b>), then bring in your bank statement on <b>Banking</b>. The app spots the smaller Square deposit, matches it to the payment and records the fee under <b>Bank & Card Fees</b> by itself.</li><li><b>On the bank line:</b> if a Square deposit is waiting for review, tap the button that says <b>Payment from … · fee $…</b> (or <b>Square payment for #…</b> if you never recorded the payment).</li><li><b>By hand:</b> in <b>Receive payment</b>, pick method Square and type the <b>Amount that reached the bank</b> (or the fee). The app works out the other.</li></ul>Already saved a payment without the fee? Open it (customer page → Payments), type the fee, and save.`],
   ["How do I bring in my Navy Federal statements (PDF)?", `Go to <b>Banking</b> and drag the statement PDF onto the box that says "Drop Navy Federal statements here" (or tap it to pick files). You can drop several at once. The app:<ol><li>Reads every line and checks that they add up to the statement's beginning and ending balance.</li><li>Puts a checking statement into checking and a card statement into the credit card automatically.</li><li>Matches lines to things already in your books, records deposits that match an invoice from that customer, and sorts merchants it has learned.</li><li>Balances against the statement and shows <b>Everything is in order ✓</b>, or exactly what still needs you.</li></ol>`],
   ["Why were some statement lines marked \"covered by QuickBooks\"?", `When you moved from QuickBooks, the app got one starting entry with your balances and this year's totals up to that day. Bank or card lines on or before that date are already inside those totals, so importing them again would count the money twice. The app keeps those lines for reference but doesn't add them to your books. Import and balance statements from after that date.`],
@@ -1677,7 +1748,7 @@ function stageImport(parsed, acct){
 const linkedKeys = acct => new Set(S.banktx.filter(t => t.link && (!acct || t.acct === acct)).map(t => t.link.src + ":" + t.link.srcId));
 /* ----- card processor fees (Square etc. keep a cut before paying out) ----- */
 const FEE_METHOD_RX = /square|card|paypal|venmo|stripe/i, PAYOUT_RX = /square|\bsq\s?\*|\bsq\d|paypal|venmo|stripe/i;
-function feeAcct(){ return byId("accounts", "a6100") ? "a6100" : (S.accounts.find(a => a.type === "expense" && /fee|merchant|processing/i.test(a.name)) || {}).id || SYS.MISC; }
+function feeAcct(){ const m = S.accounts.find(a => a.type === "expense" && !a.inactive && /merchant|processing/i.test(a.name)); if (m) return m.id; return byId("accounts", "a6100") ? "a6100" : (S.accounts.find(a => a.type === "expense" && /fee|merchant|processing/i.test(a.name)) || {}).id || SYS.MISC; }
 const payGross = p => r2((p.applied || []).reduce((s2, a) => s2 + (+a.amount || 0), 0));
 function feeOK(gross, net){ const d = r2(gross - net); return net > 0 && d > 0.004 && d <= gross * 0.045 + 0.5; }
 function feeCands(t){ if (!(t.amount > 0) || byId("accounts", t.acct)?.type !== "bank") return {pays:[], invs:[]};
@@ -3557,6 +3628,14 @@ const FORMS = {
   async expense(f){ const lines = readLines(f); if (!lines.length) return formErr(f, "Add at least one line."); if (lines.some(l => !l.ref)) return formErr(f, "Choose an account or item on each line.");
     if (!val(f, "vendorId") && !val(f, "payee")) return formErr(f, "Choose a vendor or type a payee.");
     const id = f.dataset.id; await put("expenses", {...clone(byId("expenses", id) || {}), id:id || undefined, fromAcct:val(f, "fromAcct"), date:val(f, "date"), vendorId:val(f, "vendorId"), payee:val(f, "payee"), ref:val(f, "ref"), lines}).then(async eid => { if (f.elements.note && val(f, "note") !== (cardNote(eid).note || "")) await setCardNote(eid, {note:val(f, "note")}); const tk = f.dataset.taxKey; if (tk) { await put("taxfilings", {id:tk, filedAt:new Date().toISOString(), expenseId:eid, amount:linesTotal(lines)}); toast("Payment recorded and marked filed"); } else toast("Saved"); }); },
+  async cardEntry(f){ if (!CE) return false; const card = CE.card, rows = [];
+    for (const bk of CE.buckets) for (const r of bk.rows) { const a = ceAmt(r.amt); if (!a) continue; if (!r.date) return formErr(f, "One of the " + ceLabel(bk.acct).split(" · ")[0] + " charges (" + money(a) + ") needs a date."); rows.push({acct:bk.acct, date:r.date, amt:a, where:(r.where || "").trim()}); }
+    if (!rows.length) return formErr(f, "Type at least one charge (date and amount).");
+    for (const r of rows) { const nm = r.where || ceLabel(r.acct).split(" · ")[0], v = S.vendors.find(x => (x.name || "").toLowerCase() === nm.toLowerCase());
+      await put("expenses", {fromAcct:card, date:r.date, vendorId:v ? v.id : "", payee:v ? "" : nm.slice(0, 60), ref:"", lines:[{ref:"a:" + r.acct, qty:1, rate:r.amt, memo:r.where || ""}]});
+      if (r.where) learnCat(r.where, r.acct).catch(() => {}); }
+    const tot = r2(rows.reduce((s2, r) => s2 + r.amt, 0)); ceClearDraft(card); CE = null;
+    toast("Added " + rows.length + " charge" + (rows.length > 1 ? "s" : "") + " · " + money(tot)); },
   async taxPaid(f){ const key = f.dataset.key, x = taxDeadlines().find(d => d.key === key), fl = byId("taxfilings", key) || {id:key};
     const amt = r2(num(f, "amount")); if (!(amt >= 0) || f.elements.amount.value === "") return formErr(f, "Enter the amount that came out of your bank.");
     const ex = fl.expenseId ? byId("expenses", fl.expenseId) : null, payAcct = (x && x.payAcct) || (ex && ((ex.lines || [])[0] || {}).ref || "").slice(2);
@@ -3802,6 +3881,12 @@ document.addEventListener("submit", async e => {
 const ACT = {
   btToggle(el){ const box = el.closest("[data-billto]"), ed = box.querySelector("[data-bt-edit]"), open = ed.hidden; ed.hidden = !open; box.dataset.open = open ? "1" : ""; el.textContent = open ? "Done" : "Change bill to / contact"; el.setAttribute("aria-expanded", open); if (open) box.querySelector("[name=btContact]").focus(); },
   btReset(el){ const f = el.closest("form"), box = el.closest("[data-billto]"); f._bt = {}; box.dataset.open = "1"; renderBillTo(f); toast("Back to the account's usual bill to"); },
+  cardEntry: el => cardEntryForm(el.dataset.id),
+  ceBucket(el){ ceAddBucket(el.dataset.acct); },
+  ceAddRow(el){ ceAddRow(+el.dataset.b); },
+  ceDelRow(el){ const bk = CE && CE.buckets[+el.dataset.b]; if (!bk) return; bk.rows.splice(+el.dataset.r, 1); if (!bk.rows.length) CE.buckets.splice(+el.dataset.b, 1); ceRerender(); },
+  ceDelBucket(el){ if (!CE) return; CE.buckets.splice(+el.dataset.b, 1); ceRerender(); },
+  ceStartOver(){ if (!CE) return; ceClearDraft(CE.card); const c = CE.card; CE = null; cardEntryForm(c); },
   cardPay: el => cardPayForm(el.dataset.id), cardCharge: el => expenseForm({date:todayISO(), fromAcct:el.dataset.id || UI.cardAcct || cardAccts()[0]?.id || SYS.CHK, lines:[]}),
   cardNote: el => cardNoteForm(el.dataset.id, el.dataset.label),
   async scanNow(el){ const acct = el.dataset.id, st = balSt(acct); toast("Scanning…"); const rep = await autoBalance(acct, {from:"", to:st.date, begin:null, end:st.bal === "" ? null : +st.bal}); if (route().view !== "balance") go("balance/" + acct); toast("Scan done: " + (rep.matched + rep.ruled + rep.invoices) + " sorted, " + rep.left + " need you"); },
@@ -4126,7 +4211,12 @@ document.addEventListener("click", e => {
   const row = e.target.closest("tr[data-href]"); if (row) { location.hash = row.dataset.href; }
   if (e.target === $("#sheet")) closeSheet();
 });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); if (e.key === "Enter" && e.target.matches("tr[data-href]")) location.hash = e.target.dataset.href; });
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && CE && e.target.dataset && e.target.dataset.ce) { e.preventDefault(); const row = e.target.closest(".ce-row"), b = +row.dataset.b, rr = +row.dataset.r, f = e.target.dataset.ce;
+    if (f === "date") { row.querySelector("[data-ce=amt]").focus(); row.querySelector("[data-ce=amt]").select(); return; }
+    const bk = CE.buckets[b]; if (rr < bk.rows.length - 1) { const nx = $(`#sheetBody .ce-row[data-b="${b}"][data-r="${rr + 1}"] [data-ce=date]`); if (nx) nx.focus(); return; }
+    if (ceAmt(bk.rows[rr].amt)) ceAddRow(b); return; }
+  if (e.key === "Enter" && e.target.dataset && e.target.dataset.ceStmt !== undefined) { e.preventDefault(); return; } if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); if (e.key === "Enter" && e.target.matches("tr[data-href]")) location.hash = e.target.dataset.href; });
 document.addEventListener("toggle", e => { const t = e.target; if (t.dataset && t.dataset.actToggle === "balFull") UI.balFull = t.open; }, true);
 document.addEventListener("change", e => { const t = e.target; if (!t.dataset) return;
   if (t.dataset.cardCat !== undefined) { cardQuickCat(t); return; }
@@ -4144,6 +4234,7 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
     const n = f.querySelector("[data-attnote]"); if (n) n.textContent = (list.length > 1 ? "The invoices are attached as PDFs." : "The invoice is attached as a PDF.") + " After you press Send you get " + UNDO_SECS + " seconds to undo it.";
     return; }
   if (t.dataset.actChange === "quickPayMethod") { const pp = byId("payments", t.dataset.id); if (pp && pp.method !== t.value) { put("payments", {...clone(pp), method:t.value}).then(() => toast("Paid by changed to " + t.value)); } return; }
+  if (t.dataset.actChange === "ceBucketSel") { const v = t.value; t.value = ""; if (v && v.startsWith("a:")) ceAddBucket(v.slice(2)); return; }
   if (t.dataset.actChange === "payMethod") { const box = t.closest("form").querySelector("[data-feebox]"); if (box) box.hidden = !FEE_METHOD_RX.test(t.value) && !(+t.closest("form").elements.fee.value); return; }
   if (t.dataset.actChange === "unsendNote") { const box = t.closest("form").querySelector("[data-un]"); if (box) box.hidden = !t.checked; return; }
   if (t.dataset.actChange === "expPay") { const box = t.closest("form").querySelector("[data-due]"); if (box) box.style.display = t.value === "bill" ? "" : "none"; return; }
@@ -4157,6 +4248,8 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
 document.addEventListener("input", e => {
   const t = e.target;
   if (t.dataset && t.dataset.retin !== undefined) { retEditSum(t.closest("form")); return; }
+  if (t.dataset && t.dataset.ce && CE) { const row = t.closest(".ce-row"), r = CE.buckets[+row.dataset.b]?.rows[+row.dataset.r]; if (r) { r[t.dataset.ce] = t.value; ceTotals(); ceSave(); } return; }
+  if (t.dataset && t.dataset.ceStmt !== undefined && CE) { CE.stmt = t.value; ceTotals(); ceSave(); return; }
   if (t.dataset && t.dataset.actInput === "taxPaidAmt") { taxPaidLeft(t.closest("form")); return; }
   if (t.dataset && (t.dataset.actInput === "payFee" || t.dataset.actInput === "payNet")) { const f = t.closest("form"), gross = $$("#applyList [data-inv]", f).reduce((s2, i) => s2 + (+i.value || 0), 0);
     if (t.dataset.actInput === "payFee") f.elements.net.value = t.value !== "" ? r2(gross - (+t.value || 0)).toFixed(2) : "";
