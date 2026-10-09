@@ -410,8 +410,28 @@ const GSync = {
         else r = await gfetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id,version`, {method:"PATCH", headers:{"Content-Type":"application/json"}, body});
         const j = await r.json(); this.fileId = j.id; this.ver = String(j.version); this.dirty = false; }
       this.last = Date.now();
+      this.dailyCopy().catch(() => {});
     } catch(e) { this.err = e && e.code === "needs_reauth" ? "" : ((e && (e.message || e.code)) || "sync failed"); }
     this.busy = false; this.keep(); this.status(); },
+  // dated safety copies: one per day (kept 45 days) and the last one of every month (kept for good)
+  COPY:"awards-usa-books-copy-",
+  async dailyCopy(){ const day = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10); let had = ""; try { had = localStorage.getItem("aub-copyday") || ""; } catch(e) {}
+    if (had === day || !GAuth.valid()) return;
+    const B = "aubcopy", meta = JSON.stringify({name:this.COPY + day + ".json", parents:["appDataFolder"], mimeType:"application/json", appProperties:{kind:"copy", day}});
+    const list = await this.listSnaps(); const same = list.find(x => x.day === day);
+    const body = JSON.stringify({...this.snapshot(), copyOf:day});
+    if (same) await gfetch(`https://www.googleapis.com/upload/drive/v3/files/${same.id}?uploadType=media`, {method:"PATCH", headers:{"Content-Type":"application/json"}, body});
+    else await gfetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", {method:"POST", headers:{"Content-Type":`multipart/related; boundary=${B}`}, body:`--${B}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${B}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${B}--`});
+    try { localStorage.setItem("aub-copyday", day); } catch(e) {}
+    // tidy: keep every copy from the last 45 days and the newest copy of each month
+    const all = await this.listSnaps(true), cutoff = new Date(Date.now() - 45 * 864e5).toISOString().slice(0, 10), lastOfMonth = {};
+    all.forEach(x => { const m = x.day.slice(0, 7); if (!lastOfMonth[m] || x.day > lastOfMonth[m].day) lastOfMonth[m] = x; });
+    for (const x of all) if (x.day < cutoff && lastOfMonth[x.day.slice(0, 7)] !== x) { try { await gfetch(`https://www.googleapis.com/drive/v3/files/${x.id}`, {method:"DELETE"}); } catch(e) {} } },
+  async listSnaps(){ const out = []; let tok = "";
+    do { const r = await gfetch("https://www.googleapis.com/drive/v3/files?" + new URLSearchParams({spaces:"appDataFolder", q:`name contains '${this.COPY}' and trashed=false`, fields:"nextPageToken,files(id,name,size,modifiedTime)", pageSize:"200", ...(tok ? {pageToken:tok} : {})}));
+      const j = await r.json(); (j.files || []).forEach(f => { const m = /(\d{4}-\d{2}-\d{2})/.exec(f.name || ""); if (m) out.push({id:f.id, day:m[1], size:+f.size || 0, at:f.modifiedTime}); }); tok = j.nextPageToken || ""; } while (tok);
+    return out.sort((a, b) => a.day < b.day ? 1 : -1); },
+  async getSnap(id){ return await (await gfetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`)).json(); },
   status(){ const el = document.getElementById("storageNote"); if (el) el.textContent = syncText(); const b = document.getElementById("gbar"); if (b) b.innerHTML = gbarHTML(); }
 };
 function syncText(){ if (!GAuth.configured()) return "Saved on this device"; if (!GAuth.valid()) return GSync.dirty ? "Changes waiting to sync" : "Saved on this device";
@@ -717,6 +737,7 @@ function render(){
   const note = `<div id="gbar">${gbarHTML()}</div>` + (mode === "revoked" ? `<div class="notice">Reload to continue.</div>` : "");
   $("#main").innerHTML = note + html;
   $$("#main form .lines").forEach(l => recalc(l.closest("form")));
+  if ($("#main [data-snaps]")) snapList();
   if (focused) { const el = document.getElementById(focused.id); if (el && el.closest("#main")) { el.focus();
     // keep the cursor where it was; number boxes can't report it, so put it at the end (otherwise typing comes out backwards)
     const pos = focused.s == null ? (el.value || "").length : Math.min(focused.s + ((el.value || "").length - focused.len), (el.value || "").length);
@@ -1387,7 +1408,8 @@ const HELP = [
   ["How do I file Colorado and Lakewood sales tax?", `<b>Taxes</b> shows each deadline with the amount owed. Colorado DOR gets the state, RTD, cultural district and Jefferson County share; the City of Lakewood gets its 3% separately. When you pay, press <b>Record payment &amp; mark filed</b> next to it.`],
   ["How do I send everything to my accountant?", `<b>Reports</b> → <b>Send to my accountant</b>. Pick the dates, then email it to the accountant saved in Settings, or press <b>Download as ZIP</b> to keep a copy.`]]],
  ["Backups and problems", [
-  ["How do I make a backup?", `Settings → <b>Download backup</b>. Do it once a month and keep the file with your business records. <b>Restore from backup</b> brings one back.`],
+  ["Are my books safe if the IRS audits me?", `Yes, as long as you're connected to Google. Every change saves to your Google Drive, and the app also keeps a <b>dated copy every day</b> (last 45 days) plus <b>one copy per month forever</b>. See them under <b>Settings → Records for taxes or an IRS audit</b>, where you can download or restore any of them.<br><br>For the IRS or your CPA, press <b>Download my records</b> and pick the year. You get one .zip with a spreadsheet of everything (profit and loss, every ledger entry, invoices, payments, expenses and card charges with categories and notes, every bank and card statement line, reconciliations, sales tax), a PDF of every invoice, and a full backup. It opens without this app. Save one each January for the year before, and keep your bank statements, card statements and receipts with it. The IRS says to keep records at least 3 years after you file; 7 is the safe choice.`],
+  ["How do I make a backup?", `Settings → <b>Download backup</b>. Do it once a month and keep the file with your business records. <b>Restore from backup</b> brings one back. The app also keeps automatic daily and monthly copies in your Google Drive (Settings → Records for taxes or an IRS audit).`],
   ["Something looks wrong or won't work", `<ol><li>Tap <b>Reconnect</b> if it's showing at the top.</li><li>Close the app and open it again.</li><li>Check the bottom of the side menu for a sync message.</li><li>Still stuck? Ask Claude and describe what you pressed and what happened. A screenshot helps.</li></ol>`],
   ["Can I get a new feature or change something?", `Yes. Ask Claude in chat what you'd like. Claude builds the update and tells you how to put it on the app (usually dragging one file onto GitHub).`]]]
 ];
@@ -1532,12 +1554,17 @@ VIEWS.settings = () => { const c = S.company; const counts = COLS.reduce((s, k) 
   </div>
   <p class="small muted" style="margin:6px 0 0">Switching to S-corp turns on Payroll and adds payroll deadlines to Taxes. Make the change with your CPA; it's an IRS election (Form 2553), not just a setting.</p>
   <div class="formfoot"><span class="muted small">Rates change occasionally. Confirm on the Colorado DOR sales tax lookup when you file.</span><div class="right"><button class="btn primary">Save settings</button></div></div></form>
+  <section class="panel" style="margin-bottom:18px"><h2 style="margin-bottom:8px">Records for taxes or an IRS audit</h2>
+  <p style="margin-top:0">${typeof GSync !== "undefined" && GAuth.configured() ? (GAuth.valid() ? `Your books save to your Google Drive every time you make a change. On top of that, the app keeps a <b>dated copy every day</b> (the last 45 days) and <b>one for every month, kept for good</b>, so nothing can be lost by a mistake or a bad sync.` : `Connect Google (top of the page) so your books and the automatic daily copies save to your Google Drive.`) : "Your books are saved on this device. Download your records below and keep them somewhere safe."}</p>
+  <div data-snaps class="small muted" style="margin-bottom:10px"></div>
+  <div class="actions" style="align-items:center"><label class="small" style="display:flex;gap:8px;align-items:center">Year <select data-rec-year style="width:auto;padding:5px 8px">${recordYears().map(y => `<option>${y}</option>`).join("")}</select></label><button class="btn primary" data-act="recordsPack">Download my records</button></div>
+  <p class="small muted" style="margin-bottom:0">One .zip for the year: a spreadsheet with your profit and loss, every ledger entry, invoices, payments, expenses and card charges with their categories and notes, every bank and card statement line, reconciliations and sales tax filed, plus a PDF of every invoice and a full backup. It opens without this app, so you or a CPA can hand it to the IRS. Save one at the end of every year (and any time you like) next to your bank statements and receipts. The IRS says to keep records at least 3 years after you file; keeping 7 is the safe choice.</p></section>
   <section class="panel"><h2 style="margin-bottom:8px">Google account</h2>
   ${!GAuth.configured() ? '<p class="muted" style="margin:0">Google sign-in hasn\'t been set up for this copy yet.</p>' : GAuth.valid() ? `<p style="margin-top:0">Connected as <b>${esc(GAuth.email || "your Google account")}</b>. Gmail, Google Calendar and Google Drive sync are on.</p><div class="actions"><button class="btn" data-act="syncNow">Sync now</button><button class="btn" data-gsignout>Disconnect</button></div>` : `<p style="margin-top:0">Connect your Google account to send invoices from Gmail, add due dates to Google Calendar, and sync your books through Google Drive.</p><div class="actions"><button class="btn primary" data-gsignin>${GAuth.email ? "Reconnect " + esc(GAuth.email) : "Connect Google"}</button></div>`}
   <p class="small muted">${esc(syncText())}</p></section>
   <section class="panel"><h2 style="margin-bottom:8px">Your data</h2><p class="muted" style="margin-top:0">${GAuth.valid() ? "Your books are saved on this device and synced to a private file in your Google Drive, so your phone and computer stay in step." : "Your books are saved on this device. Connect Google to sync them to your Google Drive."} ${counts} records.</p>
   <div class="actions"><button class="btn" data-act="backup">Download backup</button><button class="btn" data-act="restore">Restore from backup</button></div>
-  <p class="small muted">Download a backup every month or so and keep it with your other business files.</p></section>`; };
+  <p class="small muted">The full backup file can be loaded back into the app with Restore. Your Google Drive copies (above) are the safety net; this is a copy you hold yourself.</p></section>`; };
 
 
 /* ---------- banking: statement import, matching, rules, reconcile ---------- */
@@ -3015,6 +3042,58 @@ function orderForm(o){ o = o || {status:"new"};
 /* ---------- accountant package ---------- */
 const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 const crc32 = u => { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+/* ----- records for taxes / an IRS audit: one zip per year, readable without this app ----- */
+function recordsPack(y){ y = String(y); const from = y + "-01-01", to = y + "-12-31", inY = d => (d || "") >= from && (d || "") <= to;
+  const M = v => ({v:r2(+v || 0), s:"m"}), H = t => ({v:t, s:"h"}), T = t => ({v:t, s:"t"}), B = t => ({v:t, s:"b"});
+  const co = S.company.name || "Awards USA", made = "Made " + fmtDate(todayISO()) + " from the Awards USA Books app";
+  const an = id => { const a = byId("accounts", id); return a ? (a.number ? a.number + " · " : "") + a.name : id; };
+  const J = journal(), act = balances(from, to), cum = balances(null, to);
+  const pl = t => S.accounts.filter(a => a.type === t && Math.abs(act[a.id] || 0) > 0.004).sort((a, b) => String(a.number || a.name).localeCompare(String(b.number || b.name), undefined, {numeric:true}));
+  const sumT = ts => r2(S.accounts.filter(a => ts.includes(a.type)).reduce((s2, a) => s2 + shown(a, act[a.id] || 0), 0));
+  const inc = sumT(["income","oincome"]), cogs = sumT(["cogs"]), exp = sumT(["expense","oexpense"]);
+  const sum = [[T(co + " · Business records " + y)], [made], ["Covers " + fmtDate(from) + " to " + fmtDate(to) + ". Every number below comes from the other tabs in this workbook."], [],
+    [H("Profit and loss"), H("")]];
+  for (const [t, lbl] of [["income","Income"],["oincome","Other income"],["cogs","Cost of goods sold"],["expense","Expenses"],["oexpense","Other expenses"]]) { const L = pl(t); if (!L.length) continue; sum.push([B(lbl), ""]); L.forEach(a => sum.push(["   " + an(a.id), M(shown(a, act[a.id] || 0))])); }
+  sum.push([B("Total income"), {v:r2(inc), s:"bm"}], [B("Cost of goods sold"), {v:r2(cogs), s:"bm"}], [B("Expenses"), {v:r2(exp), s:"bm"}], [B("Net profit"), {v:r2(inc - cogs - exp), s:"bm"}], [], [H("Balances on " + fmtDate(to)), H("")]);
+  S.accounts.filter(a => ["bank","ar","ocasset","fixed","ap","ccard","ocliab","ltliab"].includes(a.type) && Math.abs(cum[a.id] || 0) > 0.004).forEach(a => sum.push([an(a.id) + " (" + (ACCT_TYPES[a.type] || a.type) + ")", M(shown(a, cum[a.id] || 0))]));
+  const gl = [[H("Date"), H("Account"), H("Debit"), H("Credit"), H("Type"), H("Name"), H("Memo"), H("Record id")]].concat(J.filter(l => inY(l.date)).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.srcId).localeCompare(String(b.srcId))).map(l => [l.date, an(l.acct), l.amt > 0 ? M(l.amt) : "", l.amt < 0 ? M(-l.amt) : "", l.src || "", l.name || "", l.memo || "", l.srcId || ""]));
+  const invs = S.invoices.filter(i => inY(i.date)).sort((a, b) => String(a.num).localeCompare(String(b.num), undefined, {numeric:true}));
+  const invRows = [[H("Invoice"), H("Date"), H("Customer"), H("Subtotal"), H("Sales tax"), H("Total"), H("Paid"), H("Still owed"), H("Status"), H("PO"), H("Sent")]].concat(invs.map(i => { const t = invTotals(i); return [String(i.num), i.date, custName(i.customerId), M(t.sub), M(t.tax), M(t.total), M(t.total - invBalance(i)), M(invBalance(i)), invStatus(i), i.po || "", (i.emailedAt || i.sentAt || "").slice(0, 10)]; }));
+  const pays = S.payments.filter(p => inY(p.date)).sort((a, b) => a.date < b.date ? -1 : 1);
+  const payRows = [[H("Date"), H("Customer"), H("Method"), H("Check / ref"), H("Amount"), H("Fee kept"), H("To bank"), H("Invoices"), H("Deposited to")]].concat(pays.map(p => { const g = r2((p.applied || []).reduce((s2, a) => s2 + (+a.amount || 0), 0)); return [p.date, custName(p.customerId), p.method || "", p.ref || "", M(g), M(+p.fee || 0), M(g - (+p.fee || 0)), (p.applied || []).map(a => "#" + (byId("invoices", a.invoiceId)?.num || "?")).join(", "), an(p.depositTo || SYS.CHK)]; }));
+  const exps = S.expenses.filter(e => inY(e.date)).sort((a, b) => a.date < b.date ? -1 : 1);
+  const expRows = [[H("Date"), H("Paid from"), H("Payee"), H("Category"), H("Amount"), H("What it was"), H("Note"), H("Check / ref"), H("Receipt")]];
+  exps.forEach(e => { const who = e.vendorId ? vendName(e.vendorId) : e.payee || "", note = (typeof cardNote === "function" ? cardNote(e.id).note : "") || "", rc = e.att && e.att.filename ? e.att.filename + ((e.emails || []).length ? " (in Gmail)" : "") : "";
+    (e.lines || []).forEach((l, k) => expRows.push([e.date, an(e.fromAcct), who, refName(l.ref), M((+l.qty || 0) * (+l.rate || 0)), l.memo || "", k ? "" : note, k ? "" : e.ref || "", k ? "" : rc])); });
+  const billRows = [[H("Date"), H("Supplier"), H("Ref"), H("Due"), H("Amount"), H("Still owed")]].concat(S.bills.filter(b => inY(b.date)).map(b => [b.date, vendName(b.vendorId), b.ref || "", b.due || "", M(linesTotal(b.lines)), M(billBalance(b))]))
+    .concat([[], [H("Bill payments"), "", "", "", "", ""], [H("Date"), H("Supplier"), H("Paid from"), H("Ref"), H("Amount"), ""]], S.billpays.filter(b => inY(b.date)).map(b => [b.date, vendName(b.vendorId), an(b.fromAcct || SYS.CHK), b.ref || "", M((b.applied || []).reduce((s2, a) => s2 + (+a.amount || 0), 0)), ""]));
+  const bankRows = [[H("Date"), H("Account"), H("Description from statement"), H("Amount"), H("Status"), H("Matched to"), H("Note")]].concat(S.banktx.filter(t => inY(t.date)).sort((a, b) => a.acct < b.acct ? -1 : a.acct > b.acct ? 1 : a.date < b.date ? -1 : 1).map(t => [t.date, an(t.acct), t.desc || "", M(t.amount), t.status || "", t.link ? (t.link.src || "") : "", t.note || ""]));
+  const recRows = [[H("Account"), H("Statement date"), H("Statement balance"), H("Adjustment")]];
+  S.accounts.forEach(a => { (a.recons || []).filter(r => inY(r.date)).forEach(r => recRows.push([an(a.id), r.date, M(r.bal), M(r.adj || 0)])); if (a.recon && inY(a.recon.date)) recRows.push([an(a.id), a.recon.date, M(a.recon.balance), "latest check"]); });
+  const jRows = [[H("Date"), H("Memo"), H("Account"), H("Debit"), H("Credit"), H("Line memo")]]; S.journals.filter(j => inY(j.date)).sort((a, b) => a.date < b.date ? -1 : 1).forEach(j => (j.lines || []).forEach((l, k) => jRows.push([k ? "" : j.date, k ? "" : j.memo || "", an(l.acct), +l.debit ? M(l.debit) : "", +l.credit ? M(l.credit) : "", l.memo || ""])));
+  const taxRows = [[H("Return"), H("Filed / paid on"), H("Amount paid")]].concat(S.taxfilings.filter(f => inY((f.filedAt || "").slice(0, 10)) || f.id.includes(y)).map(f => [f.id, (f.filedAt || "").slice(0, 10), M(+f.amount || 0)]));
+  const trips = (S.trips || []).filter(t => inY(t.date));
+  const tripRows = [[H("Date"), H("Where / why"), H("Miles")]].concat(trips.map(t => [t.date, [t.from, t.to, t.purpose || t.memo].filter(Boolean).join(" · "), {v:tripMiles(t), s:"n"}]));
+  const sheets = [{name:"Summary", rows:sum, widths:[54, 16]}, {name:"General ledger", rows:gl, widths:[11, 34, 13, 13, 16, 26, 36, 16], freeze:1}, {name:"Invoices", rows:invRows, widths:[10, 11, 30, 12, 11, 12, 12, 12, 9, 14, 11], freeze:1},
+    {name:"Payments received", rows:payRows, widths:[11, 30, 18, 12, 12, 10, 12, 18, 30], freeze:1}, {name:"Expenses & card", rows:expRows, widths:[11, 30, 28, 30, 12, 30, 30, 12, 28], freeze:1},
+    {name:"Bills", rows:billRows, widths:[11, 30, 30, 14, 12, 12], freeze:1}, {name:"Bank & card statements", rows:bankRows, widths:[11, 30, 46, 12, 10, 16, 30], freeze:1},
+    {name:"Reconciliations", rows:recRows, widths:[34, 14, 16, 14], freeze:1}, {name:"Journal entries", rows:jRows, widths:[11, 36, 34, 13, 13, 36], freeze:1}, {name:"Sales tax filed", rows:taxRows, widths:[34, 14, 14], freeze:1}];
+  if (trips.length) sheets.push({name:"Mileage", rows:tripRows, widths:[11, 60, 10], freeze:1});
+  const files = [], seen = new Set();
+  files.push({name:"READ ME.txt", data:`${co} business records for ${y}\r\n${made}.\r\n\r\nWhat's in here:\r\n- Books-${y}.xlsx: profit and loss, balances, the full general ledger (every entry), invoices, payments received, expenses and card charges with categories and notes, bills, every bank and card statement line, reconciliations, journal entries, sales tax filed${trips.length ? ", mileage log" : ""}.\r\n- Invoices folder: a PDF of every invoice dated in ${y} (${invs.length}).\r\n- Full-backup-${todayISO()}.json: everything in the app. It can be loaded back with Settings > Restore from backup.\r\n\r\nKeep this with your bank statements, card statements, receipts and tax returns. The IRS says to keep records at least 3 years after you file (longer in some cases).\r\n`});
+  files.push({name:"Books-" + y + ".xlsx", data:xlsxBook(sheets)});
+  invs.forEach(i => { let n = "Invoices/" + pdfName(i); while (seen.has(n)) n = n.replace(/\.pdf$/, "-2.pdf"); seen.add(n); try { files.push({name:n, data:docPDF(i)}); } catch(e) {} });
+  const full = {app:"awards-usa-books", version:1, exported:new Date().toISOString(), company:S.company}; COLS.forEach(c => full[c] = S[c]);
+  files.push({name:"Full-backup-" + todayISO() + ".json", data:JSON.stringify(full)});
+  return {zip:makeZip(files), counts:{inv:invs.length, pay:pays.length, exp:exps.length, gl:gl.length - 1, bank:bankRows.length - 1}}; }
+let SNAPS = null, SNAPS_AT = 0;
+async function snapList(){ const box = $("#main [data-snaps]"); if (!box || typeof GSync === "undefined" || !GSync.listSnaps || !GAuth.valid()) return;
+  if (!SNAPS || Date.now() - SNAPS_AT > 60000) { try { SNAPS = await GSync.listSnaps(); SNAPS_AT = Date.now(); } catch(e) { box.textContent = "Couldn't list the automatic copies right now."; return; } }
+  const b2 = $("#main [data-snaps]"); if (!b2) return;
+  if (!SNAPS.length) { b2.innerHTML = "The first automatic copy is made the next time your books sync."; return; }
+  const months = new Set(SNAPS.map(x => x.day.slice(0, 7)));
+  b2.innerHTML = `<b>${SNAPS.length} automatic cop${SNAPS.length > 1 ? "ies" : "y"}</b> saved, covering ${months.size} month${months.size > 1 ? "s" : ""}. Newest: ${fmtDate(SNAPS[0].day)}. <details style="display:inline"><summary style="display:inline;cursor:pointer;color:var(--primary)">See them</summary><div style="margin-top:6px">${SNAPS.slice(0, 60).map(x => `<div style="display:flex;gap:10px;align-items:center;padding:3px 0"><span style="min-width:120px">${fmtDate(x.day)}</span><button class="linkbtn small" data-act="snapGet" data-id="${esc(x.id)}" data-day="${esc(x.day)}">Download</button><button class="linkbtn small" data-act="snapRestore" data-id="${esc(x.id)}" data-day="${esc(x.day)}">Restore…</button></div>`).join("")}</div></details>`; }
+function recordYears(){ const ys = new Set([todayISO().slice(0, 4)]); journal().forEach(l => l.date && ys.add(l.date.slice(0, 4))); return [...ys].filter(Boolean).sort().reverse(); }
 function makeZip(files){ const enc = new TextEncoder(), parts = [], cen = []; let off = 0;
   const w16 = (a, v) => a.push(v & 255, (v >>> 8) & 255), w32 = (a, v) => a.push(v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255);
   for (const f of files) { const name = enc.encode(f.name), data = f.data instanceof Uint8Array ? f.data : enc.encode(f.data), crc = crc32(data), h = [];
@@ -4198,6 +4277,13 @@ ${text}`, {modelTier:"default"});
     saveFile(("Invoice-" + inv.num + "-" + custName(inv.customerId)).replace(/[^\w-]+/g, "-") + ".html", html); },
   backup(){ const data = {app:"awards-usa-books", version:1, exported:new Date().toISOString(), company:S.company}; COLS.forEach(c => data[c] = S[c]); saveFile("awards-usa-books-backup-" + todayISO() + ".json", JSON.stringify(data, null, 1)); },
   restore(){ $("#restoreFile").click(); },
+  recordsPack(){ const y = ($("#main [data-rec-year]") || {}).value || todayISO().slice(0, 4); toast("Putting your " + y + " records together…");
+    setTimeout(() => { try { const r = recordsPack(y); saveFile((S.company.name || "Awards USA").replace(/[^\w]+/g, "-") + "-records-" + y + "-as-of-" + todayISO() + ".zip", r.zip); } catch(e) { console.error(e); toast("Couldn't make the records file: " + e.message); } }, 50); },
+  async snapGet(el){ try { const d = await GSync.getSnap(el.dataset.id); saveFile("awards-usa-books-backup-" + el.dataset.day + ".json", JSON.stringify({...d, app:"awards-usa-books", exported:d.exported || new Date(d.saved || Date.now()).toISOString()})); } catch(e) { toast("Couldn't download that copy."); } },
+  async snapRestore(el){ let d; try { d = await GSync.getSnap(el.dataset.id); } catch(e) { toast("Couldn't open that copy."); return; }
+    const count = COLS.reduce((s2, c) => s2 + (Array.isArray(d[c]) ? d[c].length : 0), 0);
+    confirmBox(`Bring back the ${count} records from your ${fmtDate(el.dataset.day)} copy? Records that exist in both are set back to how they were that day; anything added since is kept. Download today's records first if you're not sure.`, "Restore this copy", async () => {
+      let n = 0; try { for (const c of COLS) for (const rec of (d[c] || [])) { await put(c, rec); n++; } toast("Restored " + n + " records from " + fmtDate(el.dataset.day)); } catch(e) { toast("Restore stopped after " + n + " records."); } }); },
   openSource(el){ const src = el.dataset.src, id = el.dataset.id;
     if (src.startsWith("Invoice")) go("invoice/" + id); else if (src === "Payment") paymentForm(clone(byId("payments", id))); else if (src.startsWith("Bill payment")) billpayView(byId("billpays", id));
     else if (src.startsWith("Bill")) billForm(clone(byId("bills", id))); else if (src === "Check" || src === "Card charge") expenseForm(clone(byId("expenses", id))); else if (src === "Journal entry") journalForm(clone(byId("journals", id)));
