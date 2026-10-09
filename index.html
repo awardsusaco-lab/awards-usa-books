@@ -1052,6 +1052,7 @@ VIEWS.invoice = id => {
   <div class="pagehead"><div><h1>Invoice #${esc(inv.num)}</h1><p>${esc(custName(inv.customerId))} ${statusBadge(st)}</p></div>
   <div class="actions">${st !== "paid" ? `<button class="btn primary" data-act="receivePayment" data-customer="${inv.customerId}" data-invoice="${id}">Receive payment</button>` : ""}<button class="btn" data-act="editInvoice" data-id="${id}">Edit</button><button class="btn" data-act="emailInvoice" data-id="${id}">Email invoice</button><button class="btn" data-act="pdfInvoice" data-id="${id}">Save PDF</button><button class="btn" data-act="printDoc" data-id="${id}" data-kind="invoice">Print</button>${st !== "paid" && !inv.emailedAt && !inv.sentAt ? `<button class="btn" data-act="markSent" data-id="${id}">Mark as sent</button>` : ""}${inv.emailedAt || inv.sentAt ? `<button class="btn" data-act="unstamp" data-id="${id}">Remove SENT stamp</button><button class="btn" data-act="wrongSend" data-id="${id}">Email a correction</button>` : ""}<button class="btn" data-act="copyInvoice" data-id="${id}">Duplicate</button><button class="btn" data-act="askReview" data-id="${id}">Ask for review</button></div></div>
   ${jobBar(inv)}
+  ${invPays(id).length ? `<section class="panel noprint" style="margin-bottom:14px;padding:12px 16px"><div class="panel-head" style="margin-bottom:6px"><h2 style="font-size:17px">Payments</h2></div>${invPays(id).map(p => `<div class="minv" style="flex-wrap:wrap"><span>${fmtDate(p.date)}</span><select aria-label="Paid by" data-act-change="quickPayMethod" data-id="${p.id}" style="width:auto;min-width:150px">${payMethodOpts(p.method)}</select>${p.ref ? `<span class="small muted">#${esc(p.ref)}</span>` : ""}${+p.fee ? `<span class="small muted">fee ${money(p.fee)}</span>` : ""}<b class="num">${money(payOn(p, id))}</b><button class="btn small" data-act="editPayment" data-id="${p.id}">Edit payment</button></div>`).join("")}</section>` : ""}
   ${inv.reviewAskedAt ? `<p class="small muted">Review requested ${fmtDate(inv.reviewAskedAt.slice(0, 10))}.</p>` : ""}
   ${(inv.sendLog || []).length ? `<p class="small muted noprint">${inv.sendLog.map(x => esc(fmtDate(x.at.slice(0, 10)) + ": " + x.what)).join(" · ")}</p>` : ""}${inv.emailedAt ? `<p class="small muted">Emailed to ${esc(inv.emailedTo)}${inv.emailedCc ? " (CC " + esc(inv.emailedCc) + ")" : ""} on ${fmtDate(inv.emailedAt.slice(0, 10))}.</p>` : ""}${(inv.emails || []).length ? `<p class="small noprint" style="margin:0 0 10px"><b>Related emails:</b> ${(inv.emails || []).map(x => `<a href="${esc(x.url || "#")}" target="_blank" rel="noopener noreferrer">${esc(x.subject || "email")} (${fmtDate((x.date || "").slice(0, 10))})</a>`).join(" · ")}</p>` : ""}${invoiceDoc(inv)}
   `;
@@ -1271,6 +1272,7 @@ const HELP = [
   ["How do I copy someone (like a bookkeeper) on a customer's invoices?", `Two ways:<ol><li>Open the customer → <b>Edit</b> → type their email in <b>CC on invoices</b> → Save.</li><li>Or when emailing an invoice, type it in the <b>CC</b> box and leave "Always CC these people" checked.</li></ol>From then on they're copied on every invoice you email that customer. Use commas for more than one person.`],
   ["How do I print or save a PDF?", `Open the invoice → <b>Save PDF</b> to keep a copy, or <b>Print</b>. If the print window doesn't open, the app offers to save the PDF; open it and press Ctrl+P (computer) or Share → Print (iPhone).`],
   ["What do the PAID and SENT stamps mean?", `<b>SENT</b> (blue) = you emailed it or pressed "Mark as sent". <b>PAID</b> (green) = payments cover the full amount; it shows the date and check number. The stamps also appear on the PDF.`],
+  ["How do I change a paid invoice, or how it was paid?", `Open the invoice. Under <b>Payments</b>, change the <b>Paid by</b> box (Check, Cash, Square, Card, Venmo…) and it saves right away. <b>Edit payment</b> changes the date, amount, check number or fee.<br><br>To change the invoice itself, press <b>Edit</b>. Paid invoices show the payment at the bottom with its <b>Paid by</b> box too. Tick <b>Keep it paid in full</b> and if you change the total, the payment changes to match so it stays PAID.`],
   ["How do I fix a mistake on an invoice?", `Open it → <b>Edit</b>, change it, press Save. If a payment was already recorded and the new total is lower, edit the payment first.`],
   ["How do I find an old invoice?", `<b>Sales</b> → Invoices. Use the search box, the year menu and the filters (Unpaid, Paid, Schools, Tax-exempt…). "Save these as PDFs" downloads everything showing as one zip file for your records.`]]],
  ["Getting paid", [
@@ -3354,6 +3356,16 @@ function recalc(f){ const lines = $(".lines", f); if (!lines) return; const kind
 
 function taxHint(){ const parts = S.company.taxParts || [];
   return parts.length ? partsRate(parts) + "% = " + parts.map(p => p.name.replace(/ \(.*\)$/, "") + " " + p.rate + "%").join(" + ") + ". For orders delivered outside Lakewood, enter that location's combined rate. Use 0 for tax-exempt customers." : ""; }
+const PAY_METHODS = ["Check","Cash","Square","Card","Venmo","PayPal","ACH / bank transfer","Other"];
+const payMethodOpts = cur => opts(PAY_METHODS.concat(cur && !PAY_METHODS.includes(cur) ? [cur] : []).map(m => [m, m]), cur);
+const invPays = id => S.payments.filter(p => (p.applied || []).some(a => a.invoiceId === id && +a.amount > 0)).sort((a, b) => a.date < b.date ? -1 : 1);
+const payOn = (p, id) => r2((p.applied || []).filter(a => a.invoiceId === id).reduce((s2, a) => s2 + (+a.amount || 0), 0));
+function invPayBox(inv){ const ps = invPays(inv.id); if (!ps.length) return "";
+  const one = ps.length === 1 && (ps[0].applied || []).length === 1, full = one && Math.abs(payOn(ps[0], inv.id) - invTotals(inv).total) < 0.005;
+  return `<div class="full panel" style="margin:6px 0 0;padding:12px 14px"><p style="margin:0 0 8px"><b>Payments on this invoice</b></p><div class="fields">
+    ${ps.map(p => `<label class="f">Paid by · ${fmtDate(p.date)} · ${money(payOn(p, inv.id))}<select name="pm_${p.id}">${payMethodOpts(p.method)}</select></label>`).join("")}
+    ${one ? `<label class="check full"><input type="checkbox" name="payFollow" ${full ? "checked" : ""}> <span>Keep it paid in full: if I change the total, change the payment to match</span></label>` : `<p class="small muted full" style="margin:0">To change payment amounts, open the payment from the invoice page.</p>`}
+  </div></div>`; }
 function invoiceForm(inv, customerId, kind, fromEstimate){
   const est = kind === "estimate", word = est ? "estimate" : "invoice";
   const isNew = !inv || !inv.id;
@@ -3373,6 +3385,7 @@ function invoiceForm(inv, customerId, kind, fromEstimate){
   </div><div class="priceref" style="margin-top:12px"></div>${S.items.length ? "" : '<p class="small muted">Tip: add items under Inventory so prices and stock fill in automatically.</p>'}
   ${linesBlock("inv", inv.lines)}<div class="totals"></div>
   <label class="f" style="margin-top:12px">Message on ${est ? "estimate" : "invoice"} <span class="small">(change it for a personal note)</span><textarea name="memo">${esc(inv.memo)}</textarea></label>
+  ${!isNew && !est ? invPayBox(inv) : ""}
   ${foot(isNew ? null : {act:est ? "delEstimate" : "delInvoice", id:inv.id}, isNew ? "Save " + word : "Save changes")}</form>`);
   { const f = $("#sheetBody form"); f._bt = clone(inv.billTo || {}); f._btCust = inv.customerId || ""; renderBillTo(f); }
   recalc($("#sheetBody form")); renderPriceRef($("#sheetBody form")); }
@@ -3426,7 +3439,7 @@ function paymentForm(p, customerId, invoiceId){ const isNew = !p || !p.id;
   openSheet(isNew ? "Receive payment" : "Edit payment", `<form data-form="payment" data-id="${p.id || ""}"><div class="fields">
   <label class="f">Customer<select name="customerId" required data-act-change="payCustomer">${payCustOpts(p.customerId)}</select></label>
   <label class="f">Date<input name="date" type="date" required value="${esc(p.date)}"></label>
-  <label class="f">Method<select name="method" data-act-change="payMethod">${opts(["Check","Cash","Square","Card","Venmo","PayPal","ACH / bank transfer","Other"].concat(p.method && !["Check","Cash","Square","Card","Venmo","PayPal","ACH / bank transfer","Other"].includes(p.method) ? [p.method] : []).map(m => [m, m]), p.method)}</select></label>
+  <label class="f">Method<select name="method" data-act-change="payMethod">${payMethodOpts(p.method)}</select></label>
   <label class="f">Check / ref no.<input name="ref" value="${esc(p.ref)}"></label>
   <label class="f full">Deposit to<select name="depositTo">${acctOpts(p.depositTo, a => ["bank","ocasset"].includes(a.type) && a.id !== SYS.INV)}</select></label>
   </div><h3 style="margin:18px 0 6px">Apply to invoices</h3><div id="applyList"></div><div class="totals" id="payTotal"></div>
@@ -3492,8 +3505,14 @@ const FORMS = {
     const inv = {...clone(byId("invoices", id) || {}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due") || addDays(val(f, "date"), termDays(val(f, "terms"))), po:val(f, "po"), neededBy:val(f, "neededBy"), jobStatus:(byId("invoices", id) || {}).jobStatus || "new", taxRate:num(f, "taxRate"), memo:val(f, "memo"), lines};
     inv.billTo = await readBillTo(f, inv.customerId); if (!inv.billTo) delete inv.billTo;
     inv.taxParts = Math.abs(inv.taxRate - partsRate(S.company.taxParts)) < 0.0005 ? clone(S.company.taxParts || []) : [];
-    if (id && invPaid(id) - invTotals(inv).total > 0.004) return formErr(f, "Payments on this invoice are more than the new total. Edit the payment first.");
-    const nid = await put("invoices", inv); await rememberTaxRate(inv.customerId, inv.taxRate);
+    const follow = id && f.elements.payFollow && f.elements.payFollow.checked, ps0 = id ? invPays(id) : [], newTot = invTotals(inv).total;
+    if (id && !follow && invPaid(id) - newTot > 0.004) return formErr(f, "Payments on this invoice are more than the new total. Tick \"Keep it paid in full\" below, or open the payment and change it.");
+    if (follow && ps0[0] && (+ps0[0].fee || 0) >= newTot) return formErr(f, "The new total is smaller than the fee on its payment. Open the payment and fix the fee first.");
+    const nid = await put("invoices", inv);
+    for (const p of ps0) { const m = f.elements["pm_" + p.id] ? f.elements["pm_" + p.id].value : p.method, upd = {...clone(byId("payments", p.id))}; let ch = false;
+      if (m && m !== p.method) { upd.method = m; ch = true; }
+      if (follow && ps0.length === 1 && Math.abs(payOn(p, id) - newTot) > 0.004) { upd.applied = upd.applied.map(a => a.invoiceId === id ? {...a, amount:newTot} : a); ch = true; }
+      if (ch) await put("payments", upd); } await rememberTaxRate(inv.customerId, inv.taxRate);
     if (!id && +numv >= +(S.company.nextInvoice || 0)) await saveCompany({nextInvoice:+numv + 1});
     const fromOrd = f.dataset.fromOrder; if (fromOrd && byId("orders", fromOrd)) await put("orders", {...clone(byId("orders", fromOrd)), status:"invoiced", invoiceId:nid});
     const fromEst = f.dataset.fromEstimate; if (fromEst && byId("estimates", fromEst)) await put("estimates", {...clone(byId("estimates", fromEst)), status:"invoiced", invoiceId:nid});
@@ -4086,6 +4105,7 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
     const h = $("#sheet h2, #sheetTitle"); if (h && list.length) h.textContent = list.length > 1 ? "Email " + list.length + " invoices" : "Email invoice #" + list[0].num;
     const n = f.querySelector("[data-attnote]"); if (n) n.textContent = (list.length > 1 ? "The invoices are attached as PDFs." : "The invoice is attached as a PDF.") + " After you press Send you get " + UNDO_SECS + " seconds to undo it.";
     return; }
+  if (t.dataset.actChange === "quickPayMethod") { const pp = byId("payments", t.dataset.id); if (pp && pp.method !== t.value) { put("payments", {...clone(pp), method:t.value}).then(() => toast("Paid by changed to " + t.value)); } return; }
   if (t.dataset.actChange === "payMethod") { const box = t.closest("form").querySelector("[data-feebox]"); if (box) box.hidden = !FEE_METHOD_RX.test(t.value) && !(+t.closest("form").elements.fee.value); return; }
   if (t.dataset.actChange === "unsendNote") { const box = t.closest("form").querySelector("[data-un]"); if (box) box.hidden = !t.checked; return; }
   if (t.dataset.actChange === "expPay") { const box = t.closest("form").querySelector("[data-due]"); if (box) box.style.display = t.value === "bill" ? "" : "none"; return; }
