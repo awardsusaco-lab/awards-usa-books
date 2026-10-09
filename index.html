@@ -811,8 +811,30 @@ window.addEventListener("pagehide", () => { if (pendingSend) flushSend(); });
 
 /* ---------- emailing one or several invoices ---------- */
 const openInvsFor = cid => S.invoices.filter(i => i.customerId === cid && invBalance(i) > 0.004).sort((a, b) => (a.date || "") < (b.date || "") ? -1 : 1);
-function invMailSubject(list){ return list.length === 1 ? "Invoice #" + list[0].num + " from " + S.company.name : "Invoices " + list.map(i => "#" + i.num).join(", ") + " from " + S.company.name; }
-function invMailBody(c, list){ const sign = `Thank you for your business!
+/* ----- your own invoice email wording, saved for every customer ----- */
+const MAIL_KEYS = [["paylinks","your Pay online links"],["first","their first name"],["customer","customer name"],["invoice","invoice number(s)"],["amount","invoice total"],["balance","balance due"],["due","due date"],["list","list of invoices (when sending several)"],["company","your business name"],["phone","your phone"]];
+function mailListLine(i){ const b = invBalance(i), t = invTotals(i); return `  • #${i.num}: ${money(b > 0.004 ? b : t.total)}${b > 0.004 && b < t.total - 0.004 ? " balance due" : ""}, due ${fmtDate(i.due)}`; }
+function mailVals(c, list){ const tot = r2(list.reduce((s2, i) => s2 + invTotals(i).total, 0)), bal = r2(list.reduce((s2, i) => s2 + invBalance(i), 0)), dues = list.map(i => i.due).filter(Boolean).sort();
+  return {first:firstName(c), customer:(c && c.name) || "", invoice:list.map(i => "#" + i.num).join(", "), amount:money(tot), balance:money(bal), due:dues[0] ? fmtDate(dues[0]) : "", list:list.map(mailListLine).join("\n"), company:S.company.name || "", phone:S.company.phone || "", paylinks:payLinksText(list)}; }
+/* ----- online payment links (Square, Venmo, PayPal, Zelle…) ----- */
+function payLinksFor(list){ const P = S.company.payLinks || {}, amt = r2(list.reduce((s2, i) => s2 + Math.max(0, invBalance(i)), 0)) || r2(list.reduce((s2, i) => s2 + invTotals(i).total, 0)), nums = list.map(i => "#" + i.num).join(", "), note = encodeURIComponent("Invoice " + nums.replace(/#/g, ""));
+  const out = [], one = list.length === 1 ? list[0] : null, clean = u => /^https?:\/\//i.test(u) ? u : "https://" + u;
+  if (one && one.payLink) out.push({label:"Card (" + (/square/i.test(one.payLink) ? "Square" : "online") + ")", url:clean(one.payLink.trim())});
+  else if (P.square) out.push({label:"Card (Square)", url:clean(P.square.trim()), note:P.squareAmt === "fixed" ? "" : "enter " + money(amt)});
+  if (P.venmo) { const u = P.venmo.replace(/^@/, "").trim(); out.push({label:"Venmo", url:`https://venmo.com/${encodeURIComponent(u)}?txn=pay&amount=${amt.toFixed(2)}&note=${note}`, note:"@" + u}); }
+  if (P.paypal) { const u = P.paypal.replace(/^(https?:\/\/)?(www\.)?paypal\.me\//i, "").replace(/^@/, "").replace(/\/.*$/, "").trim(); out.push({label:"PayPal", url:`https://paypal.me/${encodeURIComponent(u)}/${amt.toFixed(2)}USD`}); }
+  if (P.zelle) out.push({label:"Zelle", text:P.zelle.trim()});
+  if (P.otherUrl) out.push({label:P.otherLabel || "Pay online", url:clean(P.otherUrl.trim())});
+  return out; }
+function payLinksText(list){ const L = payLinksFor(list); if (!L.length) return ""; return "Pay online:\n" + L.map(x => "  • " + x.label + ": " + (x.url || x.text) + (x.note ? " (" + x.note + ")" : "")).join("\n"); }
+const fillTpl = (t, v) => String(t || "").replace(/\{(\w+)\}/g, (m, k) => k in v ? v[k] : m);
+function toTpl(text, v){ let out = String(text || ""); const order = ["paylinks","list","customer","company","phone","invoice","balance","amount","due","first"];
+  for (const k of order) { const val = v[k]; if (!val || val.length < 2 || val === "there") continue; out = out.split(val).join("{" + k + "}"); } return out; }
+function addPayLinks(b, pl, had){ if (!pl || had || b.includes(pl)) return b; const m = /\n\n(?=(thank|thanks|sincerely|best|regards|parker)\b)/i.exec(b); return m ? b.slice(0, m.index) + "\n\n" + pl + b.slice(m.index) : b + "\n\n" + pl; }
+function mailTpl(){ const t = S.company.invMailTpl; return t && (t.body || t.subject) ? t : null; }
+function invMailSubject(list){ const t = mailTpl(); if (t && t.subject) { const c0 = byId("customers", list[0]?.customerId) || {}; return fillTpl(t.subject, mailVals(c0, list)); } return list.length === 1 ? "Invoice #" + list[0].num + " from " + S.company.name : "Invoices " + list.map(i => "#" + i.num).join(", ") + " from " + S.company.name; }
+function invMailBody(c, list){ const t = mailTpl(); if (t && t.body) { const v = mailVals(c, list); let b = fillTpl(t.body, v); if (list.length > 1 && !/\{list\}/.test(t.body)) b = b.includes("\n\n") ? b.replace("\n\n", "\n\n" + v.list + "\n\n") : b + "\n\n" + v.list; return addPayLinks(b, v.paylinks, /\{paylinks\}/.test(t.body)); }
+  const sign = `Thank you for your business!
 
 Parker
 ${S.company.name}${S.company.phone ? "\n" + S.company.phone : ""}`;
@@ -820,7 +842,7 @@ ${S.company.name}${S.company.phone ? "\n" + S.company.phone : ""}`;
     return `Hi ${firstName(c)},
 
 Attached is invoice #${inv.num} for ${money(t.total)}${bal < t.total - 0.004 ? ` (balance due ${money(bal)})` : ""}, due ${fmtDate(inv.due)}.
-
+${payLinksText(list) ? "\n" + payLinksText(list) + "\n" : ""}
 ${sign}`; }
   const tot = list.reduce((s, i) => s + invBalance(i), 0);
   return `Hi ${firstName(c)},
@@ -829,7 +851,7 @@ Attached are ${list.length} invoices:
 ${list.map(i => { const b = invBalance(i), t = invTotals(i); return `  • #${i.num}: ${money(b > 0.004 ? b : t.total)}${b > 0.004 && b < t.total - 0.004 ? " balance due" : ""}, due ${fmtDate(i.due)}`; }).join("\n")}
 
 Total due: ${money(tot)}
-
+${payLinksText(list) ? "\n" + payLinksText(list) + "\n" : ""}
 ${sign}`; }
 function multiPicked(f){ return [...f.querySelectorAll("[name=minv]")].filter(x => x.type === "hidden" || x.checked).map(x => byId("invoices", x.value)).filter(Boolean); }
 function emailInvoicesForm(cid, firstId, preIds){ const c0 = byId("customers", cid) || {}, first = firstId ? byId("invoices", firstId) : null;
@@ -848,6 +870,7 @@ function emailInvoicesForm(cid, firstId, preIds){ const c0 = byId("customers", c
     ${pick}
     <label class="f full">Subject<input name="subject" value="${esc(invMailSubject(list))}"></label>
     <label class="f full">Message<textarea name="body" style="min-height:180px">${esc(body)}</textarea></label>
+    <label class="check full"><input type="checkbox" name="saveTpl"> <span>Use this wording for <b>every customer</b> from now on (names, numbers, amounts and dates fill in by themselves)</span></label>
     <label class="check full"><input type="checkbox" name="askReview" data-act-change="reviewToggle"> Also ask them to leave a Google review</label>
     ${S.company.reviewLink ? "" : `<label class="f full" data-rl hidden>Your Google review link<input name="reviewLink" type="text" inputmode="url" autocapitalize="off" placeholder="https://g.page/r/..."></label>`}
     </div>${MCP ? `<p class="small muted" data-attnote>${list.length > 1 ? "The invoices are attached as PDFs." : "The invoice is attached as a PDF."} After you press Send you get ${UNDO_SECS} seconds to undo it.</p>${foot(null, "Send")}` : `<p class="small muted">This window can't send through Gmail by itself, so the next step saves the invoice PDF${list.length > 1 ? "s" : ""} and opens this message in Gmail, ready to go. You just attach the PDF${list.length > 1 ? "s" : ""} and press Send.</p>${foot(null, "Save PDF & open email")}`}</form>`, true);
@@ -1086,6 +1109,7 @@ function invoiceDoc(inv, standalone, kind){
     ${(inv.lines || []).map(l => `<tr><td>${esc(byId("items", l.itemId)?.name || "")}</td><td class="pre">${esc(l.desc || "")}</td><td class="num">${esc(l.qty)}</td><td class="num">${money(l.rate)}</td><td class="num">${money((+l.qty||0) * (+l.rate||0))}${l.taxable ? "" : standalone ? "" : ' <span class="small muted">N</span>'}</td></tr>`).join("")}
     </tbody></table></div>
     <div class="totals"><div><span>Subtotal</span><span>${money(t.sub)}</span></div>${t.tax ? `<div><span>Sales tax (${esc(inv.taxRate)}%)</span><span>${money(t.tax)}</span></div>` : ""}<div class="grand"><span>Total</span><span>${money(t.total)}</span></div>${paid ? `<div><span>Payments</span><span>-${money(paid)}</span></div><div class="grand"><span>Balance due</span><span>${money(t.total - paid)}</span></div>` : ""}</div>
+    ${kind !== "estimate" && invBalance(inv) > 0.004 && payLinksFor([inv]).length ? `<div style="margin-top:18px;padding:10px 12px;border:1px solid var(--line);border-radius:8px"><b>Pay online</b><div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:4px">${payLinksFor([inv]).map(x => x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.label)}</a>${x.note ? ` <span class="small muted">${esc(x.note)}</span>` : ""}` : `<span>${esc(x.label)}: ${esc(x.text)}</span>`).join("")}</div></div>` : ""}
     ${inv.memo ? `<p class="pre" style="margin-top:18px">${esc(inv.memo)}</p>` : ""}${co.footer && co.footer.trim() !== (inv.memo || "").trim() ? `<p class="muted" style="margin-top:18px">${esc(co.footer)}</p>` : ""}</div>`;
 }
 VIEWS.invoice = id => {
@@ -1372,7 +1396,9 @@ const HELP = [
   ["How do I add a percentage, like a 3.5% card processing fee?", `In the invoice, press <b>+ % fee</b> under the lines. Type the percent (e.g. 3.5) and the app works out the dollar amount from all the items above it, and keeps it up to date if you change quantities or prices. You can rename it (rush fee, setup fee, discount with a minus percent). Untick <b>Tax</b> if it shouldn't be taxed. The app remembers your last percent for next time.<br><br>Heads up for card fees: Colorado caps credit card surcharges at 2% (or your actual cost, if lower), they can't go on debit cards, and they must be shown as their own line, which this does. Check with your card processor before charging more.`],
   ["How are invoice numbers and due dates set?", `New invoices automatically get the next number after your highest invoice, even if you made one on your phone. If a number is already used, the app picks the next free one. The due date fills in from the customer's payment terms. To change it, pick a date or tap <b>On receipt</b>, <b>15 days</b>, <b>30 days</b> or <b>45 days</b> under Due date. The due date prints on the invoice. "Needed by" is separate: it's the customer's event date, for your own scheduling.`],
   ["How do I email an invoice?", `Open the invoice → <b>Email invoice</b>. The customer's email and anyone saved as "CC on invoices" are filled in. Check the message and press <b>Send</b>. It goes from your Gmail with the PDF attached, and the invoice gets a blue <b>SENT</b> stamp.<br>If Google isn't connected, the app saves the PDF and opens a ready-to-go Gmail message instead; attach the PDF and send.`],
-   ["Can I send several invoices to the same person in one email?", `Yes. Open the customer → <b>Email invoices</b>. All their unpaid invoices are ticked; untick any you don't want. Or open one invoice → <b>Email invoice</b> and tick the customer's other open invoices in the list. Each invoice goes as its own PDF in the same email, the message lists them with the total due, and every one gets the SENT stamp.`],
+   ["How do customers pay online from an invoice?", `Set it up once in <b>Settings → Online payment links</b>: paste your Square payment link, and add your Venmo username, PayPal.me name or Zelle if you use them. From then on every invoice email has a <b>Pay online</b> list, and unpaid invoices (screen and PDF) show it too. Venmo and PayPal open with the amount filled in. A general Square link lets the customer type the amount. For an exact-amount Square link, create one in Square for that invoice and paste it into the invoice's <b>Payment link for this invoice</b> box. Paid invoices don't show the links.`],
+  ["How do I change the invoice email message for everyone?", `Two ways. <b>Settings → Invoice email message</b>: type the wording you want and press Save. Or, when you're emailing an invoice, change the message and tick <b>Use this wording for every customer from now on</b>. Words in curly brackets fill in by themselves for each customer: {first} (their first name), {invoice}, {amount}, {balance}, {due}, {company}, {phone}, and {list} for the list of invoices when you send several. "Back to standard" in Settings undoes it.`],
+  ["Can I send several invoices to the same person in one email?", `Yes. Open the customer → <b>Email invoices</b>. All their unpaid invoices are ticked; untick any you don't want. Or open one invoice → <b>Email invoice</b> and tick the customer's other open invoices in the list. Each invoice goes as its own PDF in the same email, the message lists them with the total due, and every one gets the SENT stamp.`],
   ["I sent the wrong invoice. Can I unsend it?", `<b>Right after you press Send</b>, a bar at the bottom says "Sending invoice … in 30s". Tap <b>Undo</b> and nothing goes out; the email form comes back so you can fix it. (<b>Send now</b> skips the wait. Keep the app open for the 30 seconds.)<br><br><b>After it has gone out</b>, no email program can pull a message back out of someone else's inbox. Open the invoice → <b>Remove SENT stamp</b> (one tap) puts it back to "not sent". To also tell the customer, press <b>Email a correction</b>: it sends a short "please disregard" note that you see and can change first. Then fix the invoice with <b>Edit</b> and email it again.`],
   ["How do I copy someone (like a bookkeeper) on a customer's invoices?", `Two ways:<ol><li>Open the customer → <b>Edit</b> → type their email in <b>CC on invoices</b> → Save.</li><li>Or when emailing an invoice, type it in the <b>CC</b> box and leave "Always CC these people" checked.</li></ol>From then on they're copied on every invoice you email that customer. Use commas for more than one person.`],
   ["How do I print or save a PDF?", `Open the invoice → <b>Save PDF</b> to keep a copy, or <b>Print</b>. If the print window doesn't open, the app offers to save the PDF; open it and press Ctrl+P (computer) or Share → Print (iPhone).`],
@@ -1564,6 +1590,24 @@ VIEWS.settings = () => { const c = S.company; const counts = COLS.reduce((s, k) 
   </div>
   <p class="small muted" style="margin:6px 0 0">Switching to S-corp turns on Payroll and adds payroll deadlines to Taxes. Make the change with your CPA; it's an IRS election (Form 2553), not just a setting.</p>
   <div class="formfoot"><span class="muted small">Rates change occasionally. Confirm on the Colorado DOR sales tax lookup when you file.</span><div class="right"><button class="btn primary">Save settings</button></div></div></form>
+  <section class="panel" style="margin-bottom:18px"><h2 style="margin-bottom:8px">Online payment links</h2>
+  <p class="small muted" style="margin-top:0">Fill in the ones you use. They're added to every invoice email and printed on unpaid invoices as <b>Pay online</b>. Venmo and PayPal open with the amount already filled in.</p>
+  <form data-form="payLinks"><div class="fields">${(() => { const P = S.company.payLinks || {}; return `
+    <label class="f full">Square payment link<input name="square" type="text" inputmode="url" autocapitalize="off" value="${esc(P.square || "")}" placeholder="https://square.link/u/…"></label>
+    <label class="f">Square link amount<select name="squareAmt">${opts([["custom","Customer types the amount"],["fixed","Fixed amount (made for one invoice)"]], P.squareAmt || "custom")}</select></label>
+    <label class="f">Venmo username<input name="venmo" autocapitalize="off" value="${esc(P.venmo || "")}" placeholder="@Awards-USA"></label>
+    <label class="f">PayPal.me name<input name="paypal" autocapitalize="off" value="${esc(P.paypal || "")}" placeholder="paypal.me/yourname"></label>
+    <label class="f">Zelle (email or phone)<input name="zelle" autocapitalize="off" value="${esc(P.zelle || "")}" placeholder="billing@…"></label>
+    <label class="f">Other link name<input name="otherLabel" value="${esc(P.otherLabel || "")}" placeholder="e.g. Pay by bank"></label>
+    <label class="f">Other link<input name="otherUrl" type="text" inputmode="url" autocapitalize="off" value="${esc(P.otherUrl || "")}" placeholder="https://…"></label>`; })()}
+  </div><p class="small muted">Square: in your Square Dashboard go to <b>Payment links</b>, make one where the customer enters the amount, and paste it here. For a link with the exact amount, make one in Square for that invoice and paste it into the invoice's <b>Payment link for this invoice</b> box.</p>
+  <div class="formfoot"><span></span><div class="right"><button class="btn primary">Save payment links</button></div></div></form></section>
+  <section class="panel" style="margin-bottom:18px"><h2 style="margin-bottom:8px">Invoice email message</h2>
+  <p class="small muted" style="margin-top:0">The wording every customer gets when you email an invoice. Words in {curly brackets} fill in by themselves: ${MAIL_KEYS.map(([k, d]) => `<b>{${k}}</b> ${esc(d)}`).join(" · ")}. You can still change it for one customer when you send.</p>
+  <form data-form="mailTpl"><div class="fields">
+    <label class="f full">Subject<input name="subject" value="${esc((mailTpl() || {}).subject || "Invoice {invoice} from {company}")}"></label>
+    <label class="f full">Message<textarea name="body" style="min-height:200px">${esc((mailTpl() || {}).body || "Hi {first},\n\nAttached is invoice {invoice} for {amount}, due {due}.\n\nThank you for your business!\n\nParker\n{company}\n{phone}")}</textarea></label>
+  </div><div class="formfoot"><span class="small muted">${mailTpl() ? "Using your own wording" + (mailTpl().savedAt ? " (saved " + fmtDate(mailTpl().savedAt.slice(0, 10)) + ")" : "") : "Using the standard wording"}</span><div class="right">${mailTpl() ? '<button type="button" class="btn" data-act="mailTplReset">Back to standard</button>' : ""}<button class="btn primary">Save message</button></div></div></form></section>
   <section class="panel" style="margin-bottom:18px"><h2 style="margin-bottom:8px">Records for taxes or an IRS audit</h2>
   <p style="margin-top:0">${typeof GSync !== "undefined" && GAuth.configured() ? (GAuth.valid() ? `Your books save to your Google Drive every time you make a change. On top of that, the app keeps a <b>dated copy every day</b> (the last 45 days) and <b>one for every month, kept for good</b>, so nothing can be lost by a mistake or a bad sync.` : `Connect Google (top of the page) so your books and the automatic daily copies save to your Google Drive.`) : "Your books are saved on this device. Download your records below and keep them somewhere safe."}</p>
   <div data-snaps class="small muted" style="margin-bottom:10px"></div>
@@ -1972,6 +2016,13 @@ function taxDeadlines(){
       [[ymd(y + 1,1,31),"W-2s and W-3 due"],[ymd(y + 1,3,15),"S-corp return (Form 1120-S) due"]].forEach(([due, title]) => { if (due <= until) list.push({key:"yr-" + title + y, agency:"irs", title, period:{label:String(y)}, due:nextBiz(due), link:null, amount:0, fileOnly:true, note:"Usually handled by your CPA or payroll service."}); });
     }
   }
+  { const sm = +(c.sosMonth ?? 12); if (sm >= 1 && sm <= 12) { const y0 = Math.max(2026, +todayISO().slice(0, 4) - 1);
+      for (let y = y0; y <= y0 + 2; y++) { const endM = sm + 2, ey = y + (endM > 12 ? 1 : 0), em = ((endM - 1) % 12) + 1, due = ymd(ey, em, new Date(ey, em, 0).getDate()), opensM = sm - 2, oy = y - (opensM < 1 ? 1 : 0), om = ((opensM + 11) % 12) + 1, opens = ymd(oy, om, 1);
+        if (due < todayISO() && S.taxfilings.some(f => f.id === "sos-" + y)) { list.push({key:"sos-" + y, agency:"sos", title:"Colorado LLC periodic report", period:{label:String(y)}, due, link:{url:"https://www.coloradosos.gov/biz/BusinessEntityDetail.do?masterFileId=" + (c.sosId || "20258405300"), label:"Colorado Secretary of State"}, amount:25, payee:"Colorado Secretary of State", payAcct:(S.accounts.find(a => a.type === "expense" && /licen|permit|dues|filing/i.test(a.name)) || {}).id || SYS.MISC}); continue; }
+        if (due > until || addDays(due, 60) < todayISO()) continue;
+        list.push({key:"sos-" + y, agency:"sos", title:"Colorado LLC periodic report", period:{label:String(y)}, due, opens, link:{url:"https://www.coloradosos.gov/biz/BusinessEntityDetail.do?masterFileId=" + (c.sosId || "20258405300"), label:"Colorado Secretary of State"}, amount:25, payee:"Colorado Secretary of State",
+          payAcct:(S.accounts.find(a => a.type === "expense" && /licen|permit|dues|filing/i.test(a.name)) || {}).id || SYS.MISC,
+          note:`Can be filed ${fmtDate(opens)} to ${fmtDate(due)} for the state fee (about $25), only at coloradosos.gov. After that there's a $50 late fee, and the LLC goes delinquent 2 months later. Ignore texts, letters or sites like "coloradofiling.com" that charge $159+ or threaten a "$250 penalty". They aren't the state.`}); } } }
   const filed = new Set(S.taxfilings.map(f => f.id));
   return list.map(x => ({...x, filed:filed.has(x.key), filing:byId("taxfilings", x.key)})).sort((a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
 }
@@ -2242,6 +2293,8 @@ function coSetupForm(then){ const c = S.company, a = coAddr(), miss = coSetupMis
   <label class="f">Jurisdiction (location) code<input name="coJuris" inputmode="numeric" maxlength="8" value="${esc(c.coJuris || "")}" placeholder="6 digits"></label></div>
   <h3 style="margin:14px 0 6px">City of Lakewood</h3><div class="fields"><label class="f">Lakewood account number<input name="lkAcct" maxlength="20" value="${esc(c.lkAcct || "")}"></label>
   <label class="f">Lakewood business license number<input name="lkLicense" maxlength="20" value="${esc(c.lkLicense || "")}"></label></div>
+  <h3 style="margin:14px 0 6px">Colorado Secretary of State (your LLC)</h3><div class="fields"><label class="f">LLC ID number<input name="sosId" inputmode="numeric" maxlength="14" value="${esc(c.sosId ?? "20258405300")}"></label>
+  <label class="f">Periodic report month<select name="sosMonth">${opts([["0","I don't need this reminder"]].concat(["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => [String(i + 1), m])), String(c.sosMonth ?? 12))}</select></label></div>
   <h3 style="margin:14px 0 6px">Federal and contact</h3><div class="fields"><label class="f">Federal tax ID type<select name="coTinType">${opts([["FEIN", "EIN (business)"], ["SSN", "SSN"]], c.coTinType || "FEIN")}</select></label>
   <label class="f">Federal tax ID number<input name="coTin" inputmode="numeric" maxlength="11" value="${esc(c.coTin || "")}" placeholder="9 digits"></label>
   <label class="f">Contact name on returns<input name="coContact" value="${esc(c.coContact || "")}" placeholder="Your name"></label></div>
@@ -2255,8 +2308,8 @@ function taxExportForm(){ openSheet("Download tax report", `<form data-form="tax
   <div class="formfoot"><div class="right"><button type="button" class="btn" data-act="taxDl" data-kind="pdf">Download PDF</button><button type="button" class="btn primary" data-act="taxDl" data-kind="xlsx">Download Excel</button></div></div></form>`, true); }
 VIEWS.taxes = () => {
   const c = S.company, t = todayISO(), all = taxDeadlines(), b = balances(null, t);
-  const open = all.filter(x => !x.filed && (x.due <= addDays(t, 75) || x.due < t)).slice(0, 12);
-  const later = all.filter(x => !x.filed && x.due > addDays(t, 75)).slice(0, 8);
+  const open = all.filter(x => !x.filed && (x.due <= addDays(t, 75) || x.due < t || (x.opens && x.opens <= t))).slice(0, 12);
+  const later = all.filter(x => !x.filed && x.due > addDays(t, 75) && !(x.opens && x.opens <= t)).slice(0, 8);
   const done = all.filter(x => x.filed).slice(-8).reverse();
   const owed = k => shown(byId("accounts", k) || {type:"ocliab"}, b[k]);
   const yb = balances(t.slice(0,4) + "-01-01", t); const ytd = -S.accounts.filter(a => PL.has(a.type)).reduce((s, a) => s + (yb[a.id] || 0), 0);
@@ -2558,6 +2611,8 @@ function docPDF(inv, kind){
   P.line(tl, y - 9, R, y - 9, 0.9, [0.1, 0.1, 0.1]); y += 3; trow("Total", money(t.total), true, true);
   if (paid) { trow("Payments", "-" + money(paid)); P.line(tl, y - 9, R, y - 9, 0.9, [0.1, 0.1, 0.1]); y += 3; trow("Balance due", money(t.total - paid), true, true); }
   y += 14;
+  { const pl = !est && (t.total - paid) > 0.004 ? payLinksFor([inv]) : []; if (pl.length) { if (y > 690) { P.add(); y = 60; } P.text(L, y, "PAY ONLINE", {size:8, bold:true, color:gray}); y += 13;
+    pl.forEach(x => { const s2 = x.label + ": " + (x.url || x.text) + (x.note ? "  (" + x.note + ")" : ""); wrapText(s2, R - L, 9, false).forEach(l => { if (y > 740) { P.add(); y = 60; } P.text(L, y, l, {size:9, color:[0.11, 0.37, 0.66]}); y += 12; }); }); y += 8; } }
   if (inv.memo) wrapText(inv.memo, R - L, 9.5, false).forEach(l => { if (y > 740) { P.add(); y = 60; } P.text(L, y, l, {size:9.5}); y += 12.5; });
   if (co.footer && co.footer.trim() !== (inv.memo || "").trim()) { y += 6; P.text(L, Math.min(y, 750), co.footer, {size:9.5, color:gray}); }
   if (P.pages.length > 1) { const cur = P.cur; P.pages.forEach((pg, i) => { P.cur = pg; P.text(R, 770, `Page ${i + 1} of ${P.pages.length}`, {size:8, color:gray, align:"right"}); }); P.cur = cur; }
@@ -3556,6 +3611,7 @@ function invoiceForm(inv, customerId, kind, fromEstimate){
   </div><div class="priceref" style="margin-top:12px"></div>${S.items.length ? "" : '<p class="small muted">Tip: add items under Inventory so prices and stock fill in automatically.</p>'}
   ${linesBlock("inv", inv.lines)}<div class="totals"></div>
   <label class="f" style="margin-top:12px">Message on ${est ? "estimate" : "invoice"} <span class="small">(change it for a personal note)</span><textarea name="memo">${esc(inv.memo)}</textarea></label>
+  ${est ? "" : `<label class="f" style="margin-top:12px">Payment link for this invoice <span class="small">(optional: paste a Square link made for this amount; otherwise your saved links are used)</span><input name="payLink" type="text" inputmode="url" autocapitalize="off" value="${esc(inv.payLink || "")}" placeholder="https://square.link/u/…"></label>`}
   ${!isNew && !est ? invPayBox(inv) : ""}
   ${foot(isNew ? null : {act:est ? "delEstimate" : "delInvoice", id:inv.id}, isNew ? "Save " + word : "Save changes")}</form>`);
   { const f = $("#sheetBody form"); f._bt = clone(inv.billTo || {}); f._btCust = inv.customerId || ""; renderBillTo(f); }
@@ -3687,12 +3743,13 @@ const FORMS = {
   async account(f){ const id = f.dataset.id, old = byId("accounts", id) || {};
     await put("accounts", {...clone(old), id:id || undefined, number:val(f, "number"), name:val(f, "name"), type:SYSTEM_IDS.has(id) ? old.type : val(f, "type"), openBal:num(f, "openBal"), openDate:val(f, "openDate")}); toast("Account saved"); },
   async followup(f){ const id = f.dataset.id; await put("followups", {...clone(byId("followups", id) || {}), id:id || undefined, text:val(f, "text"), customerId:val(f, "customerId"), due:val(f, "due"), done:f.elements.done ? f.elements.done.checked : false}); toast("Follow-up saved"); },
-  async invoice(f){ const id = f.dataset.id, lines = readLines(f).map(l => isShipLine(l) ? {...l, taxable:false} : l);
+  async invoice(f){ const id = f.dataset.id, lines = readLines(f).map(l => isShipLine(l) ? {...l, taxable:false} : l), payLink = f.elements.payLink ? val(f, "payLink") : undefined;
     if (!lines.length) return formErr(f, "Add at least one line.");
     if (lines.some(l => !l.itemId && !l.desc)) return formErr(f, "Each line needs an item or a description.");
     let numv = val(f, "num"); if (S.invoices.some(i => i.id !== id && String(i.num) === numv)) { if (id) return formErr(f, "Invoice #" + numv + " already exists. Use a different number."); const nn = nextInvNum(); toast("#" + numv + " was already used, so this is #" + nn); numv = nn; f.elements.num.value = nn; }
     const inv = {...clone(byId("invoices", id) || {}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due") || addDays(val(f, "date"), termDays(val(f, "terms"))), po:val(f, "po"), neededBy:val(f, "neededBy"), jobStatus:(byId("invoices", id) || {}).jobStatus || "new", taxRate:num(f, "taxRate"), memo:val(f, "memo"), lines};
     inv.billTo = await readBillTo(f, inv.customerId); if (!inv.billTo) delete inv.billTo;
+    if (payLink !== undefined) { if (payLink) inv.payLink = payLink; else delete inv.payLink; }
     inv.taxParts = Math.abs(inv.taxRate - partsRate(S.company.taxParts)) < 0.0005 ? clone(S.company.taxParts || []) : [];
     const follow = id && f.elements.payFollow && f.elements.payFollow.checked, ps0 = id ? invPays(id) : [], newTot = invTotals(inv).total;
     if (id && !follow && invPaid(id) - newTot > 0.004) return formErr(f, "Payments on this invoice are more than the new total. Tick \"Keep it paid in full\" below, or open the payment and change it.");
@@ -3723,6 +3780,11 @@ const FORMS = {
   async expense(f){ const lines = readLines(f); if (!lines.length) return formErr(f, "Add at least one line."); if (lines.some(l => !l.ref)) return formErr(f, "Choose an account or item on each line.");
     if (!val(f, "vendorId") && !val(f, "payee")) return formErr(f, "Choose a vendor or type a payee.");
     const id = f.dataset.id; await put("expenses", {...clone(byId("expenses", id) || {}), id:id || undefined, fromAcct:val(f, "fromAcct"), date:val(f, "date"), vendorId:val(f, "vendorId"), payee:val(f, "payee"), ref:val(f, "ref"), lines}).then(async eid => { if (f.elements.note && val(f, "note") !== (cardNote(eid).note || "")) await setCardNote(eid, {note:val(f, "note")}); const tk = f.dataset.taxKey; if (tk) { await put("taxfilings", {id:tk, filedAt:new Date().toISOString(), expenseId:eid, amount:linesTotal(lines)}); toast("Payment recorded and marked filed"); } else toast("Saved"); }); },
+  async payLinks(f){ const P = {}; ["square","squareAmt","venmo","paypal","zelle","otherLabel","otherUrl"].forEach(k => P[k] = val(f, k));
+    for (const k of ["square","otherUrl"]) if (P[k] && !/^(https?:\/\/)?[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(P[k])) return formErr(f, "That " + (k === "square" ? "Square" : "other") + " link doesn't look like a web address.");
+    await saveCompany({payLinks:P}); toast("Payment links saved. They'll show on invoices and invoice emails."); return "keep"; },
+  async mailTpl(f){ const subject = val(f, "subject"), body = f.elements.body.value; if (!body.trim()) return formErr(f, "Type a message.");
+    await saveCompany({invMailTpl:{subject, body, savedAt:new Date().toISOString()}}); toast("Invoice email saved for every customer"); return "keep"; },
   async cardEntry(f){ if (!CE) return false; const card = CE.card, rows = [];
     for (const bk of CE.buckets) for (const r of bk.rows) { const a = ceAmt(r.amt); if (!a) continue; if (!r.date) return formErr(f, "One of the " + ceLabel(bk.acct).split(" · ")[0] + " charges (" + money(a) + ") needs a date."); rows.push({acct:bk.acct, date:r.date, amt:a, where:(r.where || "").trim()}); }
     if (!rows.length) return formErr(f, "Type at least one charge (date and amount).");
@@ -3810,6 +3872,8 @@ const FORMS = {
     if (ask && !S.company.reviewLink && !rlink) return formErr(f, "Paste your Google review link, or uncheck the review request.");
     if (ask && rlink) { await saveCompany({reviewLink:rlink}); f.elements.body.value = f.elements.body.value.replace("[your Google review link]", rlink); }
     const subject = val(f, "subject"), body = f.elements.body.value, ids = list.map(i => i.id), nums = list.map(i => "#" + i.num).join(", ");
+    if (f.elements.saveTpl && f.elements.saveTpl.checked) { const v = mailVals(f._c || byId("customers", inv.customerId) || {}, list); let tb = toTpl(body, v); if (rlink || S.company.reviewLink) tb = tb.split(rlink || S.company.reviewLink).join("[your Google review link]");
+      await saveCompany({invMailTpl:{subject:toTpl(subject, v), body:tb, savedAt:new Date().toISOString()}}); toast("Saved as your invoice email for every customer"); }
     if (!MCP) return manualEmail(list[0], to, subject, body, ask, "", cc, list.slice(1));
     const seen = new Set(), attachments = list.map(i => { let n = pdfName(i); while (seen.has(n)) n = n.replace(/\.pdf$/, "-2.pdf"); seen.add(n); return {content:b64bytes(docPDF(i)), filename:n, mimeType:"application/pdf"}; });
     const many = list.length > 1;
@@ -3862,7 +3926,7 @@ const FORMS = {
     await fileMail(P.m, {cat:"expense", vendorId:vid, link:{col, id:rid, label:col === "bills" ? "Bill" : "Expense"}}); UI.attExp = null;
     toast((col === "bills" ? "Bill" : "Expense") + " saved: " + money(amt) + " · " + (byId("accounts", acct)?.name || "")); },
   async retEdit(f){ const key = f.dataset.key, all = {...(S.company.retEdits || {})}, v = retEditRead(f); all[key] = {...v, at:new Date().toISOString()}; await saveCompany({retEdits:all}); toast("Saved. The filing sheet and XML now use your numbers."); },
-  async coSetup(f){ const d = n => val(f, n).replace(/\D/g, ""); await saveCompany({coAcct:d("coAcct"), coLicense:val(f, "coLicense"), lkAcct:val(f, "lkAcct"), lkLicense:val(f, "lkLicense"), coSite:d("coSite"), coJuris:d("coJuris"), coTinType:val(f, "coTinType"), coTin:d("coTin"), coContact:val(f, "coContact"), coSoftwareId:val(f, "coSoftwareId").replace(/[^A-Za-z0-9]/g, "").slice(0, 10), coApproved:val(f, "coApproved")});
+  async coSetup(f){ const d = n => val(f, n).replace(/\D/g, ""); await saveCompany({coAcct:d("coAcct"), coLicense:val(f, "coLicense"), lkAcct:val(f, "lkAcct"), lkLicense:val(f, "lkLicense"), coSite:d("coSite"), coJuris:d("coJuris"), coTinType:val(f, "coTinType"), coTin:d("coTin"), coContact:val(f, "coContact"), coSoftwareId:val(f, "coSoftwareId").replace(/[^A-Za-z0-9]/g, "").slice(0, 10), coApproved:val(f, "coApproved"), sosId:d("sosId"), sosMonth:+val(f, "sosMonth")});
     const miss = coSetupMissing(); toast(miss.length ? "Saved. For the Colorado XML you still need: " + miss.join(", ") : "Saved.");
     if (!miss.length && f.dataset.then) { const b = document.createElement("button"); b.dataset.key = f.dataset.then; setTimeout(() => ACT.coXmlDl(b), 300); } },
   async catPick(f){ const c = val(f, "category"); for (const id of [...(UI.pick || [])]) { const i = byId("items", id); if (i) await put("items", {...clone(i), category:c}); } UI.pick = new Set(); toast("Category set"); },
@@ -3977,6 +4041,7 @@ const ACT = {
   btToggle(el){ const box = el.closest("[data-billto]"), ed = box.querySelector("[data-bt-edit]"), open = ed.hidden; ed.hidden = !open; box.dataset.open = open ? "1" : ""; el.textContent = open ? "Done" : "Change bill to / contact"; el.setAttribute("aria-expanded", open); if (open) box.querySelector("[name=btContact]").focus(); },
   btReset(el){ const f = el.closest("form"), box = el.closest("[data-billto]"); f._bt = {}; box.dataset.open = "1"; renderBillTo(f); toast("Back to the account's usual bill to"); },
   cardEntry: el => cardEntryForm(el.dataset.id),
+  mailTplReset(){ confirmBox("Go back to the standard invoice email wording?", "Use standard wording", async () => { await saveCompany({invMailTpl:null}); toast("Back to the standard wording"); }); },
   ceBucket(el){ ceAddBucket(el.dataset.acct); },
   ceAddRow(el){ ceAddRow(+el.dataset.b); },
   ceDelRow(el){ const bk = CE && CE.buckets[+el.dataset.b]; if (!bk) return; bk.rows.splice(+el.dataset.r, 1); if (!bk.rows.length) CE.buckets.splice(+el.dataset.b, 1); ceRerender(); },
