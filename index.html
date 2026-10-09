@@ -1272,6 +1272,7 @@ const HELP = [
   ["How do I copy someone (like a bookkeeper) on a customer's invoices?", `Two ways:<ol><li>Open the customer → <b>Edit</b> → type their email in <b>CC on invoices</b> → Save.</li><li>Or when emailing an invoice, type it in the <b>CC</b> box and leave "Always CC these people" checked.</li></ol>From then on they're copied on every invoice you email that customer. Use commas for more than one person.`],
   ["How do I print or save a PDF?", `Open the invoice → <b>Save PDF</b> to keep a copy, or <b>Print</b>. If the print window doesn't open, the app offers to save the PDF; open it and press Ctrl+P (computer) or Share → Print (iPhone).`],
   ["What do the PAID and SENT stamps mean?", `<b>SENT</b> (blue) = you emailed it or pressed "Mark as sent". <b>PAID</b> (green) = payments cover the full amount; it shows the date and check number. The stamps also appear on the PDF.`],
+  ["The state took a different amount than the app recorded. How do I fix it?", `Go to <b>Taxes</b> and find the return (it shows <b>Paid $… on …</b>). Press <b>Change amount paid</b>, type exactly what your bank statement shows, and the date it came out. Your cash in bank updates to match.<br><br>If the books still show a few cents or dollars owed for that return afterward (Colorado keeps a small fee, or it's rounding), tick <b>This return is settled. Clear the leftover</b>. The app zeroes it out so it doesn't carry into the next return. Filed with no payment recorded? The same button says <b>Add what was paid</b>.`],
   ["How do I change a paid invoice, or how it was paid?", `Open the invoice. Under <b>Payments</b>, change the <b>Paid by</b> box (Check, Cash, Square, Card, Venmo…) and it saves right away. <b>Edit payment</b> changes the date, amount, check number or fee.<br><br>To change the invoice itself, press <b>Edit</b>. Paid invoices show the payment at the bottom with its <b>Paid by</b> box too. Tick <b>Keep it paid in full</b> and if you change the total, the payment changes to match so it stays PAID.`],
   ["How do I fix a mistake on an invoice?", `Open it → <b>Edit</b>, change it, press Save. If a payment was already recorded and the new total is lower, edit the payment first.`],
   ["How do I find an old invoice?", `<b>Sales</b> → Invoices. Use the search box, the year menu and the filters (Unpaid, Paid, Schools, Tax-exempt…). "Save these as PDFs" downloads everything showing as one zip file for your records.`]]],
@@ -1872,6 +1873,7 @@ function taxCard(x){
     ${d ? `<details style="margin-top:6px"><summary class="small" style="cursor:pointer;color:var(--primary);font-weight:500">Numbers for the return</summary><div class="contact small" style="margin-top:6px"><span>Gross sales</span><div>${money(d.sales)}</div><span>Exempt / non-taxable</span><div>${money(d.exempt)}</div><span>Taxable sales</span><div>${money(d.taxable)}</div>${d.comp.filter(cp => cp.agency === x.agency || (x.agency === "dor" && cp.agency !== "lakewood")).map(cp => `<span>${esc(cp.name.replace(/ \(.*\)$/, ""))} ${cp.rate}%</span><div>${money(cp.amt)}</div>`).join("")}</div></details>` : ""}
     ${d && (x.agency === "dor" || x.agency === "lakewood") && x.period.from ? `<div class="actions" style="margin-top:8px"><button class="btn small" data-act="retEdit" data-key="${esc(x.key)}">Review &amp; edit numbers</button>${retEdit(x.key) ? '<span class="badge brass" style="align-self:center">Edited</span>' : ""}<span class="small muted" style="align-self:center">Filing sheet:</span><button class="btn small" data-act="retDl" data-key="${esc(x.key)}" data-kind="pdf">PDF</button><button class="btn small" data-act="retDl" data-key="${esc(x.key)}" data-kind="xlsx">Excel</button>${x.agency === "dor" ? `<button class="btn small" data-act="coXmlDl" data-key="${esc(x.key)}">XML for Revenue Online</button>` : ""}</div>` : ""}
     ${x.filed ? "" : `<div class="actions" style="margin-top:8px">${x.link ? `<a class="btn small primary" href="${x.link.url}" target="_blank" rel="noopener noreferrer">Open ${esc(x.link.label)} ↗</a>` : ""}${x.fileOnly ? `<button class="btn small" data-act="taxFiled" data-key="${esc(x.key)}">Mark done</button>` : `<button class="btn small" data-act="taxPay" data-key="${esc(x.key)}">Record payment &amp; mark filed</button><button class="btn small" data-act="taxFiled" data-key="${esc(x.key)}">Filed, nothing owed</button>`}</div>`}
+    ${x.filed ? (() => { const fl = x.filing || {}, ex = fl.expenseId ? byId("expenses", fl.expenseId) : null; return `<div class="small" style="margin-top:6px">${ex ? `Paid <b>${money(linesTotal(ex.lines))}</b> on ${fmtDate(ex.date)} from ${esc(byId("accounts", ex.fromAcct)?.name || "?")}` : `Marked filed${fl.filedAt ? " " + fmtDate(fl.filedAt.slice(0, 10)) : ""}, no payment recorded`}${ex && (ex.lines || []).some(l => l.taxAdj) ? ' <span class="badge">leftover cleared</span>' : ""}</div>${x.payAcct ? `<div class="actions" style="margin-top:6px"><button class="btn small" data-act="taxPaidEdit" data-key="${esc(x.key)}">${ex ? "Change amount paid" : "Add what was paid"}</button></div>` : ""}`; })() : ""}
     ${x.filed ? `<button class="linkbtn small" data-act="taxUnfile" data-key="${esc(x.key)}" style="margin-top:4px">Undo</button>` : ""}
   </div><div class="r num">${(() => { const v = retEdit(x.key) && (x.agency === "dor" || x.agency === "lakewood") && x.period.from ? (x.agency === "dor" ? doModel(x).totalBeforeFee : lkModel(x).total) : x.amount; return v ? money(v) : ""; })()}</div></div>`;
 }
@@ -3405,6 +3407,24 @@ function billForm(b, vendorId){ const isNew = !b || !b.id;
   ${foot(isNew ? null : {act:"delBill", id:b.id}, isNew ? "Save bill" : "Save changes")}</form>`);
   recalc($("#sheetBody form")); }
 
+/* ----- fix a tax payment to match what actually left the bank ----- */
+function taxLeftBase(x, skipId){ const to = x.period && x.period.to; if (!x.payAcct) return 0;
+  const a = byId("accounts", x.payAcct), L = journal().filter(l => l.acct === x.payAcct && l.srcId !== skipId && !(to && /^(Invoice|Sales receipt|Refund)/.test(l.src || "") && l.date > to));
+  return r2(shown(a, L.reduce((s2, l) => s2 + l.amt, 0))); }
+function taxPaidForm(x){ const fl = x.filing || byId("taxfilings", x.key) || {}, ex = fl.expenseId ? byId("expenses", fl.expenseId) : null;
+  const main = ex ? (ex.lines || []).filter(l => !l.taxAdj) : [], paid = ex ? linesTotal(main) : "", hadAdj = ex && (ex.lines || []).some(l => l.taxAdj);
+  const base = taxLeftBase(x, ex && ex.id), sales = x.agency === "dor" || x.agency === "lakewood";
+  openSheet("What was paid: " + x.title, `<form data-form="taxPaid" data-key="${esc(x.key)}" data-base="${base}"><div class="fields">
+    <label class="f">Amount that came out<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" required value="${paid === "" ? "" : esc(paid)}" data-act-input="taxPaidAmt" autofocus></label>
+    <label class="f">Date it came out<input name="date" type="date" required value="${esc(ex ? ex.date : todayISO())}"></label>
+    <label class="f full">Paid from<select name="fromAcct">${acctOpts(ex ? ex.fromAcct : SYS.CHK, a => ["bank","ccard"].includes(a.type))}</select></label>
+    <p class="small muted full" style="margin:0">Type exactly what your bank statement shows for this payment. ${x.period && x.period.label ? "Period: " + esc(x.period.label) + "." : ""}</p>
+    ${sales ? `<div class="full panel" style="margin:4px 0 0;padding:10px 14px"><div class="small" data-left></div>
+      <label class="check" style="margin-top:6px"><input type="checkbox" name="clearLeft" ${hadAdj ? "checked" : ""}> <span>This return is settled. Clear the leftover so the books show nothing still owed for it (the state keeps a small fee, or rounding).</span></label></div>` : ""}
+  </div>${foot(null, "Save")}</form>`, true);
+  const f = $("#sheetBody form[data-form=taxPaid]"); if (f) taxPaidLeft(f); }
+function taxPaidLeft(f){ const box = f.querySelector("[data-left]"); if (!box) return; const left = r2(+f.dataset.base - (+f.elements.amount.value || 0));
+  box.innerHTML = Math.abs(left) < 0.005 ? `<b>Matches.</b> After this payment the books show nothing owed for this return.` : left > 0 ? `After this payment the books still show <b>${money(left)}</b> owed for this return and earlier.` : `This payment is <b>${money(-left)}</b> more than the books say you owed (penalty, interest, or tax you didn't record).`; }
 function expenseForm(e, taxKey){ const isNew = !e || !e.id; e = e || {date:todayISO(), fromAcct:SYS.CHK, lines:[]};
   openSheet(taxKey ? "Record tax payment" : isNew ? "Write check or card charge" : "Edit check / charge", `<form data-form="expense" data-id="${e.id || ""}" data-tax-key="${esc(taxKey || "")}"><div class="fields">
   <label class="f">Paid from<select name="fromAcct" required>${acctOpts(e.fromAcct, a => ["bank","ccard"].includes(a.type))}</select></label>
@@ -3533,6 +3553,19 @@ const FORMS = {
   async expense(f){ const lines = readLines(f); if (!lines.length) return formErr(f, "Add at least one line."); if (lines.some(l => !l.ref)) return formErr(f, "Choose an account or item on each line.");
     if (!val(f, "vendorId") && !val(f, "payee")) return formErr(f, "Choose a vendor or type a payee.");
     const id = f.dataset.id; await put("expenses", {...clone(byId("expenses", id) || {}), id:id || undefined, fromAcct:val(f, "fromAcct"), date:val(f, "date"), vendorId:val(f, "vendorId"), payee:val(f, "payee"), ref:val(f, "ref"), lines}).then(async eid => { if (f.elements.note && val(f, "note") !== (cardNote(eid).note || "")) await setCardNote(eid, {note:val(f, "note")}); const tk = f.dataset.taxKey; if (tk) { await put("taxfilings", {id:tk, filedAt:new Date().toISOString(), expenseId:eid, amount:linesTotal(lines)}); toast("Payment recorded and marked filed"); } else toast("Saved"); }); },
+  async taxPaid(f){ const key = f.dataset.key, x = taxDeadlines().find(d => d.key === key), fl = byId("taxfilings", key) || {id:key};
+    const amt = r2(num(f, "amount")); if (!(amt >= 0) || f.elements.amount.value === "") return formErr(f, "Enter the amount that came out of your bank.");
+    const ex = fl.expenseId ? byId("expenses", fl.expenseId) : null, payAcct = (x && x.payAcct) || (ex && ((ex.lines || [])[0] || {}).ref || "").slice(2);
+    if (!payAcct) return formErr(f, "Can't tell which account this payment belongs to. Edit it from Expenses instead.");
+    const memo = ((ex && (ex.lines || []).find(l => !l.taxAdj)) || {}).memo || ((x ? x.title : "Tax payment") + (x && x.period && x.period.label ? " · " + x.period.label : ""));
+    const lines = amt > 0 ? [{ref:"a:" + payAcct, qty:1, rate:amt, memo}] : [];
+    const left = r2(+f.dataset.base - amt);
+    if (f.elements.clearLeft && f.elements.clearLeft.checked && Math.abs(left) >= 0.005) lines.push({ref:"a:" + payAcct, qty:1, rate:left, memo:"Clear leftover for this return", taxAdj:true}, {ref:"a:" + SYS.MISC, qty:1, rate:-left, memo:"Sales tax: difference from what was owed (state fee or rounding)", taxAdj:true});
+    if (!lines.length) { if (ex) await remove("expenses", ex.id); await put("taxfilings", {...clone(fl), expenseId:"", amount:0}); toast("Payment removed; still marked filed"); return; }
+    const vend = x && x.vendor && byId("vendors", x.vendor) ? x.vendor : "";
+    const eid = await put("expenses", {...(ex ? clone(ex) : {vendorId:vend, payee:vend ? "" : (x ? x.title : "Tax payment"), ref:""}), id:ex ? ex.id : undefined, date:val(f, "date"), fromAcct:val(f, "fromAcct"), lines});
+    await put("taxfilings", {...clone(fl), filedAt:fl.filedAt || new Date().toISOString(), expenseId:eid, amount:amt});
+    toast("Saved: " + money(amt) + " paid" + (lines.some(l => l.taxAdj) ? ", leftover cleared" : "")); },
   async cardPay(f){ const card = val(f, "card"), a = byId("accounts", card), amt = r2(num(f, "amount"));
     if (!a) return formErr(f, "Choose the card."); if (!(amt > 0)) return formErr(f, "Enter the amount you paid.");
     const eid = await put("expenses", {fromAcct:val(f, "fromAcct") || SYS.CHK, date:val(f, "date") || todayISO(), vendorId:"", payee:a.name, ref:val(f, "ref"), lines:[{ref:"a:" + card, qty:1, rate:amt, memo:"Credit card payment"}]});
@@ -4052,6 +4085,7 @@ ${text}`, {modelTier:"default"});
     const amt = x.amount || owedNow || 0;
     expenseForm({date:todayISO(), fromAcct:SYS.CHK, vendorId:x.vendor && byId("vendors", x.vendor) ? x.vendor : "", payee:x.vendor && byId("vendors", x.vendor) ? "" : (x.payee || ""), ref:"", lines:[{ref:"a:" + x.payAcct, qty:1, rate:amt ? r2(amt) : "", memo:x.title + " · " + x.period.label}]}, x.key); },
   async taxFiled(el){ await put("taxfilings", {id:el.dataset.key, filedAt:new Date().toISOString(), amount:0}); toast("Marked filed"); },
+  taxPaidEdit(el){ const x = taxDeadlines().find(d => d.key === el.dataset.key) || (() => { const fl = byId("taxfilings", el.dataset.key); return fl ? {key:fl.id, title:fl.id, payAcct:fl.expenseId && byId("expenses", fl.expenseId) ? ((byId("expenses", fl.expenseId).lines[0] || {}).ref || "").slice(2) : "", filing:fl} : null; })(); if (x) taxPaidForm(x); },
   async taxUnfile(el){ await remove("taxfilings", el.dataset.key); toast("Moved back to upcoming"); },
   newPayrun(){ payrunForm(); }, editPayrun(el){ payrunForm(clone(byId("payruns", el.dataset.id))); },
   delPayrun(el){ confirmBox("Delete this paycheck?", "Delete paycheck", async () => { await remove("payruns", el.dataset.id); toast("Deleted"); }); },
@@ -4119,6 +4153,7 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
 document.addEventListener("input", e => {
   const t = e.target;
   if (t.dataset && t.dataset.retin !== undefined) { retEditSum(t.closest("form")); return; }
+  if (t.dataset && t.dataset.actInput === "taxPaidAmt") { taxPaidLeft(t.closest("form")); return; }
   if (t.dataset && (t.dataset.actInput === "payFee" || t.dataset.actInput === "payNet")) { const f = t.closest("form"), gross = $$("#applyList [data-inv]", f).reduce((s2, i) => s2 + (+i.value || 0), 0);
     if (t.dataset.actInput === "payFee") f.elements.net.value = t.value !== "" ? r2(gross - (+t.value || 0)).toFixed(2) : "";
     else f.elements.fee.value = t.value !== "" && gross ? r2(gross - (+t.value || 0)).toFixed(2) : ""; return; }
