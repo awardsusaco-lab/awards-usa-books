@@ -630,7 +630,7 @@ function journal(){
     }
     for (const part of taxSplit(inv, t.tax)) add(inv.date, TAX_AGENCIES[part.agency]?.acct || SYS.TAX, -part.amt, src, inv.id, nm, "Sales tax – " + part.name);
   }
-  for (const p of S.payments) { const nm = custName(p.customerId), amt = r2((p.applied||[]).reduce((s,a)=>s+(+a.amount||0),0)); add(p.date, p.depositTo || SYS.CHK, amt, "Payment", p.id, nm, p.ref); add(p.date, SYS.AR, -amt, "Payment", p.id, nm, p.ref); }
+  for (const p of S.payments) { const nm = custName(p.customerId), amt = r2((p.applied||[]).reduce((s,a)=>s+(+a.amount||0),0)), fee = r2(Math.min(+p.fee || 0, amt)); add(p.date, p.depositTo || SYS.CHK, r2(amt - fee), "Payment", p.id, nm, p.ref); if (fee > 0) add(p.date, p.feeAcct && byId("accounts", p.feeAcct) ? p.feeAcct : feeAcct(), fee, "Payment", p.id, nm, (p.method || "Processing") + " fee"); add(p.date, SYS.AR, -amt, "Payment", p.id, nm, p.ref); }
   for (const b of S.bills) { const nm = vendName(b.vendorId), src = "Bill" + (b.ref ? " " + b.ref : ""); let tot = 0; for (const l of b.lines || []) { const [a, amt] = buyPost(l); tot += amt; add(b.date, a, amt, src, b.id, nm, l.memo); } add(b.date, SYS.AP, -tot, src, b.id, nm); }
   for (const bp of S.billpays) { const nm = vendName(bp.vendorId), amt = r2((bp.applied||[]).reduce((s,a)=>s+(+a.amount||0),0)); add(bp.date, SYS.AP, amt, "Bill payment", bp.id, nm, bp.ref); add(bp.date, bp.fromAcct || SYS.CHK, -amt, "Bill payment", bp.id, nm, bp.ref); }
   for (const e of S.expenses) { const nm = e.vendorId ? vendName(e.vendorId) : (e.payee || ""); let tot = 0; for (const l of e.lines || []) { const [a, amt] = buyPost(l); tot += amt; add(e.date, a, amt, byId("accounts", e.fromAcct)?.type === "ccard" ? "Card charge" : "Check", e.id, nm, l.memo); } add(e.date, e.fromAcct || SYS.CHK, -tot, byId("accounts", e.fromAcct)?.type === "ccard" ? "Card charge" : "Check", e.id, nm, e.ref); }
@@ -1296,6 +1296,7 @@ const HELP = [
   ["How do I file my Colorado and Lakewood sales tax?", `On <b>Taxes</b>, each sales tax return has <b>Filing sheet: PDF / Excel</b>. It lists, line by line, what that return asks for, using your invoices for that month. The Colorado sheet follows the DR 0100 lines and the State, RTD/CD and County columns. The Lakewood sheet follows the city's return lines. Open the return on Revenue Online or Lakewood Business Pro and type in the numbers. The Excel version also lists every invoice in the period. (Colorado's XML and spreadsheet upload options only accept files from state-approved software, so typing in the numbers is the way to go for one location.)`],
   ["A number on my tax return is wrong. How do I fix it?", `On <b>Taxes</b>, tap <b>Review &amp; edit numbers</b> on that return. Every number starts with what your invoices say: gross sales, deductions, each tax rate and the tax you collected. Change anything that's wrong and the totals update as you type. Save, and the filing sheet (PDF/Excel) and the Colorado XML use your numbers. The return shows an <b>Edited</b> badge. To undo, open it again and tap <b>Go back to the numbers from my invoices</b>. To change your account, license or location numbers, use <b>Tax account numbers</b> at the top of Taxes (the <b>Edit</b> button).`],
   ["How do I download all my taxes as a PDF or Excel file?", `<b>Taxes</b> → <b>Download tax report (PDF / Excel)</b>. Pick the period (this year, last year, a quarter, a month, or your own dates) and tap <b>Download PDF</b> or <b>Download Excel</b>. The file has: sales tax by month and by invoice (Colorado DOR and Lakewood separately), what you've paid and still owe, the income tax estimate, profit and loss, deadlines, plus payroll and 1099 contractors if you have them. The Excel file has a separate tab for each part, with totals that update if you change a number.`],
+  ["Square (or a card app) took a fee. How do I record the deposit?", `Square keeps its cut and sends the rest to your bank, so the deposit is a little less than the invoice. The invoice is still paid in full; the difference is a business expense.<ul><li><b>Easiest:</b> record the payment as usual (method <b>Square</b>), then bring in your bank statement on <b>Banking</b>. The app spots the smaller Square deposit, matches it to the payment and records the fee under <b>Bank & Card Fees</b> by itself.</li><li><b>On the bank line:</b> if a Square deposit is waiting for review, tap the button that says <b>Payment from … · fee $…</b> (or <b>Square payment for #…</b> if you never recorded the payment).</li><li><b>By hand:</b> in <b>Receive payment</b>, pick method Square and type the <b>Amount that reached the bank</b> (or the fee). The app works out the other.</li></ul>Already saved a payment without the fee? Open it (customer page → Payments), type the fee, and save.`],
   ["How do I bring in my Navy Federal statements (PDF)?", `Go to <b>Banking</b> and drag the statement PDF onto the box that says "Drop Navy Federal statements here" (or tap it to pick files). You can drop several at once. The app:<ol><li>Reads every line and checks that they add up to the statement's beginning and ending balance.</li><li>Puts a checking statement into checking and a card statement into the credit card automatically.</li><li>Matches lines to things already in your books, records deposits that match an invoice from that customer, and sorts merchants it has learned.</li><li>Balances against the statement and shows <b>Everything is in order ✓</b>, or exactly what still needs you.</li></ol>`],
   ["Why were some statement lines marked \"covered by QuickBooks\"?", `When you moved from QuickBooks, the app got one starting entry with your balances and this year's totals up to that day. Bank or card lines on or before that date are already inside those totals, so importing them again would count the money twice. The app keeps those lines for reference but doesn't add them to your books. Import and balance statements from after that date.`],
   ["Can the app read invoices and orders that come by email?", `Yes. Tap <b>Check my email</b> (Home or Inbox). Emails with a PDF or picture attached show <b>📎 Read it &amp; add to my books</b>. Tap it:<ul><li><b>From a supplier</b> (an order confirmation or invoice): the items are read and you get the same review screen as dropping a PDF on Inventory. Match or rename items, then save, and it goes to <b>On order</b> (or straight into stock if it already arrived). The email is attached to the order.</li><li><b>From a customer</b> (their purchase order): a new order opens in <b>Sales → Orders</b> with their items and due date filled in. Check it and save, then turn it into an invoice when you're ready.</li></ul><li><b>A bill or subscription you pay</b> (Google Workspace, software, phone, internet, shipping labels…): the app reads the company, date, total and invoice number, suggests a category, and saves it as paid (card or checking) or as a bill to pay later. Tick "next time" and bills from that company are sorted the same way automatically.</li></ul>If the app can't tell what it is, it asks once and remembers. Pictures (PNG/JPG) are read with text recognition, which takes a few extra seconds. Check the numbers before saving.`],
@@ -1612,6 +1613,8 @@ async function autoBalance(acct, stmt){
   for (const t of S.banktx.filter(t => t.acct === acct && t.status === "new" && inPer(t) && !(bs0 && t.date <= bs0)).sort((x, y) => x.date < y.date ? -1 : 1)) {
     const c = J.filter(l => Math.abs(l.amt - t.amount) < 0.005 && Math.abs(daysBetween(l.date, t.date)) <= 10 && !used.has(l.src + ":" + l.srcId)).filter((l, i, arr) => arr.findIndex(x => x.srcId === l.srcId) === i).sort((x, y) => Math.abs(daysBetween(x.date, t.date)) - Math.abs(daysBetween(y.date, t.date)));
     if (c.length === 1 || (c.length > 1 && Math.abs(daysBetween(c[0].date, t.date)) < Math.abs(daysBetween(c[1].date, t.date)))) { const l = c[0]; used.add(l.src + ":" + l.srcId); await put("banktx", {...clone(t), status:"matched", link:{src:l.src, srcId:l.srcId}, reviewedAt:Date.now(), auto:true}); rep.matched++; continue; }
+    if (t.amount > 0 && a.type === "bank" && !c.length) { const fc = feeCands(t);
+      if (fc.pays.length === 1 || (fc.pays.length > 1 && Math.abs(daysBetween(fc.pays[0].date, t.date)) < Math.abs(daysBetween(fc.pays[1].date, t.date)))) { const p = fc.pays[0]; await applyFeeMatch(t, p, true); used.add("Payment:" + p.id); rep.fees = (rep.fees || 0) + 1; rep.feeAmt = r2((rep.feeAmt || 0) + payGross(p) - t.amount); continue; } }
     if (t.amount > 0 && a.type === "bank") { const inv = S.invoices.filter(i => Math.abs(invBalance(i) - t.amount) < 0.005); const cn = inv.length === 1 ? (custName(inv[0].customerId) || "").toLowerCase().split(/\s+/).filter(w => w.length > 3) : [];
       if (inv.length === 1 && cn.some(w => (t.desc || "").toLowerCase().includes(w))) { const pid = await put("payments", {customerId:inv[0].customerId, date:t.date, method:"ACH / bank transfer", ref:"", depositTo:t.acct, applied:[{invoiceId:inv[0].id, amount:t.amount}]}); await put("banktx", {...clone(byId("banktx", t.id)), status:"added", link:{src:"Payment", srcId:pid, created:true, col:"payments"}, reviewedAt:Date.now(), auto:true}); used.add("Payment:" + pid); rep.invoices++; continue; } }
     const sg = txSuggest(t);
@@ -1636,6 +1639,7 @@ function autoRepHTML(acct){ const rep = (UI.autoRep || {})[acct]; if (!rep) retu
   <ul style="margin:0;padding:0">
   ${rep.matched ? li(true, `${rep.matched} statement line${rep.matched > 1 ? "s" : ""} matched to entries already in your books`) : ""}
   ${rep.invoices ? li(true, `${rep.invoices} deposit${rep.invoices > 1 ? "s" : ""} recorded as payment on the matching invoice`) : ""}
+  ${rep.fees ? li(true, `${rep.fees} Square/card payout${rep.fees > 1 ? "s" : ""} matched to the customer payment, with ${money(rep.feeAmt)} in fees recorded under ${esc(byId("accounts", feeAcct())?.name || "fees")}`) : ""}
   ${rep.ruled ? li(true, `${rep.ruled} added to categories the app has learned`) : ""}
   ${pend ? li(false, `${pend} line${pend > 1 ? "s" : ""} need you to pick a category (new merchants). <a href="#/${a.type === "ccard" ? "card" : "banking"}/${acct}">Sort them now</a>. The app remembers your choice next time.`) : li(true, "Nothing left to categorize")}
   ${rep.stmt?.adds === false ? li(false, `The PDF lines didn't add up to the statement totals (off by ${money(Math.abs(rep.stmt.off || 0))}). A line may not have been read. Compare with the statement.`) : rep.stmt?.adds ? li(true, "Every line on the statement was read and adds up to the statement totals") : ""}
@@ -1664,11 +1668,28 @@ function stageImport(parsed, acct){
     ${foot(null, "Import " + PENDING_IMPORT.fresh.length + " transactions")}</form>`);
 }
 const linkedKeys = acct => new Set(S.banktx.filter(t => t.link && (!acct || t.acct === acct)).map(t => t.link.src + ":" + t.link.srcId));
+/* ----- card processor fees (Square etc. keep a cut before paying out) ----- */
+const FEE_METHOD_RX = /square|card|paypal|venmo|stripe/i, PAYOUT_RX = /square|\bsq\s?\*|\bsq\d|paypal|venmo|stripe/i;
+function feeAcct(){ return byId("accounts", "a6100") ? "a6100" : (S.accounts.find(a => a.type === "expense" && /fee|merchant|processing/i.test(a.name)) || {}).id || SYS.MISC; }
+const payGross = p => r2((p.applied || []).reduce((s2, a) => s2 + (+a.amount || 0), 0));
+function feeOK(gross, net){ const d = r2(gross - net); return net > 0 && d > 0.004 && d <= gross * 0.045 + 0.5; }
+function feeCands(t){ if (!(t.amount > 0) || byId("accounts", t.acct)?.type !== "bank") return {pays:[], invs:[]};
+  const used = linkedKeys(t.acct), payout = PAYOUT_RX.test(t.desc || "");
+  const pays = S.payments.filter(p => (p.depositTo || SYS.CHK) === t.acct && !(+p.fee) && !used.has("Payment:" + p.id) && (payout || FEE_METHOD_RX.test(p.method || "")) && feeOK(payGross(p), t.amount) && daysBetween(p.date, t.date) >= -2 && daysBetween(p.date, t.date) <= 10)
+    .sort((x, y) => Math.abs(daysBetween(x.date, t.date)) - Math.abs(daysBetween(y.date, t.date)));
+  const invs = payout ? S.invoices.filter(i => feeOK(invBalance(i), t.amount) && i.date <= t.date).sort((x, y) => (invBalance(x) - t.amount) - (invBalance(y) - t.amount)).slice(0, 2) : [];
+  return {pays:pays.slice(0, 2), invs, payout}; }
+async function applyFeeMatch(t, p, auto){ const fee = r2(payGross(p) - t.amount); await put("payments", {...clone(p), fee, feeAcct:feeAcct()});
+  await put("banktx", {...clone(byId("banktx", t.id)), status:"matched", link:{src:"Payment", srcId:p.id}, reviewedAt:Date.now(), ...(auto ? {auto:true} : {})}); return fee; }
+async function feeInvPay(t, inv, auto){ const gross = invBalance(inv), fee = r2(gross - t.amount);
+  const pid = await put("payments", {customerId:inv.customerId, date:t.date, method:"Square", ref:"", depositTo:t.acct, fee, feeAcct:feeAcct(), applied:[{invoiceId:inv.id, amount:gross}]});
+  await put("banktx", {...clone(byId("banktx", t.id)), status:"added", link:{src:"Payment", srcId:pid, created:true, col:"payments"}, reviewedAt:Date.now(), ...(auto ? {auto:true} : {})}); return fee; }
 function txSuggest(t){
   const used = linkedKeys(t.acct), out = {};
   out.matches = journal().filter(l => l.acct === t.acct && Math.abs(l.amt - t.amount) < 0.005 && Math.abs(daysBetween(l.date, t.date)) <= 10 && !used.has(l.src + ":" + l.srcId))
     .filter((l, i, arr) => arr.findIndex(x => x.srcId === l.srcId) === i).slice(0, 2);
   if (t.amount > 0 && byId("accounts", t.acct)?.type === "bank") out.invoices = S.invoices.filter(i => Math.abs(invBalance(i) - t.amount) < 0.005).slice(0, 2);
+  if (!out.matches.length) { const fc = feeCands(t); out.feePays = fc.pays; out.feeInvs = (out.invoices || []).length ? [] : fc.invs; }
   const d = (t.desc || "").toLowerCase(); out.rule = S.bankrules.find(r => r.text && d.includes(r.text.toLowerCase())) || (t.amount < 0 ? learnedFor(t.desc) : null);
   return out;
 }
@@ -1740,6 +1761,8 @@ VIEWS.banking = id => {
   const recDiff = rec.balance !== undefined && rec.balance !== "" ? r2(shown(a, balances(null, rec.date)[acct]) - (+rec.balance)) : null;
   const row = t => { const sg = txSuggest(t); const acts = [];
     sg.matches.forEach(l => acts.push(`<button class="btn small primary" data-act="txMatch" data-id="${t.id}" data-src="${esc(l.src)}" data-srcid="${l.srcId}">Match: ${esc(l.src)}${l.name ? " · " + esc(l.name) : ""} (${fmtDate(l.date)})</button>`));
+    (sg.feePays || []).forEach(p => acts.push(`<button class="btn small ${acts.length ? "" : "primary"}" data-act="txFeePay" data-id="${t.id}" data-pay="${p.id}">Payment from ${esc(custName(p.customerId))} ${money(payGross(p))} (${fmtDate(p.date)}) · fee ${money(r2(payGross(p) - t.amount))}</button>`));
+    (sg.feeInvs || []).forEach(i => acts.push(`<button class="btn small ${acts.length ? "" : "primary"}" data-act="txFeeInv" data-id="${t.id}" data-inv="${i.id}">Square payment for #${esc(i.num)} · ${esc(custName(i.customerId))} ${money(invBalance(i))} · fee ${money(r2(invBalance(i) - t.amount))}</button>`));
     (sg.invoices || []).forEach(i => acts.push(`<button class="btn small ${sg.matches.length ? "" : "primary"}" data-act="txPayInv" data-id="${t.id}" data-inv="${i.id}">Payment for #${esc(i.num)} · ${esc(custName(i.customerId))}</button>`));
     if (sg.rule) acts.push(`<button class="btn small ${acts.length ? "" : "primary"}" data-act="txQuick" data-id="${t.id}" data-acct="${sg.rule.acct}" data-vendor="${sg.rule.vendorId || ""}">Add to ${esc(byId("accounts", sg.rule.acct)?.name || "?")}</button>`);
     acts.push(`<button class="btn small" data-act="txCategorize" data-id="${t.id}">Categorize…</button>`, `<button class="btn small" data-act="txExclude" data-id="${t.id}">Exclude</button>`);
@@ -3403,11 +3426,17 @@ function paymentForm(p, customerId, invoiceId){ const isNew = !p || !p.id;
   openSheet(isNew ? "Receive payment" : "Edit payment", `<form data-form="payment" data-id="${p.id || ""}"><div class="fields">
   <label class="f">Customer<select name="customerId" required data-act-change="payCustomer">${payCustOpts(p.customerId)}</select></label>
   <label class="f">Date<input name="date" type="date" required value="${esc(p.date)}"></label>
-  <label class="f">Method<select name="method">${opts(["Check","Cash","Card","ACH / bank transfer","Other"].map(m => [m, m]), p.method)}</select></label>
+  <label class="f">Method<select name="method" data-act-change="payMethod">${opts(["Check","Cash","Square","Card","Venmo","PayPal","ACH / bank transfer","Other"].concat(p.method && !["Check","Cash","Square","Card","Venmo","PayPal","ACH / bank transfer","Other"].includes(p.method) ? [p.method] : []).map(m => [m, m]), p.method)}</select></label>
   <label class="f">Check / ref no.<input name="ref" value="${esc(p.ref)}"></label>
   <label class="f full">Deposit to<select name="depositTo">${acctOpts(p.depositTo, a => ["bank","ocasset"].includes(a.type) && a.id !== SYS.INV)}</select></label>
   </div><h3 style="margin:18px 0 6px">Apply to invoices</h3><div id="applyList"></div><div class="totals" id="payTotal"></div>
+  <div class="fields" data-feebox ${FEE_METHOD_RX.test(p.method || "") || +p.fee ? "" : "hidden"} style="margin-top:12px">
+    <label class="f">Fee they kept<input name="fee" type="number" step="0.01" min="0" inputmode="decimal" value="${+p.fee ? esc(p.fee) : ""}" placeholder="0.00" data-act-input="payFee"></label>
+    <label class="f">Amount that reached the bank<input name="net" type="number" step="0.01" min="0" inputmode="decimal" placeholder="From your bank or Square" data-act-input="payNet"></label>
+    <p class="small muted full" style="margin:0">Square, card apps and PayPal take their cut before the money hits your bank. Type either box and the app works out the other. The invoice is still paid in full; the fee goes to ${esc(byId("accounts", feeAcct())?.name || "fees")}. Not sure yet? Leave it blank. When you bring in your bank statement the app spots the payout and fills in the fee for you.</p>
+  </div>
   ${foot(isNew ? null : {act:"delPayment", id:p.id}, "Save payment")}</form>`);
+  payTotal();
   fillApply(p); }
 function fillApply(p){ const box = $("#applyList"); if (!box) return; const f = box.closest("form"); const cid = f.elements.customerId.value;
   if (!cid) { box.innerHTML = '<p class="muted">Choose a customer to see their unpaid invoices.</p>'; payTotal(); return; }
@@ -3416,7 +3445,8 @@ function fillApply(p){ const box = $("#applyList"); if (!box) return; const f = 
   box.innerHTML = list.length ? `<div class="tbl"><table><thead><tr><th></th><th>Invoice</th><th>Due</th><th class="num">Open</th><th class="num">Payment</th></tr></thead><tbody>${list.map(i => { const open = invBalance(i, p?.id), a = applied[i.id]; return `<tr><td><input type="checkbox" data-act-change="applyCheck" data-open="${open}" ${a ? "checked" : ""} aria-label="Apply to invoice ${esc(i.num)}"></td><td>#${esc(i.num)}</td><td>${fmtDate(i.due)}</td><td class="num">${money(open)}</td><td class="num"><input type="number" step="0.01" min="0" data-inv="${i.id}" value="${a ? r2(a) : ""}" style="width:110px;text-align:right;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface)" aria-label="Payment amount"></td></tr>`; }).join("")}</tbody></table></div>`
     : '<p class="muted">This customer has no unpaid invoices.</p>';
   payTotal(); }
-function payTotal(){ const t = $$("#applyList [data-inv]").reduce((s, i) => s + (+i.value || 0), 0); const b = $("#payTotal"); if (b) b.innerHTML = `<div class="grand"><span>Amount received</span><span>${money(t)}</span></div>`; }
+function payTotal(){ const t = $$("#applyList [data-inv]").reduce((s, i) => s + (+i.value || 0), 0); const b = $("#payTotal"); if (!b) return; b.innerHTML = `<div class="grand"><span>Amount received</span><span>${money(t)}</span></div>`;
+  const f = b.closest("form"), fe = f && f.elements.fee, ne = f && f.elements.net; if (fe && ne && document.activeElement !== ne) ne.value = +fe.value ? r2(t - (+fe.value)).toFixed(2) : ""; }
 
 function payBillsForm(vendorId){
   const open = S.bills.filter(b => billBalance(b) > 0.004).sort((a, b) => (a.due || a.date) < (b.due || b.date) ? -1 : 1);
@@ -3514,7 +3544,11 @@ const FORMS = {
   async payment(f){ const applied = $$("#applyList [data-inv]", f).map(i => ({invoiceId:i.dataset.inv, amount:r2(+i.value || 0)})).filter(a => a.amount > 0);
     if (!applied.length) return formErr(f, "Enter an amount on at least one invoice.");
     const id = f.dataset.id; for (const a of applied) { const inv = byId("invoices", a.invoiceId); if (a.amount - invBalance(inv, id) > 0.004) return formErr(f, "The payment on #" + inv.num + " is more than its open balance of " + money(invBalance(inv, id)) + "."); }
-    await put("payments", {id:id || undefined, customerId:val(f, "customerId"), date:val(f, "date"), method:val(f, "method"), ref:val(f, "ref"), depositTo:val(f, "depositTo"), applied}); toast("Payment of " + money(applied.reduce((s, a) => s + a.amount, 0)) + " recorded"); },
+    const gross = r2(applied.reduce((s, a) => s + a.amount, 0)), fee = f.elements.fee && !f.querySelector("[data-feebox]").hidden ? r2(+f.elements.fee.value || 0) : 0;
+    if (fee < 0 || fee >= gross) return formErr(f, "The fee has to be less than the amount received.");
+    const old = id ? byId("payments", id) : null;
+    await put("payments", {...(old ? clone(old) : {}), id:id || undefined, customerId:val(f, "customerId"), date:val(f, "date"), method:val(f, "method"), ref:val(f, "ref"), depositTo:val(f, "depositTo"), applied, fee, feeAcct:fee ? (old && old.feeAcct || feeAcct()) : ""});
+    toast("Payment of " + money(gross) + " recorded" + (fee ? " · " + money(fee) + " fee, " + money(r2(gross - fee)) + " to the bank" : "")); },
   async paybills(f){ const picks = $$("[data-bill]", f).map(i => ({billId:i.dataset.bill, amount:r2(+i.value || 0)})).filter(a => a.amount > 0);
     if (!picks.length) return formErr(f, "Enter an amount on at least one bill.");
     for (const a of picks) { const b = byId("bills", a.billId); if (a.amount - billBalance(b) > 0.004) return formErr(f, "One payment is more than the bill's open balance."); }
@@ -4005,6 +4039,8 @@ ${text}`, {modelTier:"default"});
   payPayroll(){ const owed = shown(byId("accounts", "a2300") || {type:"ocliab"}, balances(null, todayISO()).a2300); expenseForm({date:todayISO(), fromAcct:SYS.CHK, payee:"EFTPS / Colorado DOR", lines:[{ref:"a:a2300", qty:1, rate:owed > 0 ? r2(owed) : "", memo:"Payroll tax deposit"}]}); },
   bankImport(){ $("#bankFile").click(); },
   async txMatch(el){ const t = byId("banktx", el.dataset.id); await put("banktx", {...clone(t), status:"matched", link:{src:el.dataset.src, srcId:el.dataset.srcid}, reviewedAt:Date.now()}); toast("Matched"); },
+  async txFeePay(el){ const t = byId("banktx", el.dataset.id), p = byId("payments", el.dataset.pay); if (!t || !p) return; const fee = await applyFeeMatch(t, p); toast("Matched · " + money(fee) + " recorded as " + (byId("accounts", feeAcct())?.name || "fees")); },
+  async txFeeInv(el){ const t = byId("banktx", el.dataset.id), inv = byId("invoices", el.dataset.inv); if (!t || !inv) return; const fee = await feeInvPay(t, inv); toast("Invoice #" + inv.num + " paid in full · " + money(fee) + " fee recorded"); },
   async txPayInv(el){ const t = byId("banktx", el.dataset.id), inv = byId("invoices", el.dataset.inv);
     const pid = await put("payments", {customerId:inv.customerId, date:t.date, method:"ACH / bank transfer", ref:"", depositTo:t.acct, applied:[{invoiceId:inv.id, amount:t.amount}]});
     await put("banktx", {...clone(t), status:"added", link:{src:"Payment", srcId:pid, created:true, col:"payments"}, reviewedAt:Date.now()}); toast("Payment recorded on #" + inv.num); },
@@ -4050,6 +4086,7 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
     const h = $("#sheet h2, #sheetTitle"); if (h && list.length) h.textContent = list.length > 1 ? "Email " + list.length + " invoices" : "Email invoice #" + list[0].num;
     const n = f.querySelector("[data-attnote]"); if (n) n.textContent = (list.length > 1 ? "The invoices are attached as PDFs." : "The invoice is attached as a PDF.") + " After you press Send you get " + UNDO_SECS + " seconds to undo it.";
     return; }
+  if (t.dataset.actChange === "payMethod") { const box = t.closest("form").querySelector("[data-feebox]"); if (box) box.hidden = !FEE_METHOD_RX.test(t.value) && !(+t.closest("form").elements.fee.value); return; }
   if (t.dataset.actChange === "unsendNote") { const box = t.closest("form").querySelector("[data-un]"); if (box) box.hidden = !t.checked; return; }
   if (t.dataset.actChange === "expPay") { const box = t.closest("form").querySelector("[data-due]"); if (box) box.style.display = t.value === "bill" ? "" : "none"; return; }
   if (t.dataset.actChange === "ordVendor") { const box = t.closest("form").querySelector("[data-newv]"); if (box) box.style.display = t.value === "__newv" ? "" : "none"; return; }
@@ -4062,6 +4099,9 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
 document.addEventListener("input", e => {
   const t = e.target;
   if (t.dataset && t.dataset.retin !== undefined) { retEditSum(t.closest("form")); return; }
+  if (t.dataset && (t.dataset.actInput === "payFee" || t.dataset.actInput === "payNet")) { const f = t.closest("form"), gross = $$("#applyList [data-inv]", f).reduce((s2, i) => s2 + (+i.value || 0), 0);
+    if (t.dataset.actInput === "payFee") f.elements.net.value = t.value !== "" ? r2(gross - (+t.value || 0)).toFixed(2) : "";
+    else f.elements.fee.value = t.value !== "" && gross ? r2(gross - (+t.value || 0)).toFixed(2) : ""; return; }
   if (t.dataset && t.dataset.kitQty !== undefined) { kitSum(t.closest("form")); return; }
   if (t.closest && t.closest("form[data-form=item]") && t.name === "price") { kitSum(t.closest("form")); }
   if (t.dataset && t.dataset.bal) { const acct = UI.balAcct; UI.balSt = {...(UI.balSt || {}), [acct]:{...balSt(acct), [t.dataset.bal]:t.value}}; render(); return; }
