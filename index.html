@@ -700,14 +700,18 @@ function render(){
   const {view, id} = route();
   const active = SECTION[view] || view;
   renderNav(active);
-  const focused = document.activeElement && document.activeElement.id ? {id:document.activeElement.id, s:document.activeElement.selectionStart} : null;
+  const ae = document.activeElement, focused = ae && ae.id && ae.closest && ae.closest("#main") ? {id:ae.id, s:ae.selectionStart, e:ae.selectionEnd, len:(ae.value || "").length} : null;
   const V = VIEWS[view] || VIEWS.home;
   let html;
   try { html = V(id); } catch(e) { console.error(e); html = `<div class="panel"><h2>Something went wrong on this page</h2><p class="muted">${esc(e.message)}</p><a href="#/home">Go to Home</a></div>`; }
   const note = `<div id="gbar">${gbarHTML()}</div>` + (mode === "revoked" ? `<div class="notice">Reload to continue.</div>` : "");
   $("#main").innerHTML = note + html;
   $$("#main form .lines").forEach(l => recalc(l.closest("form")));
-  if (focused) { const el = document.getElementById(focused.id); if (el && el.closest("#main")) { el.focus(); try { el.setSelectionRange(focused.s, focused.s); } catch(e) {} } }
+  if (focused) { const el = document.getElementById(focused.id); if (el && el.closest("#main")) { el.focus();
+    // keep the cursor where it was; number boxes can't report it, so put it at the end (otherwise typing comes out backwards)
+    const pos = focused.s == null ? (el.value || "").length : Math.min(focused.s + ((el.value || "").length - focused.len), (el.value || "").length);
+    try { el.setSelectionRange(pos, focused.s == null ? pos : Math.max(pos, Math.min(focused.e + ((el.value || "").length - focused.len), (el.value || "").length))); }
+    catch(e) { try { const ty = el.type; el.type = "text"; el.setSelectionRange(pos, pos); el.type = ty; } catch(e2) {} } } }
 }
 window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); });
 
@@ -1735,7 +1739,7 @@ VIEWS.balance = id => {
   <nav class="seg" aria-label="Accounts">${accts.map(x => `<a href="#/balance/${x.id}" ${x.id === acct ? 'aria-current="page"' : ""}>${esc(x.name)}</a>`).join("")}</nav>
   ${booksStart() && st.date < booksStart() ? `<div class="notice" style="margin-bottom:12px">Your books start from your QuickBooks totals on <b>${fmtDate(booksStart())}</b>. Anything before that is inside those totals, so balance on a date <b>after ${fmtDate(booksStart())}</b>, like your September statement's ending date.</div>` : ""}
   <section class="panel"><h2 style="margin-bottom:6px">1. What does the bank say?</h2><p class="small muted" style="margin-top:0">Look at Navy Federal online or your statement. Enter the ${card ? "balance you owe" : "balance"} and the date it's for.</p>
-  <div class="fields"><label class="f">Date<input type="date" id="balDate" data-bal="date" value="${esc(st.date)}"></label><label class="f">${card ? "Balance owed" : "Bank balance"}<input type="number" step="0.01" id="balAmt" data-bal="bal" value="${esc(st.bal)}" placeholder="0.00"></label></div></section>
+  <div class="fields"><label class="f">Date<input type="date" id="balDate" data-bal="date" value="${esc(st.date)}"></label><label class="f">${card ? "Balance owed" : "Bank balance"}<input type="text" inputmode="decimal" autocomplete="off" id="balAmt" data-bal="bal" value="${esc(st.bal)}" placeholder="0.00"></label></div></section>
   <div class="ledger" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:18px"><div><span>Your books on ${fmtDate(st.date)}</span><b>${money(books)}</b></div><div><span>Bank says</span><b>${bank === null ? "—" : money(bank)}</b></div><div><span>Difference</span><b style="color:${diff === null ? "inherit" : Math.abs(diff) < 0.005 ? "var(--good)" : "var(--bad, #b3261e)"}">${diff === null ? "—" : Math.abs(diff) < 0.005 ? "Balanced ✓" : money(diff)}</b></div></div>
   ${diff === null ? "" : Math.abs(diff) < 0.005 ? `<section class="panel" style="margin-top:18px"><p style="margin:0;color:var(--good);font-weight:600">Your books match the bank on ${fmtDate(st.date)}.</p><div class="formfoot"><div class="right"><button class="btn primary" data-act="balSave" data-id="${acct}">Save: balanced on ${fmtDate(st.date)}</button></div></div></section>` : `
   <section class="panel" style="margin-top:18px"><h2 style="margin-bottom:6px">2. Where the ${money(Math.abs(diff))} might be coming from</h2><p class="small muted" style="margin-top:0">Your books are ${money(Math.abs(diff))} ${diff < 0 ? "higher" : "lower"} than the bank. Check these first:</p>
@@ -4159,7 +4163,7 @@ document.addEventListener("input", e => {
     else f.elements.fee.value = t.value !== "" && gross ? r2(gross - (+t.value || 0)).toFixed(2) : ""; return; }
   if (t.dataset && t.dataset.kitQty !== undefined) { kitSum(t.closest("form")); return; }
   if (t.closest && t.closest("form[data-form=item]") && t.name === "price") { kitSum(t.closest("form")); }
-  if (t.dataset && t.dataset.bal) { const acct = UI.balAcct; UI.balSt = {...(UI.balSt || {}), [acct]:{...balSt(acct), [t.dataset.bal]:t.value}}; render(); return; }
+  if (t.dataset && t.dataset.bal) { const acct = UI.balAcct; UI.balSt = {...(UI.balSt || {}), [acct]:{...balSt(acct), [t.dataset.bal]:t.dataset.bal === "bal" ? t.value.replace(/[$,\s]/g, "") : t.value}}; render(); return; }
   if (t.dataset && t.dataset.itzAmt !== undefined) { itzLeft(t.closest("form")); return; }
   if (t.dataset && t.dataset.btIn !== undefined) { btSummary(t.closest("form")); return; }
   if (t.dataset && t.dataset.bud) { UI.bud = {...(UI.bud || {}), [t.dataset.bud]:t.value}; render(); return; }
