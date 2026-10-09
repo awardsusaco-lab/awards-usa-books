@@ -170,6 +170,10 @@ label.check{display:flex;gap:8px;align-items:center;font-size:14px}
 .line.buy{grid-template-columns:1.6fr 1.6fr 70px 100px 100px 32px}
 .line.je{grid-template-columns:1.8fr 1.6fr 110px 110px 32px}
 .line .amt{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+.line.pct{background:color-mix(in srgb, var(--brass, #a07a2f) 7%, transparent);border-radius:8px}
+.line.pct .pcttag{font-weight:600;font-size:13px;color:var(--brass, #a07a2f);padding-left:6px}
+.line.pct .pctin{display:flex;align-items:center;gap:3px}.line.pct .pctin input{min-width:0;width:100%;padding:6px 5px;text-align:right}
+.line.pct .pctof{font-size:12.5px;color:var(--muted);text-align:right}
 .lines .hdr{display:grid;gap:8px;font-size:12.5px;color:var(--muted);font-weight:600;padding:8px 0 0}
 .lines .hdr.inv{grid-template-columns:1.4fr 1.8fr 70px 100px 100px 34px 32px}
 .lines .hdr.buy{grid-template-columns:1.6fr 1.6fr 70px 100px 100px 32px}
@@ -725,8 +729,13 @@ function renderNav(active){
   $("#storageNote").textContent = syncText();
 }
 
+let BLANK_FIXED = false;
+function fixBlankLines(){ if (BLANK_FIXED || writeBlocked || !S.invoices.length) return; BLANK_FIXED = true;
+  const blank = l => (l.itemId === "__new" || !l.itemId) && !l.desc && !(+l.rate) && l.pct === undefined;
+  ["invoices","estimates"].forEach(col => (S[col] || []).forEach(d => { if ((d.lines || []).some(blank) && d.lines.some(l => !blank(l))) setTimeout(() => put(col, {...clone(d), lines:d.lines.filter(l => !blank(l))}), 500); })); }
 function render(){
   try { maybeAutoCal(); } catch(e) {}
+  try { fixBlankLines(); } catch(e) {}
   const {view, id} = route();
   const active = SECTION[view] || view;
   renderNav(active);
@@ -1360,6 +1369,7 @@ const HELP = [
   ["How do I bill someone new, or change who an invoice goes to?", `In the invoice (or estimate), under the customer, tap <b>Change bill to / contact</b>. Pick someone already on file from <b>Quick pick</b>, or choose <b>+ Someone new</b> and type their name, email and billing address. That changes <i>this invoice only</i>: the printed invoice shows "Attn:" that person, and <b>Email invoice</b> goes to their email.<br><br>If this person is now the main contact for the account, also tick <b>Save to the account as the main contact</b>. The old contact is kept under Other contacts. You can also do this from the customer's page with <b>Change contact</b>.`],
   ["How do I make an invoice?", `<ol><li>Tap <b>New invoice</b> (Home or Sales).</li><li>Pick the customer. New customer? Choose "+ Add a new customer" at the top of the list.</li><li>Add lines: pick an item (or "+ New item"), type a description, quantity and price. The customer's past prices show on the right.</li><li>Check the tax rate. It fills in from the customer's file (7.5% for Lakewood, 0 for tax-exempt).</li><li>Press <b>Save</b>.</li></ol>`],
   ["Is shipping taxed?", `No. Any line for shipping, delivery, freight or postage is saved without sales tax, even if the Tax box was checked. Colorado doesn't tax delivery charges when they're on their own line and the customer could have picked up instead. So always put shipping on a separate line. Lakewood is a home-rule city with its own tax rules, so confirm with your accountant.`],
+  ["How do I add a percentage, like a 3.5% card processing fee?", `In the invoice, press <b>+ % fee</b> under the lines. Type the percent (e.g. 3.5) and the app works out the dollar amount from all the items above it, and keeps it up to date if you change quantities or prices. You can rename it (rush fee, setup fee, discount with a minus percent). Untick <b>Tax</b> if it shouldn't be taxed. The app remembers your last percent for next time.<br><br>Heads up for card fees: Colorado caps credit card surcharges at 2% (or your actual cost, if lower), they can't go on debit cards, and they must be shown as their own line, which this does. Check with your card processor before charging more.`],
   ["How are invoice numbers and due dates set?", `New invoices automatically get the next number after your highest invoice, even if you made one on your phone. If a number is already used, the app picks the next free one. The due date fills in from the customer's payment terms. To change it, pick a date or tap <b>On receipt</b>, <b>15 days</b>, <b>30 days</b> or <b>45 days</b> under Due date. The due date prints on the invoice. "Needed by" is separate: it's the customer's event date, for your own scheduling.`],
   ["How do I email an invoice?", `Open the invoice → <b>Email invoice</b>. The customer's email and anyone saved as "CC on invoices" are filled in. Check the message and press <b>Send</b>. It goes from your Gmail with the PDF attached, and the invoice gets a blue <b>SENT</b> stamp.<br>If Google isn't connected, the app saves the PDF and opens a ready-to-go Gmail message instead; attach the PDF and send.`],
    ["Can I send several invoices to the same person in one email?", `Yes. Open the customer → <b>Email invoices</b>. All their unpaid invoices are ticked; untick any you don't want. Or open one invoice → <b>Email invoice</b> and tick the customer's other open invoices in the list. Each invoice goes as its own PDF in the same email, the message lists them with the total due, and every one gets the SENT stamp.`],
@@ -3492,17 +3502,22 @@ function jeLine(l){ l = l || {};
   return `<div class="line je"><select name="acct" aria-label="Account">${acctOpts(l.acct, null, "Choose account")}</select><input name="memo" placeholder="Memo" value="${esc(l.memo)}" aria-label="Memo"><input name="debit" type="number" step="0.01" min="0" value="${esc(l.debit || "")}" placeholder="Debit" aria-label="Debit"><input name="credit" type="number" step="0.01" min="0" value="${esc(l.credit || "")}" placeholder="Credit" aria-label="Credit"><button type="button" class="x" data-act="rmLine" aria-label="Remove line">×</button></div>`; }
 function taxLine(l){ l = l || {agency:"dor"};
   return `<div class="line tax"><input name="name" placeholder="e.g. Jefferson County" value="${esc(l.name)}" aria-label="Tax name"><input name="rate" type="number" step="0.001" min="0" value="${esc(l.rate ?? "")}" placeholder="Rate %" aria-label="Rate percent"><select name="agency" aria-label="Paid to">${opts(Object.entries(TAX_AGENCIES).map(([k, a]) => [k, a.name]), l.agency)}</select><button type="button" class="x" data-act="rmLine" aria-label="Remove rate">×</button></div>`; }
-const LINE = {inv:invLine, buy:buyLine, je:jeLine, tax:taxLine};
+function pctLine(l){ const last = S.company.pctLast || {}; l = l || {pct:last.pct ?? "", desc:last.desc || "", taxable:last.taxable ?? true};
+  const pct = l.pct ?? "", desc = l.desc ? l.desc.replace(/\(\d*\.?\d*%\)$/, "(" + pct + "%)") : "Card processing fee (" + pct + "%)";
+  return `<div class="line inv pct" data-pct><input type="hidden" name="acct" value="${esc(l.acct || "")}"><input type="hidden" name="itemId" value=""><span class="pcttag">% of items above</span><input name="desc" placeholder="e.g. Card processing fee" value="${esc(desc)}" aria-label="Description"><span class="pctin"><input name="pct" type="text" inputmode="decimal" autocomplete="off" value="${esc(pct)}" aria-label="Percent" placeholder="3.5">%</span><span class="pctof" data-pctof></span><input type="hidden" name="qty" value="1"><input type="hidden" name="rate" value="${esc(l.rate || 0)}"><div class="amt">${money(+l.rate || 0)}</div><label title="Taxable" class="taxcell"><input type="checkbox" name="taxable" ${l.taxable ? "checked" : ""}><span class="mlabel">Taxable</span></label><button type="button" class="x" data-act="rmLine" aria-label="Remove line">×</button></div>`; }
+const LINE = {inv:l => l && l.pct !== undefined && l.pct !== null && l.pct !== "" ? pctLine(l) : invLine(l), buy:buyLine, je:jeLine, tax:taxLine};
 const HDR = {inv:["Item","Description","Qty","Rate","Amount","Tax",""], buy:["Account or item","Memo","Qty","Cost","Amount",""], je:["Account","Memo","Debit","Credit",""], tax:["Tax","Rate %","Paid to",""]};
-const linesBlock = (kind, lines) => `<div class="lines" data-kind="${kind}"><div class="hdr ${kind}">${HDR[kind].map(h => `<div class="${["Amount"].includes(h) ? "num" : ""}">${h}</div>`).join("")}</div><div class="rows">${(lines && lines.length ? lines : [null, null]).map(l => LINE[kind](l)).join("")}</div><button type="button" class="btn small" data-act="addLine" style="margin-top:10px">Add line</button>${kind === "inv" ? ' <button type="button" class="btn small" data-act="newItemLine" style="margin-top:10px">New item</button>' : ""}</div>`;
+const linesBlock = (kind, lines) => `<div class="lines" data-kind="${kind}"><div class="hdr ${kind}">${HDR[kind].map(h => `<div class="${["Amount"].includes(h) ? "num" : ""}">${h}</div>`).join("")}</div><div class="rows">${(lines && lines.length ? lines : [null, null]).map(l => LINE[kind](l)).join("")}</div><button type="button" class="btn small" data-act="addLine" style="margin-top:10px">Add line</button>${kind === "inv" ? ' <button type="button" class="btn small" data-act="newItemLine" style="margin-top:10px">New item</button> <button type="button" class="btn small" data-act="addPctLine" style="margin-top:10px" title="A line that is a percent of the items above it, like a 3.5% card processing fee">+ % fee</button>' : ""}</div>`;
 function readLines(f){ const kind = $(".lines", f).dataset.kind;
   return $$(".line", f).map(row => { const g = n => row.querySelector(`[name=${n}]`); 
-    if (kind === "inv") return {acct:g("acct")?.value || "", itemId:g("itemId").value, desc:g("desc").value.trim(), qty:+g("qty").value || 0, rate:+g("rate").value || 0, taxable:g("taxable").checked};
+    if (kind === "inv") return row.dataset.pct !== undefined ? {acct:g("acct")?.value || "", itemId:"", desc:g("desc").value.trim(), qty:1, rate:0, pct:g("pct").value === "" ? "" : +g("pct").value, taxable:g("taxable").checked} : {acct:g("acct")?.value || "", itemId:g("itemId").value === "__new" ? "" : g("itemId").value, desc:g("desc").value.trim(), qty:+g("qty").value || 0, rate:+g("rate").value || 0, taxable:g("taxable").checked};
     if (kind === "buy") return {ref:g("ref").value, memo:g("memo").value.trim(), qty:+g("qty").value || 0, rate:+g("rate").value || 0};
     if (kind === "tax") return {name:g("name").value.trim(), rate:+g("rate").value || 0, agency:g("agency").value};
     return {acct:g("acct").value, memo:g("memo").value.trim(), debit:+g("debit").value || 0, credit:+g("credit").value || 0}; })
-    .filter(l => kind === "tax" ? true : kind === "inv" ? (l.itemId || l.desc || l.rate) : kind === "buy" ? (l.ref || l.rate) : (l.acct || l.debit || l.credit)); }
+    .filter(l => kind === "tax" ? true : kind === "inv" ? (l.pct !== undefined ? l.pct !== "" : (l.itemId || l.desc || l.rate)) : kind === "buy" ? (l.ref || l.rate) : (l.acct || l.debit || l.credit))
+    .map((l, i, arr) => { if (kind !== "inv" || l.pct === undefined) return l; const base = r2(arr.slice(0, i).filter(x => x.pct === undefined).reduce((s2, x) => s2 + r2((+x.qty || 0) * (+x.rate || 0)), 0)); return {...l, base, rate:r2(base * (+l.pct || 0) / 100)}; }); }
 function recalc(f){ const lines = $(".lines", f); if (!lines) return; const kind = lines.dataset.kind;
+  if (kind === "inv") { let base = 0; $$(".line", f).forEach(row => { if (row.dataset.pct !== undefined) { const p = +row.querySelector("[name=pct]").value || 0, amt = r2(base * p / 100); row.querySelector("[name=rate]").value = amt; const of = row.querySelector("[data-pctof]"); if (of) of.textContent = "of " + money(base); const d = row.querySelector("[name=desc]"); if (d && /\(\d*\.?\d*%\)$/.test(d.value) && p) d.value = d.value.replace(/\(\d*\.?\d*%\)$/, "(" + p + "%)"); } else base += (+row.querySelector("[name=qty]").value || 0) * (+row.querySelector("[name=rate]").value || 0); }); }
   $$(".line", f).forEach(row => { const a = row.querySelector(".amt"); if (a) a.textContent = money((+row.querySelector("[name=qty]").value || 0) * (+row.querySelector("[name=rate]").value || 0)); });
   const box = $(".totals", f); if (!box) return;
   if (kind === "inv") { const t = invTotals({lines:readLines(f), taxRate:+(f.elements.taxRate?.value || 0)}); box.innerHTML = `<div><span>Subtotal</span><span>${money(t.sub)}</span></div><div><span>Sales tax</span><span>${money(t.tax)}</span></div><div class="grand"><span>Total</span><span>${money(t.total)}</span></div>`; }
@@ -3683,6 +3698,7 @@ const FORMS = {
     if (id && !follow && invPaid(id) - newTot > 0.004) return formErr(f, "Payments on this invoice are more than the new total. Tick \"Keep it paid in full\" below, or open the payment and change it.");
     if (follow && ps0[0] && (+ps0[0].fee || 0) >= newTot) return formErr(f, "The new total is smaller than the fee on its payment. Open the payment and fix the fee first.");
     const nid = await put("invoices", inv);
+    { const pl = lines.filter(l => l.pct !== undefined && l.pct !== ""); if (pl.length) { const lp = pl[pl.length - 1], cur = S.company.pctLast || {}; if (cur.pct !== lp.pct || cur.desc !== lp.desc || cur.taxable !== lp.taxable) await saveCompany({pctLast:{pct:lp.pct, desc:lp.desc, taxable:lp.taxable}}); } }
     for (const p of ps0) { const m = f.elements["pm_" + p.id] ? f.elements["pm_" + p.id].value : p.method, upd = {...clone(byId("payments", p.id))}; let ch = false;
       if (m && m !== p.method) { upd.method = m; ch = true; }
       if (follow && ps0.length === 1 && Math.abs(payOn(p, id) - newTot) > 0.004) { upd.applied = upd.applied.map(a => a.invoiceId === id ? {...a, amount:newTot} : a); ch = true; }
@@ -4092,7 +4108,9 @@ const ACT = {
     setTimeout(() => { window.removeEventListener("beforeprint", on); if (started || Date.now() - t0 > 1500) return;
       if (!doc) return toast("Couldn't find that document.");
       printSheet(doc, kind); }, 350); },
-  addLine(el){ const box = el.closest(".lines"); box.querySelector(".rows").insertAdjacentHTML("beforeend", LINE[box.dataset.kind]()); },
+  addPctLine(el){ const box = el.closest(".lines"); box.querySelector(".rows").insertAdjacentHTML("beforeend", pctLine()); const row = box.querySelector(".rows").lastElementChild; recalc(box.closest("form")); const pi = row.querySelector("[name=pct]"); if (pi) { pi.focus(); pi.select(); } },
+  addLine(el){ const box = el.closest(".lines"), rows = box.querySelector(".rows"), kids = [...rows.children]; let at = kids.length; while (at > 0 && kids[at - 1].dataset.pct !== undefined) at--;
+    if (at < kids.length) kids[at].insertAdjacentHTML("beforebegin", LINE[box.dataset.kind]()); else rows.insertAdjacentHTML("beforeend", LINE[box.dataset.kind]()); },
   rmLine(el){ const f = el.closest("form"); el.closest(".line").remove(); recalc(f); },
   delCustomer(el){ const id = el.dataset.id; if (S.invoices.some(i => i.customerId === id) || S.payments.some(p => p.customerId === id)) { toast("This customer has invoices or payments. Mark them inactive instead."); return; }
     confirmBox("Delete this customer and their notes?", "Delete customer", async () => { for (const f of S.followups.filter(f => f.customerId === id)) await remove("followups", f.id); await remove("customers", id); go("customers"); toast("Customer deleted"); }); },
