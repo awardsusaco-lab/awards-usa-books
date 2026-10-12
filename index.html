@@ -1393,6 +1393,7 @@ const HELP = [
   ["How do I bill someone new, or change who an invoice goes to?", `In the invoice (or estimate), under the customer, tap <b>Change bill to / contact</b>. Pick someone already on file from <b>Quick pick</b>, or choose <b>+ Someone new</b> and type their name, email and billing address. That changes <i>this invoice only</i>: the printed invoice shows "Attn:" that person, and <b>Email invoice</b> goes to their email.<br><br>If this person is now the main contact for the account, also tick <b>Save to the account as the main contact</b>. The old contact is kept under Other contacts. You can also do this from the customer's page with <b>Change contact</b>.`],
   ["How do I make an invoice?", `<ol><li>Tap <b>New invoice</b> (Home or Sales).</li><li>Pick the customer. New customer? Choose "+ Add a new customer" at the top of the list.</li><li>Add lines: pick an item (or "+ New item"), type a description, quantity and price. The customer's past prices show on the right.</li><li>Check the tax rate. It fills in from the customer's file (7.5% for Lakewood, 0 for tax-exempt).</li><li>Press <b>Save</b>.</li></ol>`],
   ["Is shipping taxed?", `No. Any line for shipping, delivery, freight or postage is saved without sales tax, even if the Tax box was checked. Colorado doesn't tax delivery charges when they're on their own line and the customer could have picked up instead. So always put shipping on a separate line. Lakewood is a home-rule city with its own tax rules, so confirm with your accountant.`],
+  ["How do I add a new product or service while making an invoice?", `Press <b>+ Quick add item</b> under the lines (or pick <b>+ New product or service…</b> in a line's Item box). Type the name and price, choose Product or Service, and press <b>Save item & add it</b> (or Enter). It's added to the line and saved for next time. To change an item's name or price, pick the item in a line, then choose <b>✎ Change this item</b> in the same box. Past invoices aren't changed.`],
   ["How do I add a percentage, like a 3.5% card processing fee?", `In the invoice, press <b>+ % fee</b> under the lines. Type the percent (e.g. 3.5) and the app works out the dollar amount from all the items above it, and keeps it up to date if you change quantities or prices. You can rename it (rush fee, setup fee, discount with a minus percent). Untick <b>Tax</b> if it shouldn't be taxed. The app remembers your last percent for next time.<br><br>Heads up for card fees: Colorado caps credit card surcharges at 2% (or your actual cost, if lower), they can't go on debit cards, and they must be shown as their own line, which this does. Check with your card processor before charging more.`],
   ["How are invoice numbers and due dates set?", `New invoices automatically get the next number after your highest invoice, even if you made one on your phone. If a number is already used, the app picks the next free one. The due date fills in from the customer's payment terms. To change it, pick a date or tap <b>On receipt</b>, <b>15 days</b>, <b>30 days</b> or <b>45 days</b> under Due date. The due date prints on the invoice. "Needed by" is separate: it's the customer's event date, for your own scheduling.`],
   ["How do I email an invoice?", `Open the invoice → <b>Email invoice</b>. The customer's email and anyone saved as "CC on invoices" are filled in. Check the message and press <b>Send</b>. It goes from your Gmail with the PDF attached, and the invoice gets a blue <b>SENT</b> stamp.<br>If Google isn't connected, the app saves the PDF and opens a ready-to-go Gmail message instead; attach the PDF and send.`],
@@ -2510,31 +2511,36 @@ async function runCampaign(id, draft){
 
 
 /* ---------- inline new item (from an invoice or estimate) ---------- */
-function openInlineItem(row){
-  if (!row) return; const nx = row.nextElementSibling; if (nx && nx.classList.contains("newitem")) { nx.querySelector("input").focus(); return; }
-  const desc = row.querySelector("[name=desc]")?.value || "";
-  row.insertAdjacentHTML("afterend", `<div class="newitem"><div class="small" style="font-weight:600;margin-bottom:8px">New item</div><div class="fields">
-    <label class="f">Name<input data-ni="name" placeholder="e.g. 8x10 walnut plaque" value=""></label>
-    <label class="f">Price<input data-ni="price" type="number" step="0.01" min="0"></label>
-    <label class="f">Your cost<input data-ni="cost" type="number" step="0.01" min="0"></label>
-    <label class="f">Type<select data-ni="type"><option value="noninventory">Product (no stock count)</option><option value="inventory">Stocked product</option><option value="service">Service / engraving</option></select></label>
-    <label class="f full">Description on invoices<input data-ni="desc" value="${esc(desc)}"></label>
-    <label class="check"><input type="checkbox" data-ni="taxable" checked> Taxable</label>
-  </div><div class="err small" data-ni="err"></div><div class="actions" style="margin-top:8px"><button type="button" class="btn small primary" data-act="saveInlineItem">Save item</button><button type="button" class="btn small" data-act="cancelInlineItem">Cancel</button></div></div>`);
-  row.nextElementSibling.querySelector("input").focus();
+function openInlineItem(row, editId){
+  if (!row) return; const nx = row.nextElementSibling; if (nx && nx.classList.contains("newitem")) nx.remove();
+  const it = editId ? byId("items", editId) : null, desc = row.querySelector("[name=desc]")?.value || "", rate = row.querySelector("[name=rate]")?.value || "";
+  const incOpts = acctOpts((it && it.incomeAcct) || SYS.SALES, a => a.type === "income" || a.type === "oincome");
+  row.insertAdjacentHTML("afterend", `<div class="newitem" ${it ? `data-edit="${it.id}"` : ""}><div class="small" style="font-weight:600;margin-bottom:8px">${it ? "Change item: " + esc(it.name) : "Quick add a product or service"}</div><div class="fields">
+    <label class="f">Name<input data-ni="name" placeholder="e.g. 8x10 walnut plaque" value="${esc(it ? it.name : "")}"></label>
+    <label class="f">Price<input data-ni="price" type="text" inputmode="decimal" value="${esc(it ? (it.price || "") : rate)}" placeholder="0.00"></label>
+    <label class="f">Type<select data-ni="type">${opts([["noninventory","Product (no stock count)"],["inventory","Stocked product (count inventory)"],["service","Service (engraving, setup, design…)"]], it ? it.type : "noninventory")}</select></label>
+    <label class="f">Your cost<input data-ni="cost" type="text" inputmode="decimal" value="${esc(it ? (it.cost || "") : "")}" placeholder="optional"></label>
+    <label class="f full">Description on invoices<input data-ni="desc" value="${esc(it ? (it.desc || "") : desc)}"></label>
+    <label class="f">Sales category<select data-ni="income">${incOpts}</select></label>
+    <label class="check" style="align-self:end"><input type="checkbox" data-ni="taxable" ${it ? (it.taxable ? "checked" : "") : "checked"}> Taxable</label>
+  </div><div class="err small" data-ni="err"></div><div class="actions" style="margin-top:8px"><button type="button" class="btn small primary" data-act="saveInlineItem">${it ? "Save changes" : "Save item & add it"}</button><button type="button" class="btn small" data-act="cancelInlineItem">Cancel</button>${it ? '<span class="small muted" style="align-self:center">Changes apply to future invoices too. Past invoices stay as they were.</span>' : ""}</div></div>`);
+  const first = row.nextElementSibling.querySelector("input"); first.focus(); if (it) first.select();
 }
 async function saveInlineItem(box){
   const g = k => box.querySelector(`[data-ni=${k}]`), name = g("name").value.trim();
+  const editId = box.dataset.edit || "", old = editId ? byId("items", editId) : null, num = v => { const n = parseFloat(String(v || "").replace(/[$,\s]/g, "")); return isNaN(n) ? 0 : r2(n); };
   if (!name) { g("err").textContent = "Give the item a name."; return; }
-  if (S.items.some(i => i.name.toLowerCase() === name.toLowerCase())) { g("err").textContent = "An item with this name already exists. Pick it from the list."; return; }
-  const type = g("type").value, it = {name, sku:"", type, incomeAcct:SYS.SALES, desc:g("desc").value.trim() || name, price:+g("price").value || 0, cost:+g("cost").value || 0, openQty:0, openDate:todayISO(), reorder:"", expenseAcct:type === "noninventory" ? SYS.COGS : "", taxable:g("taxable").checked, vendorId:"", notes:""};
+  if (S.items.some(i => i.id !== editId && i.name.toLowerCase() === name.toLowerCase())) { g("err").textContent = "An item with this name already exists. Pick it from the list."; return; }
+  const type = g("type").value, inc = g("income") ? g("income").value || SYS.SALES : SYS.SALES;
+  const it = old ? {...clone(old), name, type, incomeAcct:inc, desc:g("desc").value.trim() || name, price:num(g("price").value), cost:num(g("cost").value), taxable:g("taxable").checked, expenseAcct:old.expenseAcct || (type === "noninventory" ? SYS.COGS : "")}
+    : {name, sku:"", type, incomeAcct:inc, desc:g("desc").value.trim() || name, price:num(g("price").value), cost:num(g("cost").value), openQty:0, openDate:todayISO(), reorder:"", expenseAcct:type === "noninventory" ? SYS.COGS : "", taxable:g("taxable").checked, vendorId:"", notes:""};
   const id = await put("items", it);
   const form = box.closest("form"), row = box.previousElementSibling;
   $$("select[name=itemId]", form).forEach(sel => { const v = sel.value; sel.outerHTML; const tmp = document.createElement("div"); tmp.innerHTML = itemSelect(v); sel.innerHTML = tmp.firstElementChild.innerHTML; sel.value = v; });
-  const sel = row.querySelector("select[name=itemId]"); sel.value = id;
+  const sel = row.querySelector("select[name=itemId]"); sel.value = id; sel.dataset.prev = id;
   row.querySelector("[name=desc]").value = it.desc; row.querySelector("[name=rate]").value = it.price || "";
   const tx = row.querySelector("[name=taxable]"); if (tx) tx.checked = it.taxable && +(form.elements.taxRate?.value || 0) > 0; shipRowCheck(row);
-  box.remove(); recalc(form); toast(name + " added to your items");
+  box.remove(); recalc(form); toast(old ? name + " updated" : name + " added to your items");
 }
 
 /* ---------- PDF (built in the browser, no add-ons) ---------- */
@@ -3546,7 +3552,7 @@ function followupForm(fu, customerId){ fu = fu || {customerId, due:addDays(today
   </div>${foot(fu.id ? {act:"delFollowup", id:fu.id} : null)}</form>`, true); }
 
 /* line editors */
-function itemSelect(sel){ return `<select name="itemId" aria-label="Item"><option value="__new">+ Add a new item…</option>${opts(S.items.slice().sort(byName).map(i => [i.id, i.name + (i.desc && i.desc !== i.name ? " — " + (i.desc.length > 48 ? i.desc.slice(0, 46) + "…" : i.desc) : "")]), sel, "Choose item")}</select>`; }
+function itemSelect(sel){ return `<select name="itemId" aria-label="Item" data-prev="${esc(sel || "")}"><option value="">Choose item</option><option value="__new">+ New product or service…</option><option value="__edit">✎ Change this item (name, price…)</option>${opts(S.items.filter(i => !i.inactive || i.id === sel).slice().sort(byName).map(i => [i.id, i.name + (i.desc && i.desc !== i.name ? " — " + (i.desc.length > 48 ? i.desc.slice(0, 46) + "…" : i.desc) : "")]), sel)}</select>`; }
 function invLine(l){ l = l || {qty:1, taxable:true};
   return `<div class="line inv"><input type="hidden" name="acct" value="${esc(l.acct || "")}">${itemSelect(l.itemId)}<input name="desc" placeholder="Description" value="${esc(l.desc)}" aria-label="Description"><input name="qty" type="number" step="any" value="${esc(l.qty)}" aria-label="Quantity"><input name="rate" type="number" step="0.01" value="${esc(l.rate)}" placeholder="Rate" aria-label="Rate"><div class="amt">${money((+l.qty||0) * (+l.rate||0))}</div><label title="Taxable" class="taxcell"><input type="checkbox" name="taxable" ${l.taxable ? "checked" : ""}><span class="mlabel">Taxable</span></label><button type="button" class="x" data-act="rmLine" aria-label="Remove line">×</button></div>`; }
 function buyRefOpts(sel){ const items = S.items.filter(i => i.type !== "service" && i.type !== "kit").sort(byName);
@@ -3562,7 +3568,7 @@ function pctLine(l){ const last = S.company.pctLast || {}; l = l || {pct:last.pc
   return `<div class="line inv pct" data-pct><input type="hidden" name="acct" value="${esc(l.acct || "")}"><input type="hidden" name="itemId" value=""><span class="pcttag">% of items above</span><input name="desc" placeholder="e.g. Card processing fee" value="${esc(desc)}" aria-label="Description"><span class="pctin"><input name="pct" type="text" inputmode="decimal" autocomplete="off" value="${esc(pct)}" aria-label="Percent" placeholder="3.5">%</span><span class="pctof" data-pctof></span><input type="hidden" name="qty" value="1"><input type="hidden" name="rate" value="${esc(l.rate || 0)}"><div class="amt">${money(+l.rate || 0)}</div><label title="Taxable" class="taxcell"><input type="checkbox" name="taxable" ${l.taxable ? "checked" : ""}><span class="mlabel">Taxable</span></label><button type="button" class="x" data-act="rmLine" aria-label="Remove line">×</button></div>`; }
 const LINE = {inv:l => l && l.pct !== undefined && l.pct !== null && l.pct !== "" ? pctLine(l) : invLine(l), buy:buyLine, je:jeLine, tax:taxLine};
 const HDR = {inv:["Item","Description","Qty","Rate","Amount","Tax",""], buy:["Account or item","Memo","Qty","Cost","Amount",""], je:["Account","Memo","Debit","Credit",""], tax:["Tax","Rate %","Paid to",""]};
-const linesBlock = (kind, lines) => `<div class="lines" data-kind="${kind}"><div class="hdr ${kind}">${HDR[kind].map(h => `<div class="${["Amount"].includes(h) ? "num" : ""}">${h}</div>`).join("")}</div><div class="rows">${(lines && lines.length ? lines : [null, null]).map(l => LINE[kind](l)).join("")}</div><button type="button" class="btn small" data-act="addLine" style="margin-top:10px">Add line</button>${kind === "inv" ? ' <button type="button" class="btn small" data-act="newItemLine" style="margin-top:10px">New item</button> <button type="button" class="btn small" data-act="addPctLine" style="margin-top:10px" title="A line that is a percent of the items above it, like a 3.5% card processing fee">+ % fee</button>' : ""}</div>`;
+const linesBlock = (kind, lines) => `<div class="lines" data-kind="${kind}"><div class="hdr ${kind}">${HDR[kind].map(h => `<div class="${["Amount"].includes(h) ? "num" : ""}">${h}</div>`).join("")}</div><div class="rows">${(lines && lines.length ? lines : [null, null]).map(l => LINE[kind](l)).join("")}</div><button type="button" class="btn small" data-act="addLine" style="margin-top:10px">Add line</button>${kind === "inv" ? ' <button type="button" class="btn small" data-act="newItemLine" style="margin-top:10px">+ Quick add item</button> <button type="button" class="btn small" data-act="addPctLine" style="margin-top:10px" title="A line that is a percent of the items above it, like a 3.5% card processing fee">+ % fee</button>' : ""}</div>`;
 function readLines(f){ const kind = $(".lines", f).dataset.kind;
   return $$(".line", f).map(row => { const g = n => row.querySelector(`[name=${n}]`); 
     if (kind === "inv") return row.dataset.pct !== undefined ? {acct:g("acct")?.value || "", itemId:"", desc:g("desc").value.trim(), qty:1, rate:0, pct:g("pct").value === "" ? "" : +g("pct").value, taxable:g("taxable").checked} : {acct:g("acct")?.value || "", itemId:g("itemId").value === "__new" ? "" : g("itemId").value, desc:g("desc").value.trim(), qty:+g("qty").value || 0, rate:+g("rate").value || 0, taxable:g("taxable").checked};
@@ -4162,7 +4168,7 @@ const ACT = {
   newExpense: () => expenseForm(), editExpense: el => expenseForm(clone(byId("expenses", el.dataset.id))),
   newJournal: () => journalForm(), editJournal: el => journalForm(clone(byId("journals", el.dataset.id))),
   adjustStock: el => adjustForm(el.dataset.id),
-  newItemLine(el){ const box = el.closest(".lines"); let row = $$(".line", box).find(r => !r.querySelector("[name=itemId]").value && !r.querySelector("[name=desc]").value); if (!row) { box.querySelector(".rows").insertAdjacentHTML("beforeend", LINE.inv()); row = $$(".line", box).pop(); } openInlineItem(row); },
+  newItemLine(el){ const box = el.closest(".lines"); let row = $$(".line", box).find(r => r.dataset.pct === undefined && ["", "__new"].includes(r.querySelector("[name=itemId]").value) && !r.querySelector("[name=desc]").value); if (!row) { box.querySelector(".rows").insertAdjacentHTML("beforeend", LINE.inv()); row = $$(".line", box).pop(); } openInlineItem(row); },
   saveInlineItem(el){ saveInlineItem(el.closest(".newitem")); },
   cancelInlineItem(el){ el.closest(".newitem").remove(); },
   pdfInvoice(el){ const inv = byId("invoices", el.dataset.id); saveFile(pdfName(inv), docPDF(inv)); },
@@ -4381,6 +4387,7 @@ document.addEventListener("click", e => {
   if (e.target === $("#sheet")) closeSheet();
 });
 document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.dataset && e.target.dataset.ni && e.target.closest(".newitem")) { e.preventDefault(); saveInlineItem(e.target.closest(".newitem")); return; }
   if (e.key === "Enter" && CE && e.target.dataset && e.target.dataset.ce) { e.preventDefault(); const row = e.target.closest(".ce-row"), b = +row.dataset.b, rr = +row.dataset.r, f = e.target.dataset.ce;
     if (f === "date") { row.querySelector("[data-ce=amt]").focus(); row.querySelector("[data-ce=amt]").select(); return; }
     const bk = CE.buckets[b]; if (rr < bk.rows.length - 1) { const nx = $(`#sheetBody .ce-row[data-b="${b}"][data-r="${rr + 1}"] [data-ce=date]`); if (nx) nx.focus(); return; }
@@ -4458,7 +4465,9 @@ document.addEventListener("change", async e => {
     if (t.checked && i < 0) { const sig = ta.value.lastIndexOf("\n\nParker"); ta.value = sig >= 0 ? ta.value.slice(0, sig) + blk + ta.value.slice(sig) : ta.value + blk; }
     if (!t.checked && i >= 0) { const start = ta.value.lastIndexOf("\n\n", i), end = ta.value.indexOf("\n", ta.value.indexOf("\n", i) + 1); ta.value = ta.value.slice(0, start) + (end >= 0 ? ta.value.slice(end) : ""); }
     return; }
-  if (t.name === "itemId" && t.value === "__new") { openInlineItem(t.closest(".line")); t.value = ""; return; }
+  if (t.name === "itemId" && t.value === "__new") { openInlineItem(t.closest(".line")); t.value = t.dataset.prev || ""; return; }
+  if (t.name === "itemId" && t.value === "__edit") { const prev = t.dataset.prev || ""; t.value = prev; if (!prev || !byId("items", prev)) { toast("Pick an item first, then choose Change this item."); return; } openInlineItem(t.closest(".line"), prev); return; }
+  if (t.name === "itemId") t.dataset.prev = t.value;
   if (t.name === "itemId" && t.closest(".line.inv") && byId("items", t.value)?.type === "kit") { const k = byId("items", t.value), cm = kitCanMake(k); if (cm !== null && cm < 1) toast("Heads up: you're out of parts for " + k.name + " (" + kitText(k) + ")."); else if (cm !== null && cm < 5) toast("You have parts to make " + cm + " of " + k.name + "."); }
   if (t.name === "itemId" && t.closest(".line.inv")) { const it = byId("items", t.value), row = t.closest(".line"); if (it) { const lp = f.elements.customerId && f.elements.customerId.value ? lastPrice(f.elements.customerId.value, it.id) : null; row.querySelector("[name=desc]").value = it.desc || it.name; row.querySelector("[name=rate]").value = lp ? lp.rate : (it.price || ""); if (lp && lp.rate !== +it.price) toast(`Using ${custName(f.elements.customerId.value)}’s last price: ${money(lp.rate)} (list ${money(it.price)})`); row.querySelector("[name=taxable]").checked = it.taxable !== false && +(f.elements.taxRate?.value || 0) > 0; shipRowCheck(row); } recalc(f); }
   if (t.name === "ref" && t.closest(".line.buy") && t.value.startsWith("i:")) { const it = byId("items", t.value.slice(2)), row = t.closest(".line"); if (it && !row.querySelector("[name=rate]").value) row.querySelector("[name=rate]").value = it.cost || ""; if (it && !row.querySelector("[name=memo]").value) row.querySelector("[name=memo]").value = it.name; recalc(f); }
