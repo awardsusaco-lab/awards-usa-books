@@ -239,7 +239,8 @@ body.ubon #toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .morelist a:first-child{border-top:0}
 
 @media (max-width:860px){
-  #app{grid-template-columns:1fr}
+  #app{grid-template-columns:minmax(0,1fr)}
+  html,body{overflow-x:hidden;max-width:100%}
   .side{display:none}
   main{padding:18px 14px calc(84px + env(safe-area-inset-bottom,0px))}
   .tabs{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);z-index:40}
@@ -266,6 +267,60 @@ body.ubon #toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
   .kv{justify-content:start}
 }
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
+/* ---- touch / iPhone polish ---- */
+html{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+main,#main{min-width:0}
+.panel,.grid2 > *,.ledger > *,.board > *{min-width:0}
+.btn,.chip,.item,tr.click,.tabs a,.seg a,.morelist a,.qa-list button{transition:transform .08s ease, background-color .12s ease, opacity .12s ease}
+.btn:active,.chip:active,.qa-list button:active{transform:scale(.97)}
+.item:active,tr.click:active,.morelist a:active{background:var(--chip)}
+.tabs a:active{opacity:.6}
+#main.fadein{animation:fadein .16s ease-out}
+@keyframes fadein{from{opacity:.35;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#main.fadein{animation:none}.btn,.chip,.item,tr.click{transition:none}}
+.qa-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qa-list button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:inherit;font:inherit;text-align:left;cursor:pointer;min-height:76px}
+.qa-list button b{font-size:15.5px}.qa-list button span{font-size:12.5px;color:var(--muted)}
+.tabs a.tab-plus svg{width:30px;height:30px;color:var(--primary)}
+@media (max-width:860px){
+  /* stop iPhone zooming in when a box is tapped (iOS zooms anything under 16px) */
+  input,select,textarea,.search{font-size:16px !important}
+  input,select{min-height:42px}
+  input[type=checkbox],input[type=radio]{min-height:0;width:22px;height:22px;flex:none}
+  textarea{font-size:16px}
+  .btn{min-height:42px;display:inline-flex;align-items:center;justify-content:center}
+  .btn.small{min-height:36px;font-size:14px;padding:6px 12px}
+  .chip{min-height:36px;padding:7px 14px}
+  .x{min-width:40px;min-height:40px}
+  /* sheets: real full screen, header and save buttons always reachable */
+  .sheet{align-items:flex-start;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:var(--surface)}
+  .sheet-card,.sheet-card.narrow{min-height:100%;height:auto;box-shadow:none;padding-top:0}
+  .sheet-card > header{position:sticky;top:0;z-index:3;background:var(--surface);margin:0 -16px 12px;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;border-bottom:1px solid var(--line)}
+  .sheet-card > header h2{font-size:19px;margin:0;line-height:1.25}
+  #sheetBody .formfoot{position:sticky;bottom:0;z-index:3;background:var(--surface);margin:18px -16px calc(-24px - env(safe-area-inset-bottom,0px));padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
+  #sheetBody .formfoot .right{flex:1;justify-content:flex-end}
+  #sheetBody .formfoot .right .btn.primary{flex:1;max-width:260px}
+  /* tabs and button rows scroll sideways instead of wrapping into a mess */
+  .seg{display:flex;max-width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .seg::-webkit-scrollbar,.pagehead .actions::-webkit-scrollbar,.toolbar .chips::-webkit-scrollbar{display:none}
+  .seg a{white-space:nowrap;flex:none;padding:10px 14px}
+  .pagehead{align-items:flex-start}
+  .pagehead > div:first-child{flex:1 1 100%}
+  .pagehead .actions{flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+  .pagehead .actions .btn{flex:none}
+  .toolbar .chips{flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .toolbar .chips .chip{flex:none;white-space:nowrap}
+  .toolbar .search{flex:1 1 100%}
+  /* tables: keep each row on one line and swipe sideways */
+  .tbl{margin:0 -14px;padding:0 14px;overscroll-behavior-x:contain}
+  .tbl th,.tbl td{white-space:nowrap}
+  .tbl td.wrap,.tbl td .pre{white-space:normal}
+  /* toasts sit above the bottom tabs */
+  #toast,#undoBar{bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+  body.ubon #toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  .tabs{grid-template-columns:repeat(6,1fr) !important;box-shadow:0 -4px 16px rgba(0,0,0,.05)}
+  .tabs a{font-size:10.5px !important;min-height:50px;justify-content:center}
+}
 .help details{border-top:1px solid var(--line);padding:4px 0}.help details:first-of-type{border-top:0}
 .help summary{cursor:pointer;padding:10px 4px;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:10px}
 .help summary::-webkit-details-marker{display:none}.help summary::after{content:"+";color:var(--muted);font-weight:400;font-size:20px;line-height:1}
@@ -723,8 +778,9 @@ function renderNav(active){
   const NAV = NAV_ALL;
   $("#sideNav").innerHTML = NAV.map(([k, l]) => `<a href="#/${k}" ${active === k ? 'aria-current="page"' : ""}>${l}</a>`).join("");
   const tabActive = ["home","customers","sales","expenses"].includes(active) ? active : "more";
-  $("#tabs").innerHTML = [["home","Home"],["customers","Customers"],["sales","Sales"],["expenses","Expenses"],["more","More"]].map(([k, l]) =>
-    `<a href="#/${k}" ${tabActive === k ? 'aria-current="page"' : ""}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>${l}</a>`).join("");
+  $("#tabs").innerHTML = [["home","Home"],["customers","Customers"],["plus","New"],["sales","Sales"],["expenses","Expenses"],["more","More"]].map(([k, l]) => k === "plus"
+    ? `<a href="#" class="tab-plus" data-act="quickAdd" aria-label="Add something new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" stroke="none"/><path d="M12 7.5v9M7.5 12h9" stroke="#fff" stroke-width="2.2"/></svg>${l}</a>`
+    : `<a href="#/${k}" ${tabActive === k ? 'aria-current="page"' : ""}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>${l}</a>`).join("");
   $("#brandName").textContent = (S.company.name || "Awards USA").replace(/\s+LLC$/i, "");
   $("#storageNote").textContent = syncText();
 }
@@ -733,7 +789,9 @@ let BLANK_FIXED = false;
 function fixBlankLines(){ if (BLANK_FIXED || writeBlocked || !S.invoices.length) return; BLANK_FIXED = true;
   const blank = l => (l.itemId === "__new" || !l.itemId) && !l.desc && !(+l.rate) && l.pct === undefined;
   ["invoices","estimates"].forEach(col => (S[col] || []).forEach(d => { if ((d.lines || []).some(blank) && d.lines.some(l => !blank(l))) setTimeout(() => put(col, {...clone(d), lines:d.lines.filter(l => !blank(l))}), 500); })); }
+let FIRST_RENDER = true;
 function render(){
+  if (FIRST_RENDER) { FIRST_RENDER = false; try { const lp = JSON.parse(localStorage.getItem("aub-last-page") || "null"); if (lp && lp.h && lp.h !== "#/home" && (!location.hash || location.hash === "#/home" || location.hash === "#/") && Date.now() - lp.at < 12 * 3600e3) history.replaceState(null, "", lp.h); } catch(e) {} setTimeout(sheetDraftRestore, 600); }
   try { maybeAutoCal(); } catch(e) {}
   try { fixBlankLines(); } catch(e) {}
   const {view, id} = route();
@@ -753,7 +811,7 @@ function render(){
     try { el.setSelectionRange(pos, focused.s == null ? pos : Math.max(pos, Math.min(focused.e + ((el.value || "").length - focused.len), (el.value || "").length))); }
     catch(e) { try { const ty = el.type; el.type = "text"; el.setSelectionRange(pos, pos); el.type = ty; } catch(e2) {} } } }
 }
-window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); });
+window.addEventListener("hashchange", () => { try { localStorage.setItem("aub-last-page", JSON.stringify({h:location.hash, at:Date.now()})); } catch(e) {} render(); window.scrollTo(0, 0); const m = $("#main"); if (m) { m.classList.remove("fadein"); void m.offsetWidth; m.classList.add("fadein"); } });
 
 const opts = (list, sel, blank) => (blank != null ? `<option value="">${esc(blank)}</option>` : "") + list.map(([v, l]) => `<option value="${esc(v)}" ${String(v) === String(sel ?? "") ? "selected" : ""}>${esc(l)}</option>`).join("");
 const sortedAccts = pred => S.accounts.filter(pred || (() => true)).sort((a, b) => (TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)) || String(a.number || a.name).localeCompare(String(b.number || b.name), undefined, {numeric:true}));
@@ -765,11 +823,38 @@ const statusBadge = s => s === "paid" ? '<span class="badge good">Paid</span>' :
 function openSheet(title, html, narrow){
   $("#sheetTitle").textContent = title; $("#sheetBody").innerHTML = html;
   $("#sheetCard").classList.toggle("narrow", !!narrow);
-  $("#sheet").hidden = false; document.body.style.overflow = "hidden";
+  $("#sheet").hidden = false; document.body.style.overflow = "hidden"; lockScroll(true); $("#sheet").scrollTop = 0; setTimeout(sheetDraftSave, 500);
   const f = $("#sheetBody input:not([type=hidden]):not([type=checkbox]), #sheetBody select, #sheetBody textarea");
   if (f && window.matchMedia("(min-width:861px)").matches) f.focus();
 }
-function closeSheet(){ if (CE) { ceSave(); CE = null; } $("#sheet").hidden = true; $("#sheetBody").innerHTML = ""; document.body.style.overflow = ""; }
+/* ----- keep open forms open (even if the phone closes the app) until Close / Cancel / Save ----- */
+const DRAFT_KEY = "aub-open-form", NO_DRAFT = new Set(["bankimport","orderIn","attExpense","campAI","autoCat","acctPack","catPick"]);
+let draftTimer = null, DRAFT_RESTORED = false;
+function sheetDraftSave(){ clearTimeout(draftTimer); if ($("#sheet").hidden) return; const body = $("#sheetBody"), f = body.querySelector("form[data-form]"); if (!f || NO_DRAFT.has(f.dataset.form)) return;
+  try {
+    if (f.dataset.form === "cardEntry") { localStorage.setItem(DRAFT_KEY, JSON.stringify({type:"ce", card:f.dataset.card, at:Date.now()})); return; }
+    body.querySelectorAll("input,textarea,select").forEach(el => { if (el.type === "checkbox" || el.type === "radio") { if (el.checked) el.setAttribute("checked", ""); else el.removeAttribute("checked"); }
+      else if (el.tagName === "SELECT") [...el.options].forEach(o => o.selected ? o.setAttribute("selected", "") : o.removeAttribute("selected"));
+      else if (el.tagName === "TEXTAREA") el.textContent = el.value; else if (el.type !== "file" && el.type !== "password") el.setAttribute("value", el.value); });
+    const clone2 = body.cloneNode(true); clone2.querySelectorAll("[data-nodraft]").forEach(x => x.remove());
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({type:"html", title:$("#sheetTitle").textContent, narrow:$("#sheetCard").classList.contains("narrow"), html:clone2.innerHTML, at:Date.now()}));
+  } catch(e) {} }
+function sheetDraftSoon(){ clearTimeout(draftTimer); draftTimer = setTimeout(sheetDraftSave, 400); }
+function sheetDraftClear(){ clearTimeout(draftTimer); try { localStorage.removeItem(DRAFT_KEY); } catch(e) {} }
+function sheetDraftRestore(){ if (DRAFT_RESTORED) return; DRAFT_RESTORED = true; let d = null; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch(e) {}
+  if (!d || Date.now() - (d.at || 0) > 14 * 864e5 || !$("#sheet").hidden) return;
+  if (d.type === "ce") { if (byId("accounts", d.card)) cardEntryForm(d.card); return; }
+  if (d.type !== "html" || !d.html) return;
+  openSheet(d.title || "", d.html, d.narrow);
+  const f = $("#sheetBody form"); if (f && $(".lines", f)) try { recalc(f); } catch(e) {}
+  $("#sheetBody").insertAdjacentHTML("afterbegin", `<div class="notice" data-nodraft style="margin-top:0">Picked up where you left off. Nothing is lost until you press Close, Cancel or Save.</div>`); }
+document.addEventListener("input", e => { if (e.target.closest && e.target.closest("#sheetBody")) sheetDraftSoon(); }, true);
+document.addEventListener("change", e => { if (e.target.closest && e.target.closest("#sheetBody")) sheetDraftSoon(); }, true);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") sheetDraftSave(); });
+window.addEventListener("pagehide", () => sheetDraftSave());
+function lockScroll(on){ const b = document.body; if (on) { if (b.dataset.lockY) return; const y = window.scrollY; b.dataset.lockY = String(y); b.style.position = "fixed"; b.style.top = -y + "px"; b.style.left = "0"; b.style.right = "0"; }
+  else if (b.dataset.lockY !== undefined) { const y = +b.dataset.lockY || 0; delete b.dataset.lockY; b.style.position = ""; b.style.top = ""; b.style.left = ""; b.style.right = ""; window.scrollTo(0, y); } }
+function closeSheet(){ sheetDraftClear(); if (CE) { ceSave(); CE = null; } $("#sheet").hidden = true; $("#sheetBody").innerHTML = ""; document.body.style.overflow = ""; lockScroll(false); }
 let confirmCb = null;
 function confirmBox(msg, label, cb){
   confirmCb = cb;
@@ -1432,6 +1517,7 @@ const HELP = [
   ["How do I file my Colorado and Lakewood sales tax?", `On <b>Taxes</b>, each sales tax return has <b>Filing sheet: PDF / Excel</b>. It lists, line by line, what that return asks for, using your invoices for that month. The Colorado sheet follows the DR 0100 lines and the State, RTD/CD and County columns. The Lakewood sheet follows the city's return lines. Open the return on Revenue Online or Lakewood Business Pro and type in the numbers. The Excel version also lists every invoice in the period. (Colorado's XML and spreadsheet upload options only accept files from state-approved software, so typing in the numbers is the way to go for one location.)`],
   ["A number on my tax return is wrong. How do I fix it?", `On <b>Taxes</b>, tap <b>Review &amp; edit numbers</b> on that return. Every number starts with what your invoices say: gross sales, deductions, each tax rate and the tax you collected. Change anything that's wrong and the totals update as you type. Save, and the filing sheet (PDF/Excel) and the Colorado XML use your numbers. The return shows an <b>Edited</b> badge. To undo, open it again and tap <b>Go back to the numbers from my invoices</b>. To change your account, license or location numbers, use <b>Tax account numbers</b> at the top of Taxes (the <b>Edit</b> button).`],
   ["How do I download all my taxes as a PDF or Excel file?", `<b>Taxes</b> → <b>Download tax report (PDF / Excel)</b>. Pick the period (this year, last year, a quarter, a month, or your own dates) and tap <b>Download PDF</b> or <b>Download Excel</b>. The file has: sales tax by month and by invoice (Colorado DOR and Lakewood separately), what you've paid and still owe, the income tax estimate, profit and loss, deadlines, plus payroll and 1099 contractors if you have them. The Excel file has a separate tab for each part, with totals that update if you change a number.`],
+  ["If I leave the app in the middle of something, do I lose it?", `No. Anything you have open (an invoice, a payment, an expense…) stays open until you press <b>Close</b>, <b>Cancel</b> or <b>Save</b>, even if you switch apps, lock your phone, or the phone closes the app. When you come back it says "Picked up where you left off". Tapping outside a form no longer closes it by accident. The app also reopens on the page you were last on.`],
   ["What's the fastest way to put in my credit card charges?", `<b>Expenses → Credit card → Type in charges from my statement</b>. Go down your statement: tap a category like <b>Gas</b>, type the <b>date</b> and <b>amount</b>, press <b>Enter</b>, and type the next gas charge. Each category keeps its own running total (for example "Gas · 5 charges · $212.40"), and the bottom shows the total of everything. Type your statement total to see what's left to enter. "Where" is optional; if you fill it in, the app learns it for next time. If a charge already looks like it's in your books, it tells you. Closed it halfway? It picks up where you left off.`],
   ["Square (or a card app) took a fee. How do I record the deposit?", `Square keeps its cut and sends the rest to your bank, so the deposit is a little less than the invoice. The invoice is still paid in full; the difference is a business expense.<ul><li><b>Easiest:</b> record the payment as usual (method <b>Square</b>), then bring in your bank statement on <b>Banking</b>. The app spots the smaller Square deposit, matches it to the payment and records the fee under <b>Bank & Card Fees</b> by itself.</li><li><b>On the bank line:</b> if a Square deposit is waiting for review, tap the button that says <b>Payment from … · fee $…</b> (or <b>Square payment for #…</b> if you never recorded the payment).</li><li><b>By hand:</b> in <b>Receive payment</b>, pick method Square and type the <b>Amount that reached the bank</b> (or the fee). The app works out the other.</li></ul>Already saved a payment without the fee? Open it (customer page → Payments), type the fee, and save.`],
   ["How do I bring in my Navy Federal statements (PDF)?", `Go to <b>Banking</b> and drag the statement PDF onto the box that says "Drop Navy Federal statements here" (or tap it to pick files). You can drop several at once. The app:<ol><li>Reads every line and checks that they add up to the statement's beginning and ending balance.</li><li>Puts a checking statement into checking and a card statement into the credit card automatically.</li><li>Matches lines to things already in your books, records deposits that match an invoice from that customer, and sorts merchants it has learned.</li><li>Balances against the statement and shows <b>Everything is in order ✓</b>, or exactly what still needs you.</li></ol>`],
@@ -4096,6 +4182,9 @@ const ACT = {
   btToggle(el){ const box = el.closest("[data-billto]"), ed = box.querySelector("[data-bt-edit]"), open = ed.hidden; ed.hidden = !open; box.dataset.open = open ? "1" : ""; el.textContent = open ? "Done" : "Change bill to / contact"; el.setAttribute("aria-expanded", open); if (open) box.querySelector("[name=btContact]").focus(); },
   btReset(el){ const f = el.closest("form"), box = el.closest("[data-billto]"); f._bt = {}; box.dataset.open = "1"; renderBillTo(f); toast("Back to the account's usual bill to"); },
   cardEntry: el => cardEntryForm(el.dataset.id),
+  quickAdd(){ const q = [["newInvoice","New invoice","Bill a customer"],["receivePayment","Receive payment","Check, Square, Venmo…"],["cardEntry","Card charges","Type in from your statement"],["newExpense","Check or expense","Something you paid"],["newCustomer","New customer","Add a customer"],["newEstimate","New estimate","Quote a job"],["go:prices","Look up a price","What did I charge?"],["newTrip","Log a trip","Business miles"]];
+    openSheet("Add something", `<div class="qa-list">${q.map(([a, t, d]) => a.startsWith("go:") ? `<button type="button" data-act="qaGo" data-to="${a.slice(3)}"><b>${t}</b><span>${d}</span></button>` : `<button type="button" data-act="${a}"><b>${t}</b><span>${d}</span></button>`).join("")}</div>`, true); },
+  qaGo(el){ closeSheet(); go(el.dataset.to); },
   async setItemPrice(el){ const it = byId("items", el.dataset.id); if (!it) return; await put("items", {...clone(it), price:r2(+el.dataset.v)}); toast(it.name + " now defaults to " + money(+el.dataset.v)); },
   async setItemPriceOther(el){ const it = byId("items", el.dataset.id), inp = el.parentElement.querySelector("[data-price-other]"), v = parseFloat(String(inp && inp.value || "").replace(/[$,\s]/g, "")); if (!it || !(v > 0)) { toast("Type a price first."); return; } await put("items", {...clone(it), price:r2(v)}); toast(it.name + " now defaults to " + money(v)); },
   mailTplReset(){ confirmBox("Go back to the standard invoice email wording?", "Use standard wording", async () => { await saveCompany({invMailTpl:null}); toast("Back to the standard wording"); }); },
@@ -4435,7 +4524,7 @@ document.addEventListener("click", e => {
   const a = e.target.closest("[data-act]");
   if (a && ACT[a.dataset.act] && !(a.tagName === "INPUT" && a.type === "checkbox")) { e.preventDefault(); e.stopPropagation(); ACT[a.dataset.act](a); return; }
   const row = e.target.closest("tr[data-href]"); if (row) { location.hash = row.dataset.href; }
-  if (e.target === $("#sheet")) closeSheet();
+  if (e.target === $("#sheet")) { if ($("#sheetBody form")) toast("Your work stays open. Press Close or Cancel when you're done."); else closeSheet(); }
 });
 document.addEventListener("toggle", e => { const d = e.target; if (d && d.dataset && d.dataset.pkey) { UI.priceOpen = UI.priceOpen || {}; if (d.open) { if (!UI.priceOpen[d.dataset.pkey]) { UI.priceOpen[d.dataset.pkey] = 1; render(); } } else delete UI.priceOpen[d.dataset.pkey]; } }, true);
 document.addEventListener("keydown", e => {
@@ -4444,7 +4533,7 @@ document.addEventListener("keydown", e => {
     if (f === "date") { row.querySelector("[data-ce=amt]").focus(); row.querySelector("[data-ce=amt]").select(); return; }
     const bk = CE.buckets[b]; if (rr < bk.rows.length - 1) { const nx = $(`#sheetBody .ce-row[data-b="${b}"][data-r="${rr + 1}"] [data-ce=date]`); if (nx) nx.focus(); return; }
     if (ceAmt(bk.rows[rr].amt)) ceAddRow(b); return; }
-  if (e.key === "Enter" && e.target.dataset && e.target.dataset.ceStmt !== undefined) { e.preventDefault(); return; } if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); if (e.key === "Enter" && e.target.matches("tr[data-href]")) location.hash = e.target.dataset.href; });
+  if (e.key === "Enter" && e.target.dataset && e.target.dataset.ceStmt !== undefined) { e.preventDefault(); return; } if (e.key === "Escape" && !$("#sheet").hidden && !$("#sheetBody form")) closeSheet(); if (e.key === "Enter" && e.target.matches("tr[data-href]")) location.hash = e.target.dataset.href; });
 document.addEventListener("toggle", e => { const t = e.target; if (t.dataset && t.dataset.actToggle === "balFull") UI.balFull = t.open; }, true);
 document.addEventListener("change", e => { const t = e.target; if (!t.dataset) return;
   if (t.dataset.cardCat !== undefined) { cardQuickCat(t); return; }
