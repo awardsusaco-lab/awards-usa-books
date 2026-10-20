@@ -521,7 +521,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "7f0ba7dc5e";
+const APP_BUILD = "d8920bc755";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -835,7 +835,7 @@ function render(){
     try { el.setSelectionRange(pos, focused.s == null ? pos : Math.max(pos, Math.min(focused.e + ((el.value || "").length - focused.len), (el.value || "").length))); }
     catch(e) { try { const ty = el.type; el.type = "text"; el.setSelectionRange(pos, pos); el.type = ty; } catch(e2) {} } } }
 }
-window.addEventListener("hashchange", () => { try { localStorage.setItem("aub-last-page", JSON.stringify({h:location.hash, at:Date.now()})); } catch(e) {} render(); window.scrollTo(0, 0); const m = $("#main"); if (m) { m.classList.remove("fadein"); void m.offsetWidth; m.classList.add("fadein"); } });
+window.addEventListener("hashchange", () => { UI.showSales = false; try { localStorage.setItem("aub-last-page", JSON.stringify({h:location.hash, at:Date.now()})); } catch(e) {} render(); window.scrollTo(0, 0); const m = $("#main"); if (m) { m.classList.remove("fadein"); void m.offsetWidth; m.classList.add("fadein"); } });
 
 const opts = (list, sel, blank) => (blank != null ? `<option value="">${esc(blank)}</option>` : "") + list.map(([v, l]) => `<option value="${esc(v)}" ${String(v) === String(sel ?? "") ? "selected" : ""}>${esc(l)}</option>`).join("");
 const sortedAccts = pred => S.accounts.filter(pred || (() => true)).sort((a, b) => (TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)) || String(a.number || a.name).localeCompare(String(b.number || b.name), undefined, {numeric:true}));
@@ -874,7 +874,7 @@ function sheetDraftRestore(){ if (DRAFT_RESTORED) return; DRAFT_RESTORED = true;
   $("#sheetBody").insertAdjacentHTML("afterbegin", `<div class="notice" data-nodraft style="margin-top:0">Picked up where you left off. Nothing is lost until you press Close, Cancel or Save.</div>`); }
 document.addEventListener("input", e => { if (e.target.closest && e.target.closest("#sheetBody")) sheetDraftSoon(); }, true);
 document.addEventListener("change", e => { if (e.target.closest && e.target.closest("#sheetBody")) sheetDraftSoon(); }, true);
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") sheetDraftSave(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { sheetDraftSave(); if (UI.showSales) { UI.showSales = false; render(); } } });
 window.addEventListener("pagehide", () => sheetDraftSave());
 function lockScroll(on){ const b = document.body; if (on) { if (b.dataset.lockY) return; const y = window.scrollY; b.dataset.lockY = String(y); b.style.position = "fixed"; b.style.top = -y + "px"; b.style.left = "0"; b.style.right = "0"; }
   else if (b.dataset.lockY !== undefined) { const y = +b.dataset.lockY || 0; delete b.dataset.lockY; b.style.position = ""; b.style.top = ""; b.style.left = ""; b.style.right = ""; window.scrollTo(0, y); } }
@@ -1069,7 +1069,7 @@ VIEWS.home = () => {
   return `
   <div class="pagehead"><div><h1>Good ${hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"}</h1><p>${new Date().toLocaleDateString("en-US", {weekday:"long", month:"long", day:"numeric"})}</p></div>
     <div class="actions"><button class="btn primary" data-act="newInvoice">New invoice</button><button class="btn" data-act="receivePayment">Receive payment</button>${MCP ? `<button class="btn" data-act="checkMyEmail">Check my email</button>` : ""}<button class="btn" data-act="newBill">Enter bill</button><button class="btn" data-act="newCustomer">New customer</button><button class="btn" data-act="newTrip">Log a trip</button>${MCP ? `<button class="btn" data-act="calSyncNow" ${UI.calBusy ? "disabled" : ""}>${UI.calBusy ? "Syncing calendar…" : "Sync to Google Calendar"}</button>` : ""}</div></div>
-  <div class="ledger"><div><span>Cash in bank <a href="#/balance" class="small" style="font-weight:400">Balance</a></span><b>${money(cash)}</b></div><div><span>Customers owe you</span><b>${money(ar)}</b></div><div><span>You owe vendors</span><b>${money(ap)}</b></div><div><span>${({month:"Sales this month", year:"Sales this year", last:"Sales last year"})[salesPer]} <span class="small" style="font-weight:400">${["month","year","last"].filter(k => k !== salesPer).map(k => `<a href="#" data-act="salesPer" data-v="${k}">${({month:"month", year:"year", last:"last yr"})[k]}</a>`).join(" · ")}</span></span><b>${money(salesPer === "month" ? monthSales : salesPer === "year" ? yearSales : lastYearSales)}</b>${salesPer !== "month" ? `<span class="small" style="margin-top:2px">${salesPer === "year" ? "Jan 1 to today, before expenses" : "All of " + (+t.slice(0, 4) - 1)}</span>` : ""}</div></div>
+  <div class="ledger"><div><span>Cash in bank <a href="#/balance" class="small" style="font-weight:400">Balance</a></span><b>${money(cash)}</b></div><div><span>Customers owe you</span><b>${money(ar)}</b></div><div><span>You owe vendors</span><b>${money(ap)}</b></div><div><span>${({month:"Sales this month", year:"Sales this year", last:"Sales last year"})[salesPer]} <span class="small" style="font-weight:400">${["month","year","last"].filter(k => k !== salesPer).map(k => `<a href="#" data-act="salesPer" data-v="${k}">${({month:"month", year:"year", last:"last yr"})[k]}</a>`).join(" · ")}</span></span>${UI.showSales ? `<b>${money(salesPer === "month" ? monthSales : salesPer === "year" ? yearSales : lastYearSales)}</b><div><button type="button" class="btn small" data-act="salesHide" style="margin-top:6px">Hide</button></div>` : `<button type="button" class="btn small" data-act="salesShow" style="margin-top:8px" aria-label="Show sales amount">👁 Show amount</button>`}${salesPer !== "month" ? `<span class="small" style="margin-top:2px">${salesPer === "year" ? "Jan 1 to today, before expenses" : "All of " + (+t.slice(0, 4) - 1)}</span>` : ""}</div></div>
   ${board}
   <div class="grid2">
     <section class="panel"><div class="panel-head"><h2>To do</h2><button class="btn small" data-act="newFollowup">Add follow-up</button></div>
@@ -4256,6 +4256,8 @@ const ACT = {
   btToggle(el){ const box = el.closest("[data-billto]"), ed = box.querySelector("[data-bt-edit]"), open = ed.hidden; ed.hidden = !open; box.dataset.open = open ? "1" : ""; el.textContent = open ? "Done" : "Change bill to / contact"; el.setAttribute("aria-expanded", open); if (open) box.querySelector("[name=btContact]").focus(); },
   btReset(el){ const f = el.closest("form"), box = el.closest("[data-billto]"); f._bt = {}; box.dataset.open = "1"; renderBillTo(f); toast("Back to the account's usual bill to"); },
   cardEntry: el => cardEntryForm(el.dataset.id),
+  salesShow(){ UI.showSales = true; clearTimeout(window._salesHideT); window._salesHideT = setTimeout(() => { UI.showSales = false; render(); }, 20000); render(); },
+  salesHide(){ UI.showSales = false; clearTimeout(window._salesHideT); render(); },
   salesPer(el){ try { localStorage.setItem("aub-sales-per", el.dataset.v); } catch(e) {} render(); },
   openSearch(){ openSearch(); },
   productView(el){ productView(el.dataset.key); },
