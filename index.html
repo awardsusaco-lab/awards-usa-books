@@ -69,7 +69,7 @@ img{max-width:100%}
 .gs-row .t{font-weight:600}.gs-row .s{font-size:13px;color:var(--muted)}.gs-row .r{margin-left:auto;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .gs-row mark{background:color-mix(in srgb, var(--brass,#a07a2f) 28%, transparent);color:inherit;border-radius:3px;padding:0 1px}
 @media (max-width:860px){.fab-search{display:flex;position:fixed;right:14px;top:calc(10px + env(safe-area-inset-top,0px));z-index:35;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.12)}
-  .pagehead{padding-right:52px}}
+  .pagehead{padding-right:52px} .gnote{padding-right:58px}}
 .side a[aria-current="page"]{background:rgba(255,255,255,.08)}
 .side a[aria-current="page"]::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:6px;background:var(--brass);clip-path:polygon(0 0,100% 0,100% 100%,0 100%,0 0);border-radius:0 2px 2px 0}
 .side .storage{margin:18px 22px 0;font-size:12.5px;color:var(--side-muted)}
@@ -520,6 +520,16 @@ setInterval(() => { if (GAuth.valid()) GSync.run(); else GSync.status(); }, 90e3
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && GAuth.valid()) GSync.run(); });
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+/* ----- tell the user when a newer version of the app has been published ----- */
+const APP_BUILD = "7f0ba7dc5e";
+async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
+function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
+  d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
+  d.innerHTML = '<span>A new version of the app is ready.</span><button type="button" style="background:#fff;color:#1D3A5E;border:0;border-radius:8px;padding:8px 12px;font:inherit;font-weight:700;cursor:pointer">Update now</button>';
+  d.querySelector("button").onclick = () => { try { if (typeof sheetDraftSave === "function") sheetDraftSave(); } catch(e) {} location.replace(location.pathname + "?v=" + v + location.hash); };
+  document.body.appendChild(d); }
+setTimeout(checkAppUpdate, 4000); setInterval(checkAppUpdate, 20 * 60e3);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkAppUpdate(); });
 
 </script>
 <script>
@@ -724,8 +734,10 @@ function journal(){
     const t = invTotals(inv), nm = custName(inv.customerId), src = "Invoice #" + inv.num;
     add(inv.date, SYS.AR, t.total, src, inv.id, nm);
     for (const l of inv.lines || []) {
-      const it = byId("items", l.itemId), amt = r2((+l.qty||0) * (+l.rate||0));
-      add(inv.date, it?.incomeAcct || l.acct || SYS.SALES, -amt, src, inv.id, nm, l.desc);
+      const it = byId("items", l.itemId), amt = r2((+l.qty||0) * (+l.rate||0)), opening = l.acct === SYS.OBE;
+      // lines marked "opening balance" were already in the QuickBooks year-to-date totals, so they must not count as sales (or use up stock) again
+      add(inv.date, opening ? SYS.OBE : (it?.incomeAcct || l.acct || SYS.SALES), -amt, src, inv.id, nm, l.desc);
+      if (opening) continue;
       if (it && it.type === "kit") for (const p of it.parts || []) { const c0 = byId("items", p.itemId); if (c0 && c0.type === "inventory" && +c0.cost) { const c = (+l.qty||0) * (+p.qty||0) * c0.cost; add(inv.date, SYS.COGS, c, src, inv.id, nm, c0.name); add(inv.date, SYS.INV, -c, src, inv.id, nm, c0.name); } }
       if (it && it.type === "inventory" && +it.cost) { const c = (+l.qty||0) * it.cost; add(inv.date, SYS.COGS, c, src, inv.id, nm, it.name); add(inv.date, SYS.INV, -c, src, inv.id, nm, it.name); }
     }
@@ -1026,6 +1038,9 @@ VIEWS.home = () => {
   const ap = S.bills.reduce((s, b) => s + Math.max(0, billBalance(b)), 0);
   const mStart = t.slice(0, 8) + "01", mb = balances(mStart, t);
   const incIds = new Set(S.accounts.filter(a => a.type === "income").map(a => a.id)), qbOpen = new Set(S.journals.filter(j => /^je-qb-opening/.test(j.id) || /from QuickBooks/i.test(j.memo || "")).map(j => j.id));
+  const salesPer = (() => { try { return localStorage.getItem("aub-sales-per") || "year"; } catch(e) { return "year"; } })();
+  const yearSales = -journal().filter(l => incIds.has(l.acct) && l.date >= t.slice(0, 4) + "-01-01" && l.date <= t).reduce((s, l) => s + l.amt, 0);
+  const lastYearSales = -journal().filter(l => incIds.has(l.acct) && l.date >= (+t.slice(0, 4) - 1) + "-01-01" && l.date <= (+t.slice(0, 4) - 1) + "-12-31").reduce((s, l) => s + l.amt, 0);
   const monthSales = -journal().filter(l => incIds.has(l.acct) && l.date >= t.slice(0, 7) + "-01" && l.date <= t && !(l.src === "Journal entry" && qbOpen.has(l.srcId))).reduce((s, l) => s + l.amt, 0);
   const fu = S.followups.filter(f => !f.done && f.due <= addDays(t, 2)).sort((a, b) => a.due < b.due ? -1 : 1);
   const overdue = openInv.filter(i => invStatus(i) === "overdue").sort((a, b) => a.due < b.due ? -1 : 1);
@@ -1054,7 +1069,7 @@ VIEWS.home = () => {
   return `
   <div class="pagehead"><div><h1>Good ${hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"}</h1><p>${new Date().toLocaleDateString("en-US", {weekday:"long", month:"long", day:"numeric"})}</p></div>
     <div class="actions"><button class="btn primary" data-act="newInvoice">New invoice</button><button class="btn" data-act="receivePayment">Receive payment</button>${MCP ? `<button class="btn" data-act="checkMyEmail">Check my email</button>` : ""}<button class="btn" data-act="newBill">Enter bill</button><button class="btn" data-act="newCustomer">New customer</button><button class="btn" data-act="newTrip">Log a trip</button>${MCP ? `<button class="btn" data-act="calSyncNow" ${UI.calBusy ? "disabled" : ""}>${UI.calBusy ? "Syncing calendar…" : "Sync to Google Calendar"}</button>` : ""}</div></div>
-  <div class="ledger"><div><span>Cash in bank <a href="#/balance" class="small" style="font-weight:400">Balance</a></span><b>${money(cash)}</b></div><div><span>Customers owe you</span><b>${money(ar)}</b></div><div><span>You owe vendors</span><b>${money(ap)}</b></div><div><span>Sales this month</span><b>${money(monthSales)}</b></div></div>
+  <div class="ledger"><div><span>Cash in bank <a href="#/balance" class="small" style="font-weight:400">Balance</a></span><b>${money(cash)}</b></div><div><span>Customers owe you</span><b>${money(ar)}</b></div><div><span>You owe vendors</span><b>${money(ap)}</b></div><div><span>${({month:"Sales this month", year:"Sales this year", last:"Sales last year"})[salesPer]} <span class="small" style="font-weight:400">${["month","year","last"].filter(k => k !== salesPer).map(k => `<a href="#" data-act="salesPer" data-v="${k}">${({month:"month", year:"year", last:"last yr"})[k]}</a>`).join(" · ")}</span></span><b>${money(salesPer === "month" ? monthSales : salesPer === "year" ? yearSales : lastYearSales)}</b>${salesPer !== "month" ? `<span class="small" style="margin-top:2px">${salesPer === "year" ? "Jan 1 to today, before expenses" : "All of " + (+t.slice(0, 4) - 1)}</span>` : ""}</div></div>
   ${board}
   <div class="grid2">
     <section class="panel"><div class="panel-head"><h2>To do</h2><button class="btn small" data-act="newFollowup">Add follow-up</button></div>
@@ -4241,6 +4256,7 @@ const ACT = {
   btToggle(el){ const box = el.closest("[data-billto]"), ed = box.querySelector("[data-bt-edit]"), open = ed.hidden; ed.hidden = !open; box.dataset.open = open ? "1" : ""; el.textContent = open ? "Done" : "Change bill to / contact"; el.setAttribute("aria-expanded", open); if (open) box.querySelector("[name=btContact]").focus(); },
   btReset(el){ const f = el.closest("form"), box = el.closest("[data-billto]"); f._bt = {}; box.dataset.open = "1"; renderBillTo(f); toast("Back to the account's usual bill to"); },
   cardEntry: el => cardEntryForm(el.dataset.id),
+  salesPer(el){ try { localStorage.setItem("aub-sales-per", el.dataset.v); } catch(e) {} render(); },
   openSearch(){ openSearch(); },
   productView(el){ productView(el.dataset.key); },
   productAllSales(el){ closeSheet(); UI.q = UI.q || {}; UI.q.prices = el.dataset.name; UI.priceOpen = {[el.dataset.key]:1}; UI.filter.priceRange = "all"; UI.filter.priceCust = ""; go("prices"); },
