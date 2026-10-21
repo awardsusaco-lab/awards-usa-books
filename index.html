@@ -521,7 +521,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "d8920bc755";
+const APP_BUILD = "45326ac940";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -1195,6 +1195,7 @@ VIEWS.estimate = id => {
   return `<a class="back" href="#/estimates">‹ Estimates</a>
   <div class="pagehead"><div><h1>Estimate #${esc(e.num)}</h1><p>${esc(custName(e.customerId))} ${estBadge(e)}</p></div>
   <div class="actions">${st === "invoiced" ? (e.invoiceId ? `<a class="btn" href="#/invoice/${e.invoiceId}">View invoice</a>` : "") : `<button class="btn primary" data-act="estToInvoice" data-id="${id}">Turn into invoice</button>`}${st === "open" ? `<button class="btn" data-act="estStatus" data-id="${id}" data-val="accepted">Mark accepted</button><button class="btn" data-act="estStatus" data-id="${id}" data-val="declined">Mark declined</button>` : ""}<button class="btn" data-act="editEstimate" data-id="${id}">Edit</button><button class="btn" data-act="pdfEstimate" data-id="${id}">Save PDF</button><button class="btn" data-act="printDoc" data-id="${id}" data-kind="estimate">Print</button></div></div>
+  ${privNoteBox(e, "editEstimate")}
   ${invoiceDoc(e, false, "estimate")}`;
 };
 VIEWS.payments = () => {
@@ -1224,6 +1225,7 @@ function invoiceDoc(inv, standalone, kind){
     ${kind !== "estimate" && invBalance(inv) > 0.004 && payLinksFor([inv]).length ? `<div style="margin-top:18px;padding:10px 12px;border:1px solid var(--line);border-radius:8px"><b>Pay online</b><div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:4px">${payLinksFor([inv]).map(x => x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.label)}</a>${x.note ? ` <span class="small muted">${esc(x.note)}</span>` : ""}` : `<span>${esc(x.label)}: ${esc(x.text)}</span>`).join("")}</div></div>` : ""}
     ${inv.memo ? `<p class="pre" style="margin-top:18px">${esc(inv.memo)}</p>` : ""}${co.footer && co.footer.trim() !== (inv.memo || "").trim() ? `<p class="muted" style="margin-top:18px">${esc(co.footer)}</p>` : ""}</div>`;
 }
+const privNoteBox = (d, act) => d.privNote ? `<section class="panel noprint" style="margin-bottom:14px;padding:12px 16px;border-left:4px solid var(--brass, #b08d57)"><div class="small muted" style="margin-bottom:4px">🔒 Notes for me <span>(only you see this)</span> <button class="linkbtn small" data-act="${act}" data-id="${d.id}" style="margin-left:6px">Edit</button></div><div class="pre">${esc(d.privNote)}</div></section>` : "";
 VIEWS.invoice = id => {
   const inv = byId("invoices", id);
   if (!inv) return `<a class="back" href="#/sales">‹ Sales</a><div class="panel">${empty("This invoice was deleted or hasn't loaded yet.")}</div>`;
@@ -1232,6 +1234,7 @@ VIEWS.invoice = id => {
   <div class="pagehead"><div><h1>Invoice #${esc(inv.num)}</h1><p>${esc(custName(inv.customerId))} ${statusBadge(st)}</p></div>
   <div class="actions">${st !== "paid" ? `<button class="btn primary" data-act="receivePayment" data-customer="${inv.customerId}" data-invoice="${id}">Receive payment</button>` : ""}<button class="btn" data-act="editInvoice" data-id="${id}">Edit</button><button class="btn" data-act="emailInvoice" data-id="${id}">Email invoice</button><button class="btn" data-act="pdfInvoice" data-id="${id}">Save PDF</button><button class="btn" data-act="printDoc" data-id="${id}" data-kind="invoice">Print</button>${st !== "paid" && !inv.emailedAt && !inv.sentAt ? `<button class="btn" data-act="markSent" data-id="${id}">Mark as sent</button>` : ""}${inv.emailedAt || inv.sentAt ? `<button class="btn" data-act="unstamp" data-id="${id}">Remove SENT stamp</button><button class="btn" data-act="wrongSend" data-id="${id}">Email a correction</button>` : ""}<button class="btn" data-act="copyInvoice" data-id="${id}">Duplicate</button><button class="btn" data-act="askReview" data-id="${id}">Ask for review</button></div></div>
   ${jobBar(inv)}
+  ${privNoteBox(inv, "editInvoice")}
   ${invPays(id).length ? `<section class="panel noprint" style="margin-bottom:14px;padding:12px 16px"><div class="panel-head" style="margin-bottom:6px"><h2 style="font-size:17px">Payments</h2></div>${invPays(id).map(p => `<div class="minv" style="flex-wrap:wrap"><span>${fmtDate(p.date)}</span><select aria-label="Paid by" data-act-change="quickPayMethod" data-id="${p.id}" style="width:auto;min-width:150px">${payMethodOpts(p.method)}</select>${p.ref ? `<span class="small muted">#${esc(p.ref)}</span>` : ""}${+p.fee ? `<span class="small muted">fee ${money(p.fee)}</span>` : ""}<b class="num">${money(payOn(p, id))}</b><button class="btn small" data-act="editPayment" data-id="${p.id}">Edit payment</button></div>`).join("")}</section>` : ""}
   ${inv.reviewAskedAt ? `<p class="small muted">Review requested ${fmtDate(inv.reviewAskedAt.slice(0, 10))}.</p>` : ""}
   ${(inv.sendLog || []).length ? `<p class="small muted noprint">${inv.sendLog.map(x => esc(fmtDate(x.at.slice(0, 10)) + ": " + x.what)).join(" · ")}</p>` : ""}${inv.emailedAt ? `<p class="small muted">Emailed to ${esc(inv.emailedTo)}${inv.emailedCc ? " (CC " + esc(inv.emailedCc) + ")" : ""} on ${fmtDate(inv.emailedAt.slice(0, 10))}.</p>` : ""}${(inv.emails || []).length ? `<p class="small noprint" style="margin:0 0 10px"><b>Related emails:</b> ${(inv.emails || []).map(x => `<a href="${esc(x.url || "#")}" target="_blank" rel="noopener noreferrer">${esc(x.subject || "email")} (${fmtDate((x.date || "").slice(0, 10))})</a>`).join(" · ")}</p>` : ""}${invoiceDoc(inv)}
@@ -1630,7 +1633,7 @@ function globalSearch(q){ const words = String(q || "").toLowerCase().split(/\s+
   S.items.filter(i => !i.inactive && gsMatch(i.name + " " + (i.desc || "") + " " + (i.sku || ""), words)).forEach(i => { const k = "i:" + i.id; if (!g.has(k)) g.set(k, {key:k, name:i.name, n:0, custs:new Set(), last:null, min:i.price || 0, max:i.price || 0, descs:{}, item:i}); });
   R.products = [...g.values()].map(x => { const d = Object.entries(x.descs).sort((a, b) => b[1] - a[1])[0]; return {...x, sub:d && d[0].toLowerCase().replace(/\W+/g, "") !== String(x.name).toLowerCase().replace(/\W+/g, "") ? d[0] : ""}; }).sort((a, b) => b.n - a.n).slice(0, 12);
   R.customers = S.customers.filter(c => gsMatch([c.name, c.contact, c.email, c.phone, c.type, (c.contacts || []).map(x => x.name + " " + x.email).join(" ")].join(" "), words)).slice(0, 8);
-  R.invoices = S.invoices.filter(i => gsMatch(["#" + i.num, i.num, i.po, custName(i.customerId), (i.lines || []).map(l => l.desc).join(" "), i.memo].join(" "), words)).sort((a, b) => (a.date || "") < (b.date || "") ? 1 : -1).slice(0, 8);
+  R.invoices = S.invoices.filter(i => gsMatch(["#" + i.num, i.num, i.po, custName(i.customerId), (i.lines || []).map(l => l.desc).join(" "), i.memo, i.privNote].join(" "), words)).sort((a, b) => (a.date || "") < (b.date || "") ? 1 : -1).slice(0, 8);
   R.estimates = (S.estimates || []).filter(e => gsMatch(["#" + e.num, e.num, custName(e.customerId), (e.lines || []).map(l => l.desc).join(" ")].join(" "), words)).slice(0, 5);
   R.orders = (S.orders || []).filter(o => gsMatch([custName(o.customerId), o.details, o.title, o.status].join(" "), words)).slice(0, 5);
   R.vendors = S.vendors.filter(v => gsMatch([v.name, v.contact, v.email].join(" "), words)).slice(0, 5);
@@ -3098,7 +3101,7 @@ VIEWS.jobs = () => {
   const done = S.invoices.filter(i => i.jobStatus === "done").sort((a, b) => (b.doneAt || "") > (a.doneAt || "") ? 1 : -1).slice(0, 8);
   return `<div class="pagehead"><div><h1>Sales</h1><p>Every order you're working on, soonest first.</p></div><div class="actions"><button class="btn primary" data-act="newInvoice">New invoice</button></div></div>${salesSeg("jobs")}
   <section class="panel"><div class="list">${list.map(i => { const nxt = JOB[Math.min(JOB.findIndex(j => j[0] === i.jobStatus) + 1, JOB.length - 1)];
-    return `<div class="item" style="cursor:default"><div><a href="#/invoice/${i.id}" class="t" style="color:inherit;text-decoration:none">${esc(custName(i.customerId))} · #${esc(i.num)}</a><div class="s">${esc((i.lines || []).map(l => (l.qty > 1 ? l.qty + " × " : "") + (byId("items", l.itemId)?.name || l.desc)).slice(0, 3).join(", "))}</div><div class="s">${i.neededBy ? dueText(i.neededBy) + " · " + fmtDate(i.neededBy) : "No date set"}</div></div>
+    return `<div class="item" style="cursor:default"><div><a href="#/invoice/${i.id}" class="t" style="color:inherit;text-decoration:none">${esc(custName(i.customerId))} · #${esc(i.num)}</a><div class="s">${esc((i.lines || []).map(l => (l.qty > 1 ? l.qty + " × " : "") + (byId("items", l.itemId)?.name || l.desc)).slice(0, 3).join(", "))}</div>${i.privNote ? `<div class="s pre" style="color:var(--ink, inherit)">🔒 ${esc(i.privNote)}</div>` : ""}<div class="s">${i.neededBy ? dueText(i.neededBy) + " · " + fmtDate(i.neededBy) : "No date set"}</div></div>
     <div class="r"><span class="badge ${i.jobStatus === "ready" ? "good" : i.neededBy && i.neededBy < todayISO() ? "bad" : "brass"}">${jobLabel(i.jobStatus)}</span><div style="margin-top:6px"><button class="btn small" data-act="jobStatus" data-id="${i.id}" data-val="${nxt[0]}">Mark ${esc(nxt[1].toLowerCase())}</button></div></div></div>`; }).join("") || empty("No open jobs. New invoices start here as Not started; add a Needed by date so nothing sneaks up on you.")}</div></section>
   ${done.length ? `<section class="panel"><h2>Recently delivered</h2><div class="list">${done.map(i => `<a class="item" href="#/invoice/${i.id}"><div><div class="t">${esc(custName(i.customerId))} · #${esc(i.num)}</div></div><div class="r"><span class="badge good">Delivered</span></div></a>`).join("")}</div></section>` : ""}`;
 };
@@ -3826,6 +3829,7 @@ function invoiceForm(inv, customerId, kind, fromEstimate){
   </div><div class="priceref" style="margin-top:12px"></div>${S.items.length ? "" : '<p class="small muted">Tip: add items under Inventory so prices and stock fill in automatically.</p>'}
   ${linesBlock("inv", inv.lines)}<div class="totals"></div>
   <label class="f" style="margin-top:12px">Message on ${est ? "estimate" : "invoice"} <span class="small">(change it for a personal note)</span><textarea name="memo">${esc(inv.memo)}</textarea></label>
+  <label class="f" style="margin-top:12px">🔒 Notes for me <span class="small">(private: never shows on the ${est ? "estimate" : "invoice"} or email. What it was for, names on badges, etc.)</span><textarea name="privNote" rows="3" placeholder="e.g. Name badges: Sarah, Mike, Jen · Gold plate, black letters">${esc(inv.privNote || "")}</textarea></label>
   ${est ? "" : `<label class="f" style="margin-top:12px">Payment link for this invoice <span class="small">(optional: paste a Square link made for this amount; otherwise your saved links are used)</span><input name="payLink" type="text" inputmode="url" autocapitalize="off" value="${esc(inv.payLink || "")}" placeholder="https://square.link/u/…"></label>`}
   ${!isNew && !est ? invPayBox(inv) : ""}
   ${foot(isNew ? null : {act:est ? "delEstimate" : "delInvoice", id:inv.id}, isNew ? "Save " + word : "Save changes")}</form>`);
@@ -3962,7 +3966,7 @@ const FORMS = {
     if (!lines.length) return formErr(f, "Add at least one line.");
     if (lines.some(l => !l.itemId && !l.desc)) return formErr(f, "Each line needs an item or a description.");
     let numv = val(f, "num"); if (S.invoices.some(i => i.id !== id && String(i.num) === numv)) { if (id) return formErr(f, "Invoice #" + numv + " already exists. Use a different number."); const nn = nextInvNum(); toast("#" + numv + " was already used, so this is #" + nn); numv = nn; f.elements.num.value = nn; }
-    const inv = {...clone(byId("invoices", id) || {}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due") || addDays(val(f, "date"), termDays(val(f, "terms"))), po:val(f, "po"), neededBy:val(f, "neededBy"), jobStatus:(byId("invoices", id) || {}).jobStatus || "new", taxRate:num(f, "taxRate"), memo:val(f, "memo"), lines};
+    const inv = {...clone(byId("invoices", id) || {}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due") || addDays(val(f, "date"), termDays(val(f, "terms"))), po:val(f, "po"), neededBy:val(f, "neededBy"), jobStatus:(byId("invoices", id) || {}).jobStatus || "new", taxRate:num(f, "taxRate"), memo:val(f, "memo"), privNote:(f.elements.privNote ? f.elements.privNote.value.trim() : ""), lines};
     inv.billTo = await readBillTo(f, inv.customerId); if (!inv.billTo) delete inv.billTo;
     if (payLink !== undefined) { if (payLink) inv.payLink = payLink; else delete inv.payLink; }
     inv.taxParts = Math.abs(inv.taxRate - partsRate(S.company.taxParts)) < 0.0005 ? clone(S.company.taxParts || []) : [];
@@ -3982,7 +3986,7 @@ const FORMS = {
   async estimate(f){ const id = f.dataset.id, lines = readLines(f).map(l => isShipLine(l) ? {...l, taxable:false} : l);
     if (!lines.length) return formErr(f, "Add at least one line.");
     const numv = val(f, "num"); if (S.estimates.some(e => e.id !== id && String(e.num) === numv)) return formErr(f, "Estimate #" + numv + " already exists.");
-    const e = {...clone(byId("estimates", id) || {status:"open"}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due"), po:val(f, "po"), neededBy:val(f, "neededBy"), taxRate:num(f, "taxRate"), memo:val(f, "memo"), lines};
+    const e = {...clone(byId("estimates", id) || {status:"open"}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due"), po:val(f, "po"), neededBy:val(f, "neededBy"), taxRate:num(f, "taxRate"), memo:val(f, "memo"), privNote:(f.elements.privNote ? f.elements.privNote.value.trim() : ""), lines};
     e.billTo = await readBillTo(f, e.customerId); if (!e.billTo) delete e.billTo;
     const nid = await put("estimates", e); await rememberTaxRate(e.customerId, e.taxRate);
     const n = +String(numv).replace(/\D/g, ""); if (!id && n >= +(S.company.nextEstimate || 0)) await saveCompany({nextEstimate:n + 1});
@@ -4430,7 +4434,7 @@ const ACT = {
   editEstimate: el => invoiceForm(clone(byId("estimates", el.dataset.id)), null, "estimate"),
   async estStatus(el){ await put("estimates", {...clone(byId("estimates", el.dataset.id)), status:el.dataset.val}); toast("Estimate marked " + el.dataset.val); },
   estToInvoice(el){ const e = byId("estimates", el.dataset.id), c = byId("customers", e.customerId);
-    invoiceForm({customerId:e.customerId, date:todayISO(), terms:c?.terms || e.terms || "Net 30", num:nextInvNum(), po:e.po, neededBy:e.neededBy || "", jobStatus:"new", taxRate:e.taxRate, memo:e.memo, lines:clone(e.lines || [])}, null, "invoice", e.id); },
+    invoiceForm({customerId:e.customerId, date:todayISO(), terms:c?.terms || e.terms || "Net 30", num:nextInvNum(), po:e.po, neededBy:e.neededBy || "", jobStatus:"new", taxRate:e.taxRate, memo:e.memo, privNote:e.privNote || "", lines:clone(e.lines || [])}, null, "invoice", e.id); },
   delEstimate(el){ confirmBox("Delete this estimate?", "Delete estimate", async () => { await remove("estimates", el.dataset.id); go("estimates"); toast("Estimate deleted"); }); },
   downloadEstimate(el){ const e = byId("estimates", el.dataset.id); saveFile(("Estimate-" + e.num + "-" + custName(e.customerId)).replace(/[^\w-]+/g, "-") + ".html", standaloneDoc("Estimate " + e.num, invoiceDoc(e, true, "estimate"))); },
   statement(el){ const c = byId("customers", el.dataset.id), t = todayISO(), co = S.company;
