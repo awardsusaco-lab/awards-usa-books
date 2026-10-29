@@ -526,7 +526,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "187ab40d5d";
+const APP_BUILD = "e56cfa2b9c";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -794,8 +794,8 @@ const UI = {q:{}, filter:{}};
 function route(){ const h = location.hash.replace(/^#\/?/, ""); const [view, id] = h.split("/"); return {view: view || "home", id: id ? decodeURIComponent(id) : ""}; }
 const go = h => { location.hash = "#/" + h; };
 
-const NAV_ALL = [["home","Home"],["inbox","Inbox"],["customers","Customers"],["email","Email"],["sales","Sales"],["prices","Prices I've charged"],["expenses","Expenses"],["banking","Banking"],["investments","Investments"],["taxes","Taxes"],["pay","Pay"],["inventory","Inventory"],["reports","Reports"],["accounts","Chart of accounts"],["settings","Settings"],["help","Help"]];
-const SECTION = {pos:"inventory", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"sales", estimate:"sales", bills:"expenses", checks:"expenses", card:"expenses", balance:"banking", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
+const NAV_ALL = [["home","Home"],["inbox","Inbox"],["customers","Customers"],["email","Email"],["sales","Sales"],["estimates","Estimates"],["prices","Prices I've charged"],["expenses","Expenses"],["banking","Banking"],["investments","Investments"],["taxes","Taxes"],["pay","Pay"],["inventory","Inventory"],["reports","Reports"],["accounts","Chart of accounts"],["settings","Settings"],["help","Help"]];
+const SECTION = {pos:"inventory", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"estimates", estimate:"estimates", bills:"expenses", checks:"expenses", card:"expenses", balance:"banking", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
 const ICONS = {
   home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   customers:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.8 3.1 2.5 3.5 5.2"/>',
@@ -1073,7 +1073,7 @@ VIEWS.home = () => {
   const hour = new Date().getHours();
   return `
   <div class="pagehead"><div><h1>Good ${hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"}</h1><p>${new Date().toLocaleDateString("en-US", {weekday:"long", month:"long", day:"numeric"})}</p></div>
-    <div class="actions"><button class="btn primary" data-act="newInvoice">New invoice</button><button class="btn" data-act="receivePayment">Receive payment</button>${MCP ? `<button class="btn" data-act="checkMyEmail">Check my email</button>` : ""}<button class="btn" data-act="newBill">Enter bill</button><button class="btn" data-act="newCustomer">New customer</button><button class="btn" data-act="newTrip">Log a trip</button>${MCP ? `<button class="btn" data-act="calSyncNow" ${UI.calBusy ? "disabled" : ""}>${UI.calBusy ? "Syncing calendar…" : "Sync to Google Calendar"}</button>` : ""}</div></div>
+    <div class="actions"><button class="btn primary" data-act="newInvoice">New invoice</button><button class="btn primary" data-act="newEstimate">New estimate</button><button class="btn" data-act="receivePayment">Receive payment</button>${MCP ? `<button class="btn" data-act="checkMyEmail">Check my email</button>` : ""}<button class="btn" data-act="newBill">Enter bill</button><button class="btn" data-act="newCustomer">New customer</button><button class="btn" data-act="newTrip">Log a trip</button>${MCP ? `<button class="btn" data-act="calSyncNow" ${UI.calBusy ? "disabled" : ""}>${UI.calBusy ? "Syncing calendar…" : "Sync to Google Calendar"}</button>` : ""}</div></div>
   <div class="ledger"><div><span>Cash in bank <a href="#/balance" class="small" style="font-weight:400">Balance</a></span><b>${money(cash)}</b></div><div><span>Customers owe you</span><b>${money(ar)}</b></div><div><span>You owe vendors</span><b>${money(ap)}</b></div><div><span>${({month:"Sales this month", year:"Sales this year", last:"Sales last year"})[salesPer]} <span class="small" style="font-weight:400">${["month","year","last"].filter(k => k !== salesPer).map(k => `<a href="#" data-act="salesPer" data-v="${k}">${({month:"month", year:"year", last:"last yr"})[k]}</a>`).join(" · ")}</span></span>${UI.showSales ? `<b>${money(salesPer === "month" ? monthSales : salesPer === "year" ? yearSales : lastYearSales)}</b><div><button type="button" class="btn small" data-act="salesHide" style="margin-top:6px">Hide</button></div>` : `<button type="button" class="btn small" data-act="salesShow" style="margin-top:8px" aria-label="Show sales amount">👁 Show amount</button>`}${salesPer !== "month" ? `<span class="small" style="margin-top:2px">${salesPer === "year" ? "Jan 1 to today, before expenses" : "All of " + (+t.slice(0, 4) - 1)}</span>` : ""}</div></div>
   ${board}
   <div class="grid2">
@@ -1187,7 +1187,7 @@ const estBadge = e => { const [l, c] = EST_STATUS[e.status || "open"] || EST_STA
 VIEWS.estimates = () => {
   const f = UI.filter.est || "open";
   const rows = S.estimates.filter(e => f === "all" || (e.status || "open") === f).sort((a, b) => a.date < b.date ? 1 : -1);
-  return `<div class="pagehead"><div><h1>Sales</h1></div><div class="actions"><button class="btn primary" data-act="newEstimate">New estimate</button></div></div>${salesSeg("estimates")}
+  return `<div class="pagehead"><div><h1>Estimates</h1></div><div class="actions"><button class="btn primary" data-act="newEstimate">New estimate</button></div></div>${salesSeg("estimates")}
   <div class="panel"><div class="toolbar"><div class="chips">${[["open","Open"],["accepted","Accepted"],["invoiced","Invoiced"],["declined","Declined"],["all","All"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="est" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
   <div class="tbl"><table><thead><tr><th>No.</th><th>Customer</th><th>Date</th><th>Valid until</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>
   ${rows.map(e => `<tr class="click" data-href="#/estimate/${e.id}"><td>${esc(e.num)}</td><td>${esc(custName(e.customerId))}</td><td>${fmtDate(e.date)}</td><td>${fmtDate(e.due)}</td><td>${estBadge(e)}</td><td class="num">${money(invTotals(e).total)}</td></tr>`).join("") || `<tr><td colspan="6">${empty(S.estimates.length ? "No estimates match." : "Quote a job before you order stock. Estimates don't affect your books until you turn them into invoices.", S.estimates.length ? "" : '<button class="btn primary" data-act="newEstimate">Create an estimate</button>')}</td></tr>`}
@@ -1199,8 +1199,9 @@ VIEWS.estimate = id => {
   const st = e.status || "open";
   return `<a class="back" href="#/estimates">‹ Estimates</a>
   <div class="pagehead"><div><h1>Estimate #${esc(e.num)}</h1><p>${esc(custName(e.customerId))} ${estBadge(e)}</p></div>
-  <div class="actions">${st === "invoiced" ? (e.invoiceId ? `<a class="btn" href="#/invoice/${e.invoiceId}">View invoice</a>` : "") : `<button class="btn primary" data-act="estToInvoice" data-id="${id}">Turn into invoice</button>`}${st === "open" ? `<button class="btn" data-act="estStatus" data-id="${id}" data-val="accepted">Mark accepted</button><button class="btn" data-act="estStatus" data-id="${id}" data-val="declined">Mark declined</button>` : ""}<button class="btn" data-act="editEstimate" data-id="${id}">Edit</button><button class="btn" data-act="pdfEstimate" data-id="${id}">Save PDF</button><button class="btn" data-act="printDoc" data-id="${id}" data-kind="estimate">Print</button></div></div>
+  <div class="actions">${st === "invoiced" ? (e.invoiceId ? `<a class="btn" href="#/invoice/${e.invoiceId}">View invoice</a>` : "") : `<button class="btn primary" data-act="estToInvoice" data-id="${id}">Turn into invoice</button>`}${st === "open" ? `<button class="btn" data-act="estStatus" data-id="${id}" data-val="accepted">Mark accepted</button><button class="btn" data-act="estStatus" data-id="${id}" data-val="declined">Mark declined</button>` : ""}<button class="btn primary" data-act="emailEstimate" data-id="${id}">Email estimate</button><button class="btn" data-act="editEstimate" data-id="${id}">Edit</button><button class="btn" data-act="dupEstimate" data-id="${id}">Copy as new estimate</button><button class="btn" data-act="pdfEstimate" data-id="${id}">Save PDF</button><button class="btn" data-act="printDoc" data-id="${id}" data-kind="estimate">Print</button></div></div>
   ${privNoteBox(e, "editEstimate")}
+  ${e.emailedAt ? `<p class="small muted noprint">Emailed to ${esc(e.emailedTo || "")} on ${fmtDate(e.emailedAt.slice(0, 10))}.</p>` : ""}
   ${invoiceDoc(e, false, "estimate")}`;
 };
 VIEWS.payments = () => {
@@ -3841,6 +3842,54 @@ function invoiceForm(inv, customerId, kind, fromEstimate){
   { const f = $("#sheetBody form"); f._bt = clone(inv.billTo || {}); f._btCust = inv.customerId || ""; renderBillTo(f); }
   recalc($("#sheetBody form")); renderPriceRef($("#sheetBody form")); }
 
+/* ---------- new estimate: start blank, or copy a past order at its old prices ---------- */
+function nextEstNum(){ let n = +S.company.nextEstimate || 1001; while (S.estimates.some(e => String(e.num) === "E" + n)) n++; return "E" + n; }
+function pastOrders(cid){ const out = [];
+  S.invoices.filter(i => i.customerId === cid).forEach(i => { const lines = (i.lines || []).filter(l => l.acct !== SYS.OBE && (l.itemId || l.desc || +l.rate || (l.pct !== undefined && l.pct !== ""))); if (lines.length) out.push({key:"i:" + i.id, date:i.date, num:i.num, kind:"Invoice", lines, total:invTotals(i).total}); });
+  S.estimates.filter(e => e.customerId === cid).forEach(e => { if ((e.lines || []).length) out.push({key:"e:" + e.id, date:e.date, num:e.num, kind:"Estimate", lines:e.lines, total:invTotals(e).total}); });
+  const old = new Map(); (histIndex().get(cid) || []).forEach(h => { const k = h.date + "|" + h.num; if (!old.has(k)) old.set(k, {key:"h:" + k, date:h.date, num:h.num, kind:"Old order", lines:[], total:0}); const o = old.get(k); o.lines.push({itemId:h.itemId || "", desc:h.desc || h.name || "", qty:h.qty, rate:h.rate, taxable:true}); o.total = r2(o.total + (+h.qty || 0) * (+h.rate || 0)); });
+  old.forEach(o => { if (!S.invoices.some(i => i.customerId === cid && String(i.num) === String(o.num) && i.date === o.date)) out.push(o); });
+  return out.sort((a, b) => (a.date || "") < (b.date || "") ? 1 : -1); }
+function estLinesFrom(lines, today){ return clone(lines || []).filter(l => l.acct !== SYS.OBE).map(l => { const n = {acct:l.acct || "", itemId:l.itemId || "", desc:l.desc || "", qty:l.qty ?? 1, rate:l.rate ?? "", taxable:l.taxable !== false};
+  if (l.pct !== undefined && l.pct !== null && l.pct !== "") { n.pct = l.pct; n.rate = 0; n.itemId = ""; }
+  else if (today && n.itemId) { const it = byId("items", n.itemId); if (it && +it.price) n.rate = +it.price; }
+  return n; }); }
+function estOpenFrom(cid, lines, extra){ const c = byId("customers", cid), date = todayISO();
+  invoiceForm({customerId:cid, date, terms:c?.terms || "Net 30", num:nextEstNum(), due:addDays(date, 30), taxRate:custTax(c), memo:S.company.defaultMemo ?? "Thank you for your business!", jobStatus:"new", lines, ...(extra || {})}, null, "estimate"); }
+function estPastRender(){ const sel = $("#estCust"), box = $("#estPast"); if (!sel || !box) return; const cid = sel.value;
+  if (!cid) { box.innerHTML = '<p class="small muted">Pick the customer, then copy one of their past orders (with the prices you charged) or start a blank estimate.</p>'; return; }
+  const list = pastOrders(cid);
+  box.innerHTML = `<button type="button" class="btn primary" data-act="estBlank">Start a blank estimate</button>
+  ${list.length ? `<h3 style="font-size:15px;margin:18px 0 4px">Or copy a past order</h3>
+  <label class="check" style="margin:4px 0 8px"><input type="checkbox" id="estToday"> <span>Use today's price list instead of the old prices <span class="small muted">(only for items on your Inventory list)</span></span></label>
+  <div class="list">${list.slice(0, 25).map(o => `<button type="button" class="item" data-act="estUse" data-key="${esc(o.key)}" style="width:100%;text-align:left;background:none;border-width:1px 0 0 0;font:inherit;color:inherit"><div><div class="t">${o.kind === "Estimate" ? "Estimate " : "#"}${esc(o.num)} · ${fmtDate(o.date)}${o.kind === "Old order" ? ' <span class="badge">Before this app</span>' : ""}</div><div class="s">${esc(o.lines.slice(0, 3).map(l => (l.qty > 1 ? l.qty + " × " : "") + (byId("items", l.itemId)?.name || l.desc || "item")).join(", "))}${o.lines.length > 3 ? " +" + (o.lines.length - 3) + " more" : ""}</div></div><div class="r num">${money(o.total)}</div></button>`).join("")}</div>${list.length > 25 ? '<p class="small muted">Showing the 25 most recent.</p>' : ""}` : '<p class="small muted" style="margin-top:12px">No past orders for this customer yet.</p>'}`; }
+function estStartForm(cid){
+  const custs = S.customers.filter(c => c.status !== "inactive" || c.id === cid).sort(byName);
+  if (!custs.length) { toast("Add a customer first."); customerForm(); return; }
+  openSheet("New estimate", `<div class="fields"><label class="f full">Who is it for?<select id="estCust" data-act-change="estPickCust">${opts(custs.map(c => [c.id, c.name]), cid, "Choose customer")}</select></label></div>
+  <div id="estPast" style="margin-top:10px"></div>
+  <div class="formfoot"><div class="right"><button type="button" class="btn" data-act="closeSheet">Cancel</button></div></div>`, true);
+  estPastRender(); }
+/* ---------- email an estimate ---------- */
+function emailEstimateForm(e){ const c0 = byId("customers", e.customerId) || {}, bt = billToOf(e), c = {...c0, email:bt.email || c0.email, contact:bt.contact || c0.contact}, t = invTotals(e);
+  const subject = "Estimate " + e.num + " from " + S.company.name;
+  const body = `Hi ${firstName(c)},
+
+Attached is estimate ${e.num} for ${money(t.total)}${e.due ? ", good through " + fmtDate(e.due) : ""}.
+
+If it looks good, just reply to this email and I'll get your order started. Let me know if you'd like anything changed.
+
+Thank you!
+
+Parker
+${S.company.name}${S.company.phone ? "\n" + S.company.phone : ""}`;
+  openSheet("Email estimate " + e.num, `<form data-form="sendEstimate" data-id="${e.id}"><div class="fields">
+    <label class="f full">To<input name="to" type="email" required value="${esc(c.email || "")}"></label>
+    <label class="f full">CC<input name="cc" type="text" inputmode="email" autocapitalize="off" value="${esc(c0.billingCc || "")}" placeholder="Optional"></label>
+    <label class="f full">Subject<input name="subject" value="${esc(subject)}"></label>
+    <label class="f full">Message<textarea name="body" style="min-height:200px">${esc(body)}</textarea></label></div>
+    ${MCP ? `<p class="small muted">The estimate is attached as a PDF. After you press Send you get ${UNDO_SECS} seconds to undo it.</p>${foot(null, "Send")}` : `<p class="small muted">This window can't send through Gmail by itself, so the next step saves the estimate PDF and opens this message in Gmail, ready to go. You just attach the PDF and press Send.</p>${foot(null, "Save PDF & open email")}`}</form>`, true); }
+
 function billForm(b, vendorId){ const isNew = !b || !b.id;
   if (!b) { const v = byId("vendors", vendorId); b = {vendorId, date:todayISO(), terms:v?.terms || "Net 30", lines:v?.defaultAcct ? [{ref:"a:" + v.defaultAcct, qty:1}] : []}; }
   const paid = b.id ? billPaid(b.id) : 0;
@@ -4087,6 +4136,20 @@ const FORMS = {
     const kw = val(f, "kw"); if (f.elements.remember.checked && kw) { const ex = S.bankrules.find(r => r.text.toLowerCase() === kw.toLowerCase()); await put("bankrules", {...(ex ? clone(ex) : {}), text:kw, acct, vendorId}); }
     toast("Added"); },
   async reconcile(f){ const a = byId("accounts", f.dataset.id); await put("accounts", {...clone(a), recon:{date:val(f, "date"), balance:num(f, "balance")}}); return "keep"; },
+  async sendEstimate(f){ const e = byId("estimates", f.dataset.id); if (!e) return false; const to = val(f, "to"), cc = ccList(f.elements.cc ? f.elements.cc.value : "");
+    if (!validEmail(to)) return formErr(f, "Enter a valid email address.");
+    if (cc.some(x => !validEmail(x))) return formErr(f, "Check the CC email address.");
+    const subject = val(f, "subject"), body = f.elements.body.value, fname = pdfName(e, "estimate");
+    if (!MCP) { saveFile(fname, docPDF(e, "estimate"));
+      openSheet("Email estimate " + e.num, `<ol style="padding-left:20px;margin:0 0 14px;line-height:1.7"><li>The PDF <b>${esc(fname)}</b> is saving to your computer.</li><li>Press <b>Open in Gmail</b>. The message to ${esc(to)} is already written.</li><li>Click the paperclip in Gmail, attach the PDF, and press Send.</li></ol>
+      <div class="actions"><a class="btn primary" href="${esc(gmailCompose(to, subject, body, cc))}" target="_blank" rel="noopener noreferrer">Open in Gmail</a><a class="btn" href="${esc("mailto:" + encodeURIComponent(to) + "?" + (cc.length ? "cc=" + encodeURIComponent(cc.join(",")) + "&" : "") + "subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body))}" target="_blank" rel="noopener noreferrer">Use another email app</a><button class="btn" data-act="pdfEstimate" data-id="${e.id}">Save the PDF again</button></div>`, true);
+      return "keep"; }
+    queueSend({args:{to:[to], ...(cc.length ? {cc} : {}), subject, body, attachments:[{content:b64bytes(docPDF(e, "estimate")), filename:fname, mimeType:"application/pdf"}]},
+      label:"Sending estimate " + e.num + " to " + to,
+      done:"Estimate " + e.num + " sent to " + to + (cc.length ? " (CC " + cc.join(", ") + ")" : ""),
+      async after(){ const x = byId("estimates", e.id); if (x) await put("estimates", {...clone(x), emailedAt:new Date().toISOString(), emailedTo:to, emailedCc:cc.join(", ")}); },
+      fail(err){ toast("Couldn't send: " + mcpErrText(err)); },
+      undo(){ emailEstimateForm(byId("estimates", e.id)); const g = $("#sheetBody form[data-form=sendEstimate]"); if (g) { g.elements.to.value = to; if (g.elements.cc) g.elements.cc.value = cc.join(", "); g.elements.subject.value = subject; g.elements.body.value = body; } }}); },
   async sendInvoice(f){ const inv = byId("invoices", f.dataset.id), to = val(f, "to"), cc = ccList(f.elements.cc ? f.elements.cc.value : "");
     if (!validEmail(to)) return formErr(f, "Enter a valid email address.");
     if (cc.some(x => !validEmail(x))) return formErr(f, "Check the CC email address.");
@@ -4435,7 +4498,12 @@ const ACT = {
   exportReport(){ if (REPORT_ROWS.length < 2) { toast("Nothing to export."); return; } saveFile(String(UI.reportId || "report").replace(/[^\w-]+/g, "-") + "-" + todayISO() + ".csv", csv(REPORT_ROWS)); },
   exportCustomers(){ saveFile("customers-" + todayISO() + ".csv", csv([["Name","Type","Status","Contact","Email","Phone","Address","Terms","Taxable","Open balance"], ...S.customers.slice().sort(byName).map(c => [c.name, c.type, c.status, c.contact, c.email, c.phone, c.address, c.terms, c.taxable === false ? "No" : "Yes", r2(S.invoices.filter(i => i.customerId === c.id).reduce((s, i) => s + invBalance(i), 0)).toFixed(2)])])); },
   exportItems(){ saveFile("items-" + todayISO() + ".csv", csv([["Name","SKU","Type","On hand","Reorder at","Cost","Price","Description"], ...S.items.slice().sort(byName).map(i => [i.name, i.sku, i.type, onHand(i) ?? "", i.reorder ?? "", i.cost, i.price, i.desc])])); },
-  newEstimate: el => invoiceForm(null, el.dataset.customer, "estimate"),
+  newEstimate: el => estStartForm(el.dataset.customer || ""),
+  estBlank(){ const cid = $("#estCust") && $("#estCust").value; if (!cid) return toast("Pick the customer first."); invoiceForm(null, cid, "estimate"); },
+  estUse(el){ const cid = $("#estCust") && $("#estCust").value, today = !!($("#estToday") && $("#estToday").checked), o = cid && pastOrders(cid).find(x => x.key === el.dataset.key); if (!o) return;
+    estOpenFrom(cid, estLinesFrom(o.lines, today)); toast(today ? "Copied with today's prices. Change anything you like." : "Copied with the old prices. Change anything you like."); },
+  dupEstimate(el){ const e = byId("estimates", el.dataset.id); if (e) estOpenFrom(e.customerId, estLinesFrom(e.lines, false), {po:e.po || "", privNote:e.privNote || ""}); },
+  emailEstimate(el){ const e = byId("estimates", el.dataset.id); if (e) emailEstimateForm(e); },
   editEstimate: el => invoiceForm(clone(byId("estimates", el.dataset.id)), null, "estimate"),
   async estStatus(el){ await put("estimates", {...clone(byId("estimates", el.dataset.id)), status:el.dataset.val}); toast("Estimate marked " + el.dataset.val); },
   estToInvoice(el){ const e = byId("estimates", el.dataset.id), c = byId("customers", e.customerId);
@@ -4634,6 +4702,7 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
   if (t.dataset.pick) { UI.pick = UI.pick || new Set(); if (t.checked) UI.pick.add(t.dataset.pick); else UI.pick.delete(t.dataset.pick); render(); return; }
   if (t.dataset.kitItem !== undefined) { kitSum(t.closest("form")); return; }
   if (t.dataset.actChange === "ordTo") { const row = t.closest(".ordrow"), it = byId("items", t.value), nm = row.querySelector("[name=name]"), pr = row.querySelector("[name=price]"), note = row.querySelector(".or-note"); nm.value = it ? it.name : t.value === "exp" ? "" : row.dataset.sug; nm.disabled = t.value === "exp"; pr.disabled = t.value === "exp"; if (it && it.price && !pr.value) pr.value = it.price; if (note) note.textContent = it ? onHand(it) + " on hand now" + (it.cost ? " · last cost " + money(it.cost) : "") : t.value === "exp" ? "Recorded as shop supplies, not counted in stock." : "A new stocked item will be created."; const b = row.querySelector(".or-top .badge"); if (b) { b.className = "badge"; b.textContent = it ? "Your pick" : t.value === "exp" ? "Supplies" : "New item"; } return; }
+  if (t.dataset.actChange === "estPickCust") { estPastRender(); return; }
   if (t.dataset.actChange === "minvPick") { const f = t.closest("form"), list = multiPicked(f);
     if (list.length) { const nb = invMailBody(f._c || {}, list), ns = invMailSubject(list);
       if (f.elements.body.value === f._auto) { f.elements.body.value = nb; f._auto = nb; }
