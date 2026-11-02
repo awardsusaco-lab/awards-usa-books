@@ -124,6 +124,40 @@ body.dragging::after{content:"Drop statement to import";position:fixed;inset:12p
 .bc-t{display:block;font-weight:600;color:inherit;text-decoration:none;overflow-wrap:anywhere}.bc-t:hover{text-decoration:underline}
 .bc-s{margin-top:4px;font-size:12.5px}.bc-a{margin-top:7px}
 @media (max-width:1100px){.board{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.bpanel .panel-head{margin-bottom:8px}
+.board{gap:10px}
+.bcol{padding:8px;transition:background .12s}
+.bcol-h{margin-bottom:6px;font-size:13px}
+.bcard{padding:7px 9px;margin-bottom:6px;font-size:13px;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.bc-row{display:flex;justify-content:space-between;gap:8px;align-items:baseline;min-width:0}
+.bc-row .bc-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.bc-amt{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.bc-s{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:center;margin-top:3px;font-size:12px}
+.bc-next{margin-left:auto;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:0 8px;font-size:12px;line-height:22px;cursor:pointer;color:var(--muted)}
+.bc-next:hover{color:var(--ink,inherit);border-color:var(--brass,#a07a2f)}
+.bghost{position:fixed;z-index:2000;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,.3);transform:rotate(1.5deg);opacity:.96;margin:0}
+.bdrag{opacity:.3}
+.bdrop{outline:2px dashed var(--brass,#a07a2f);outline-offset:-2px;background:color-mix(in srgb, var(--brass, #a07a2f) 12%, transparent) !important}
+.bstages{display:none}
+.bmini{display:flex;flex-wrap:wrap;gap:8px}
+.bpill{border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--surface);font-size:13px;cursor:pointer;color:inherit;font:inherit;font-size:13px;white-space:nowrap}
+.bpill b{margin-left:5px;font-variant-numeric:tabular-nums}
+.bpill[aria-pressed=true]{background:var(--ink,#1c2430);color:var(--surface,#fff);border-color:var(--ink,#1c2430)}
+.bhint{font-size:12px;color:var(--muted);margin:6px 0 0}
+@media (max-width:640px){.bstages{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:4px;-webkit-overflow-scrolling:touch}.bstages .bpill{flex:none}.board .bcol:not(.sel){display:none}.board .bcol .bcol-h{display:none}.board .bcol{background:none;border:0;padding:0}}
+.tdo-prog{display:flex;align-items:center;gap:12px;margin:0 0 6px;font-size:13.5px}
+.tdo-prog .bar{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.tdo-prog .bar i{display:block;height:100%;background:var(--brass,#a07a2f);border-radius:99px;transition:width .25s}
+.tdo{display:flex;align-items:flex-start;gap:10px;border-top:1px solid var(--line);padding:9px 2px}
+.tdo-chk{display:flex;padding-top:1px}
+.tdo-chk input{width:20px;height:20px;accent-color:var(--brass,#a07a2f);cursor:pointer;margin:0}
+.tdo-body{flex:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;color:inherit;text-decoration:none;cursor:pointer;min-width:0}
+.tdo-body .t{font-weight:500}.tdo-body .s{font-size:13px;color:var(--muted)}
+.tdo.done .t{text-decoration:line-through;color:var(--muted)}.tdo.done{opacity:.65}
+.tdo.habit .t:before{content:"★ ";color:var(--brass,#a07a2f)}
+#leadsPanel .lh{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:14px 0 2px}
+#leadsPanel .lh:first-of-type{margin-top:4px}
+#leadsPanel .lead-b{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 @media (max-width:640px){.board{grid-template-columns:1fr}}
 .grid2 > .panel{margin-bottom:0}
 
@@ -554,7 +588,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "eeb148f47f";
+const APP_BUILD = "e788dc6a21";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -955,9 +989,9 @@ window.addEventListener("pagehide", () => { if (pendingSend) flushSend(); });
 const openInvsFor = cid => S.invoices.filter(i => i.customerId === cid && invBalance(i) > 0.004).sort((a, b) => (a.date || "") < (b.date || "") ? -1 : 1);
 /* ----- your own invoice email wording, saved for every customer ----- */
 const MAIL_KEYS = [["paylinks","your Pay online links"],["first","their first name"],["customer","customer name"],["invoice","invoice number(s)"],["amount","invoice total"],["balance","balance due"],["due","due date"],["list","list of invoices (when sending several)"],["company","your business name"],["phone","your phone"]];
-function mailListLine(i){ const b = invBalance(i), t = invTotals(i); return `  • #${i.num}: ${money(b > 0.004 ? b : t.total)}${b > 0.004 && b < t.total - 0.004 ? " balance due" : ""}, due ${fmtDate(i.due)}`; }
+function mailListLine(i){ const b = invBalance(i), t = invTotals(i); return `  • #${i.num}: ${money(b > 0.004 ? b : t.total)}${b > 0.004 && b < t.total - 0.004 ? " balance due" : ""}, due ${dueStr(i)}`; }
 function mailVals(c, list){ const tot = r2(list.reduce((s2, i) => s2 + invTotals(i).total, 0)), bal = r2(list.reduce((s2, i) => s2 + invBalance(i), 0)), dues = list.map(i => i.due).filter(Boolean).sort();
-  return {first:firstName(c), customer:(c && c.name) || "", invoice:list.map(i => "#" + i.num).join(", "), amount:money(tot), balance:money(bal), due:dues[0] ? fmtDate(dues[0]) : "", list:list.map(mailListLine).join("\n"), company:S.company.name || "", phone:S.company.phone || "", paylinks:payLinksText(list)}; }
+  return {first:firstName(c), customer:(c && c.name) || "", invoice:list.map(i => "#" + i.num).join(", "), amount:money(tot), balance:money(bal), due:dues[0] ? fmtDate(dues[0]) : (list[0] ? dueStr(list[0]) : ""), list:list.map(mailListLine).join("\n"), company:S.company.name || "", phone:S.company.phone || "", paylinks:payLinksText(list)}; }
 /* ----- online payment links (Square, Venmo, PayPal, Zelle…) ----- */
 function payLinksFor(list){ const P = S.company.payLinks || {}, amt = r2(list.reduce((s2, i) => s2 + Math.max(0, invBalance(i)), 0)) || r2(list.reduce((s2, i) => s2 + invTotals(i).total, 0)), nums = list.map(i => "#" + i.num).join(", "), note = encodeURIComponent("Invoice " + nums.replace(/#/g, ""));
   const out = [], one = list.length === 1 ? list[0] : null, clean = u => /^https?:\/\//i.test(u) ? u : "https://" + u;
@@ -983,14 +1017,14 @@ ${S.company.name}${S.company.phone ? "\n" + S.company.phone : ""}`;
   if (list.length === 1) { const inv = list[0], bal = invBalance(inv), t = invTotals(inv);
     return `Hi ${firstName(c)},
 
-Attached is invoice #${inv.num} for ${money(t.total)}${bal < t.total - 0.004 ? ` (balance due ${money(bal)})` : ""}, due ${fmtDate(inv.due)}.
+Attached is invoice #${inv.num} for ${money(t.total)}${bal < t.total - 0.004 ? ` (balance due ${money(bal)})` : ""}, due ${dueStr(inv)}.
 ${payLinksText(list) ? "\n" + payLinksText(list) + "\n" : ""}
 ${sign}`; }
   const tot = list.reduce((s, i) => s + invBalance(i), 0);
   return `Hi ${firstName(c)},
 
 Attached are ${list.length} invoices:
-${list.map(i => { const b = invBalance(i), t = invTotals(i); return `  • #${i.num}: ${money(b > 0.004 ? b : t.total)}${b > 0.004 && b < t.total - 0.004 ? " balance due" : ""}, due ${fmtDate(i.due)}`; }).join("\n")}
+${list.map(i => { const b = invBalance(i), t = invTotals(i); return `  • #${i.num}: ${money(b > 0.004 ? b : t.total)}${b > 0.004 && b < t.total - 0.004 ? " balance due" : ""}, due ${dueStr(i)}`; }).join("\n")}
 
 Total due: ${money(tot)}
 ${payLinksText(list) ? "\n" + payLinksText(list) + "\n" : ""}
@@ -1075,27 +1109,42 @@ VIEWS.home = () => {
   const yearSales = -journal().filter(l => incIds.has(l.acct) && l.date >= t.slice(0, 4) + "-01-01" && l.date <= t).reduce((s, l) => s + l.amt, 0);
   const lastYearSales = -journal().filter(l => incIds.has(l.acct) && l.date >= (+t.slice(0, 4) - 1) + "-01-01" && l.date <= (+t.slice(0, 4) - 1) + "-12-31").reduce((s, l) => s + l.amt, 0);
   const monthSales = -journal().filter(l => incIds.has(l.acct) && l.date >= t.slice(0, 7) + "-01" && l.date <= t && !(l.src === "Journal entry" && qbOpen.has(l.srcId))).reduce((s, l) => s + l.amt, 0);
-  const fu = S.followups.filter(f => !f.done && f.due <= addDays(t, 2)).sort((a, b) => a.due < b.due ? -1 : 1);
+  const fu = S.followups.filter(f => (!f.done || f.doneOn === t) && f.due <= addDays(t, 2)).sort((a, b) => a.due < b.due ? -1 : 1);
   const overdue = openInv.filter(i => invStatus(i) === "overdue").sort((a, b) => a.due < b.due ? -1 : 1);
   const billsDue = S.bills.filter(b => billBalance(b) > 0.004 && b.due && b.due <= addDays(t, 7)).sort((a, b) => a.due < b.due ? -1 : 1);
   const low = S.items.filter(isLow).sort(byName);
-  const todo = [];
-  fu.forEach(f => todo.push(`<div class="item" data-act="openFollowup" data-id="${f.id}"><div><div class="t">${esc(f.text)}</div><div class="s">${f.customerId ? esc(custName(f.customerId)) + " · " : ""}${f.due < t ? `<span class="neg">was due ${fmtDate(f.due)}</span>` : f.due === t ? "due today" : "due " + fmtDate(f.due)}</div></div><div class="r"><button class="btn small" data-act="doneFollowup" data-id="${f.id}">Mark done</button></div></div>`));
-  overdue.forEach(i => todo.push(`<a class="item" href="#/invoice/${i.id}"><div><div class="t">Collect invoice #${esc(i.num)} from ${esc(custName(i.customerId))}</div><div class="s"><span class="neg">${daysBetween(i.due, t)} days overdue</span></div></div><div class="r num">${money(invBalance(i))}</div></a>`));
-  billsDue.forEach(b => todo.push(`<div class="item" data-act="payBills" data-vendor="${b.vendorId}"><div><div class="t">Pay ${esc(vendName(b.vendorId) || "bill")}${b.ref ? " · " + esc(b.ref) : ""}</div><div class="s">${b.due < t ? `<span class="neg">was due ${fmtDate(b.due)}</span>` : "due " + fmtDate(b.due)}</div></div><div class="r num">${money(billBalance(b))}</div></div>`));
-  S.orders.filter(o => o.due && o.status !== "done" && o.status !== "ignored" && o.status !== "invoiced" && o.due <= addDays(t, 10)).forEach(o => todo.push(`<a class="item" href="#/orders"><div><div class="t">Order for ${esc(o.customerId ? custName(o.customerId) : o.from || "customer")}</div><div class="s">${dueText(o.due)} · not invoiced yet</div></div><div class="r muted">›</div></a>`));
-  repeatRadar(30).filter(r => !r.contacted).slice(0, 5).forEach(r => todo.push(`<a class="item" href="#/repeat"><div><div class="t">Reach out to ${esc(r.c.name)} about their yearly order</div><div class="s">Usually orders around ${fmtDate(r.expected)}</div></div><div class="r muted">›</div></a>`));
-  openJobs().filter(i => i.neededBy && i.neededBy <= addDays(t, 7) && i.jobStatus !== "ready").sort((a, b) => a.neededBy < b.neededBy ? -1 : 1).forEach(i => todo.push(`<a class="item" href="#/invoice/${i.id}"><div><div class="t">Finish order for ${esc(custName(i.customerId))} (#${esc(i.num)})</div><div class="s">${dueText(i.neededBy)} · ${jobLabel(i.jobStatus)}</div></div><div class="r muted">›</div></a>`));
-  taxDeadlines().filter(x => !x.filed && x.due <= addDays(t, 14)).forEach(x => todo.push(`<a class="item" href="#/taxes"><div><div class="t">${esc(x.title)} · ${esc(x.period.label)}</div><div class="s">${dueText(x.due)}</div></div><div class="r num">${x.amount ? money(x.amount) : ""}</div></a>`));
-  S.pos.filter(o => o.status === "shipped" && (o.deliveredHint || (o.expected && o.expected <= addDays(t, 1)))).forEach(o => todo.push(`<a class="item" href="#/inventory/onorder"><div><div class="t">Check in delivery from ${esc(vendName(o.vendorId) || "supplier")}</div><div class="s">${o.deliveredHint ? "Email says it was delivered" : "Expected " + fmtDate(o.expected)} · tap Received when it's here</div></div><div class="r muted">›</div></a>`));
-  S.pos.filter(o => o.status === "placed" && daysBetween(o.date, t) >= 10).forEach(o => todo.push(`<a class="item" href="#/inventory/onorder"><div><div class="t">Order from ${esc(vendName(o.vendorId) || "supplier")} hasn't shipped</div><div class="s">Placed ${fmtDate(o.date)}${o.orderNo ? " · order #" + esc(o.orderNo) : ""}</div></div><div class="r muted">›</div></a>`));
-  { const rr = openReplies().filter(r => r.kind === "real"); if (rr.length) todo.unshift(`<a class="item" href="#/email"><div><div class="t">${rr.length} customer${rr.length > 1 ? "s" : ""} replied to your emails</div><div class="s">${esc(rr.slice(0, 3).map(r => r.c.name).join(", "))}${rr.length > 3 ? "…" : ""}</div></div><div class="r"><span class="badge good">New</span></div></a>`); }
-  if (inboxWaiting()) todo.unshift(`<a class="item" href="#/inbox"><div><div class="t">${inboxWaiting()} email${inboxWaiting() > 1 ? "s" : ""} to sort</div><div class="s">Customers, suppliers and junk from your inbox</div></div><div class="r"><span class="badge brass">Inbox</span></div></a>`);
+  const todo = [], T = o => todo.push(o), amt = n => `<span class="num">${money(n)}</span>`;
+  fu.forEach(f => T({k:"fu:" + f.id, fu:f.id, t:esc(f.text), s:`${f.customerId ? esc(custName(f.customerId)) + " · " : ""}${f.due < t ? `<span class="neg">was due ${fmtDate(f.due)}</span>` : f.due === t ? "due today" : "due " + fmtDate(f.due)}`, act:"openFollowup", attrs:`data-id="${f.id}"`}));
+  overdue.forEach(i => T({k:"od:" + i.id, t:`Collect invoice #${esc(i.num)} from ${esc(custName(i.customerId))}`, s:`<span class="neg">${daysBetween(i.due, t)} days overdue</span>`, r:amt(invBalance(i)), href:"#/invoice/" + i.id}));
+  billsDue.forEach(b => T({k:"bill:" + b.id, t:`Pay ${esc(vendName(b.vendorId) || "bill")}${b.ref ? " · " + esc(b.ref) : ""}`, s:b.due < t ? `<span class="neg">was due ${fmtDate(b.due)}</span>` : "due " + fmtDate(b.due), r:amt(billBalance(b)), act:"payBills", attrs:`data-vendor="${b.vendorId}"`}));
+  openJobs().filter(i => i.neededBy && i.neededBy <= addDays(t, 7) && i.jobStatus !== "ready").sort((a, b) => a.neededBy < b.neededBy ? -1 : 1).forEach(i => T({k:"job:" + i.id, t:`Finish order for ${esc(custName(i.customerId))} (#${esc(i.num)})`, s:`${dueText(i.neededBy)} · ${jobLabel(i.jobStatus)}`, href:"#/invoice/" + i.id}));
+  S.invoices.filter(i => i.jobStatus === "ready" && daysBetween(i.readyOn || i.dueFrom || i.date, t) >= 2).forEach(i => T({k:"pick:" + i.id, t:`Has ${esc(custName(i.customerId))} picked up #${esc(i.num)}?`, s:`Ready since ${fmtDate(i.readyOn || i.dueFrom || i.date)} · remind them, or drag it to Delivered`, href:"#/invoice/" + i.id}));
+  S.invoices.filter(i => invBalance(i) > 0.004 && !i.emailedAt && !i.sentAt && !IN_PROGRESS.has(i.jobStatus || "") && invStatus(i) !== "overdue").sort((a, b) => a.date < b.date ? -1 : 1).slice(0, 5).forEach(i => T({k:"send:" + i.id, t:`Send invoice #${esc(i.num)} to ${esc(custName(i.customerId))}`, s:"Not sent yet", r:amt(invBalance(i)), act:"emailInvoice", attrs:`data-id="${i.id}"`}));
+  S.estimates.filter(e => (e.status || "open") === "open").forEach(e => { if (!e.emailedAt) T({k:"esend:" + e.id, t:`Send estimate ${esc(e.num)} to ${esc(custName(e.customerId))}`, s:"Not sent yet", r:amt(invTotals(e).total), act:"emailEstimate", attrs:`data-id="${e.id}"`}); else if (daysBetween(e.emailedAt.slice(0, 10), t) >= 3) T({k:"efu:" + e.id, t:`Follow up on estimate ${esc(e.num)} with ${esc(custName(e.customerId))}`, s:`Sent ${fmtDate(e.emailedAt.slice(0, 10))} · no answer yet`, r:amt(invTotals(e).total), href:"#/estimate/" + e.id}); });
+  S.orders.filter(o => o.due && o.status !== "done" && o.status !== "ignored" && o.status !== "invoiced" && o.due <= addDays(t, 10)).forEach(o => T({k:"ord:" + o.id, t:`Order for ${esc(o.customerId ? custName(o.customerId) : o.from || "customer")}`, s:`${dueText(o.due)} · not invoiced yet`, href:"#/orders"}));
+  taxDeadlines().filter(x => !x.filed && x.due <= addDays(t, 14)).forEach(x => T({k:"tax:" + x.title + x.period.label, t:`${esc(x.title)} · ${esc(x.period.label)}`, s:dueText(x.due), r:x.amount ? amt(x.amount) : "", href:"#/taxes"}));
+  S.pos.filter(o => o.status === "shipped" && (o.deliveredHint || (o.expected && o.expected <= addDays(t, 1)))).forEach(o => T({k:"po:" + o.id, t:`Check in delivery from ${esc(vendName(o.vendorId) || "supplier")}`, s:`${o.deliveredHint ? "Email says it was delivered" : "Expected " + fmtDate(o.expected)} · tap Received when it's here`, href:"#/inventory/onorder"}));
+  S.pos.filter(o => o.status === "placed" && daysBetween(o.date, t) >= 10).forEach(o => T({k:"pol:" + o.id, t:`Order from ${esc(vendName(o.vendorId) || "supplier")} hasn't shipped`, s:`Placed ${fmtDate(o.date)}${o.orderNo ? " · order #" + esc(o.orderNo) : ""}`, href:"#/inventory/onorder"}));
+  { const rr = openReplies().filter(r => r.kind === "real"); if (rr.length) todo.unshift({k:"replies", t:`${rr.length} customer${rr.length > 1 ? "s" : ""} replied to your emails`, s:esc(rr.slice(0, 3).map(r => r.c.name).join(", ")) + (rr.length > 3 ? "…" : ""), r:'<span class="badge good">New</span>', href:"#/email"}); }
+  if (inboxWaiting()) todo.unshift({k:"inbox", t:`${inboxWaiting()} email${inboxWaiting() > 1 ? "s" : ""} to sort`, s:"Customers, suppliers and junk from your inbox", r:'<span class="badge brass">Inbox</span>', href:"#/inbox"});
   if (MCP && !UI.inboxAuto && (!S.company.inboxChecked || S.company.inboxChecked.slice(0, 10) < t) && S.accounts.length) { UI.inboxAuto = true; setTimeout(() => scanInbox(true), 6000); }
   if (MCP && !UI.replyAuto && (!S.company.repliesChecked || S.company.repliesChecked.slice(0, 10) < t) && S.accounts.length) { UI.replyAuto = true; setTimeout(() => checkReplies(true), 4000); }
   const nb = S.banktx.filter(t => t.status === "new").length;
-  if (nb) todo.push(`<a class="item" href="#/banking"><div><div class="t">Review ${nb} bank transaction${nb > 1 ? "s" : ""}</div><div class="s">Match or categorize imported statement lines</div></div><div class="r muted">›</div></a>`);
-  low.filter(it => !onOrder(it.id)).forEach(it => todo.push(`<div class="item" data-act="reorderItem" data-id="${it.id}"><div><div class="t">Reorder ${esc(it.name)}</div><div class="s">${onHand(it)} on hand · reorder at ${esc(it.reorder)}</div></div><div class="r"><span class="badge warn">Low stock</span></div></div>`));
+  if (nb) T({k:"bank", t:`Review ${nb} bank transaction${nb > 1 ? "s" : ""}`, s:"Match or categorize imported statement lines", href:"#/banking"});
+  low.filter(it => !onOrder(it.id)).forEach(it => T({k:"low:" + it.id, t:`Reorder ${esc(it.name)}`, s:`${onHand(it)} on hand · reorder at ${esc(it.reorder)}`, r:'<span class="badge warn">Low stock</span>', act:"reorderItem", attrs:`data-id="${it.id}"`}));
+  { const wd = new Date().getDay(), H = (k, tt, s, o) => T({k:"habit:" + k, t:tt, s, habit:true, ...o});
+    if (wd === 1) H("plan", "Plan the week", "Look over jobs and needed-by dates (5 minutes)", {href:"#/jobs"});
+    if (wd >= 1 && wd <= 5) H("lead", "Reach out to one lead", "Pick one from Leads this week", {act:"scrollLeads"});
+    if (wd === 3) H("card", "Enter this week's card charges", "Type them in from your card statement", {act:"cardEntry"});
+    if (wd === 4) H("miles", "Log this week's trips", "Mileage is a tax write-off", {act:"newTrip"});
+    if (wd === 5) H("bankwk", "Check the bank", "Import or categorize this week's transactions", {href:"#/banking"});
+    if (+t.slice(8) <= 5) H("bal", "Balance last month's bank statement", "Banking → Balance the books", {href:"#/balance"}); }
+  const dn = S.company.todayDone && S.company.todayDone.date === t ? new Set(S.company.todayDone.keys) : new Set();
+  const isD = x => x.fu ? !!(byId("followups", x.fu) || {}).done : dn.has(x.k);
+  const tdRow = x => { const d = isD(x), inner = `<div><div class="t">${x.t}</div>${x.s ? `<div class="s">${x.s}</div>` : ""}</div><div class="r">${x.r || ""}</div>`;
+    const body = x.href ? `<a class="tdo-body" href="${x.href}">${inner}</a>` : x.act ? `<div class="tdo-body" data-act="${x.act}" ${x.attrs || ""}>${inner}</div>` : `<div class="tdo-body">${inner}</div>`;
+    return `<div class="tdo${d ? " done" : ""}${x.habit ? " habit" : ""}"><label class="tdo-chk"><input type="checkbox" data-act-change="todoTick" data-key="${esc(x.k)}" ${d ? "checked" : ""} aria-label="Mark done"></label>${body}</div>`; };
+  const tdDone = todo.filter(isD), tdHTML = todo.filter(x => !isD(x)).concat(tdDone).map(tdRow).join(""), nT = todo.length, nD = tdDone.length;
   const recent = S.invoices.slice().sort((a, b) => (b.date + b.num) > (a.date + a.num) ? 1 : -1).slice(0, 6);
   const board = invBoard();
   const hour = new Date().getHours();
@@ -1105,28 +1154,37 @@ VIEWS.home = () => {
   <div class="ledger"><div><span>Cash in bank <a href="#/balance" class="small" style="font-weight:400">Balance</a></span><b>${money(cash)}</b></div><div><span>Customers owe you</span><b>${money(ar)}</b></div><div><span>You owe vendors</span><b>${money(ap)}</b></div><div><span>${({month:"Sales this month", year:"Sales this year", last:"Sales last year"})[salesPer]} <span class="small" style="font-weight:400">${["month","year","last"].filter(k => k !== salesPer).map(k => `<a href="#" data-act="salesPer" data-v="${k}">${({month:"month", year:"year", last:"last yr"})[k]}</a>`).join(" · ")}</span></span>${UI.showSales ? `<b>${money(salesPer === "month" ? monthSales : salesPer === "year" ? yearSales : lastYearSales)}</b><div><button type="button" class="btn small" data-act="salesHide" style="margin-top:6px">Hide</button></div>` : `<button type="button" class="btn small" data-act="salesShow" style="margin-top:8px" aria-label="Show sales amount">👁 Show amount</button>`}${salesPer !== "month" ? `<span class="small" style="margin-top:2px">${salesPer === "year" ? "Jan 1 to today, before expenses" : "All of " + (+t.slice(0, 4) - 1)}</span>` : ""}</div></div>
   ${board}
   <div class="grid2">
-    <section class="panel"><div class="panel-head"><h2>To do</h2><button class="btn small" data-act="newFollowup">Add follow-up</button></div>
-      <div class="list">${todo.join("") || empty("You're all caught up. Follow-ups, overdue invoices, bills due this week and low stock show up here.")}</div></section>
-    <section class="panel"><div class="panel-head"><h2>Recent invoices</h2><a href="#/sales">All invoices</a></div>
-      <div class="list">${recent.map(i => `<a class="item" href="#/invoice/${i.id}"><div><div class="t">#${esc(i.num)} · ${esc(custName(i.customerId))}</div><div class="s">${fmtDate(i.date)} ${statusBadge(invStatus(i))}</div></div><div class="r num">${money(invTotals(i).total)}</div></a>`).join("") || empty("No invoices yet.", '<button class="btn primary" data-act="newInvoice">Create your first invoice</button>')}</div></section>
-  </div>`;
+    <section class="panel"><div class="panel-head"><h2>Today</h2><button class="btn small" data-act="newFollowup">+ Add a task</button></div>
+      ${nT ? `<div class="tdo-prog"><span><b>${nD} of ${nT}</b> done${nD === nT ? " 🎉" : ""}</span><div class="bar"><i style="width:${Math.round(nD / nT * 100)}%"></i></div></div>` : ""}
+      <div class="tdo-list">${tdHTML || empty("You're all caught up. Overdue invoices, jobs, estimates to follow up, bills and easy daily tasks show up here.")}</div></section>
+    ${leadsPanel()}
+  </div>
+  <section class="panel" style="margin-top:18px"><div class="panel-head"><h2>Recent invoices</h2><a href="#/sales">All invoices</a></div>
+      <div class="list">${recent.slice(0, 4).map(i => `<a class="item" href="#/invoice/${i.id}"><div><div class="t">#${esc(i.num)} · ${esc(custName(i.customerId))}</div><div class="s">${fmtDate(i.date)} ${statusBadge(invStatus(i))}</div></div><div class="r num">${money(invTotals(i).total)}</div></a>`).join("") || empty("No invoices yet.", '<button class="btn primary" data-act="newInvoice">Create your first invoice</button>')}</div></section>`;
 };
 
 function invBoard(){
   const t = todayISO(), cols = [["new","Not started"],["ordered","Parts ordered"],["production","Engraving"],["ready","Ready for pickup"],["pay","Delivered · waiting on payment"]];
   const cur = S.invoices.filter(i => { const paid = invBalance(i) <= 0.004; return (i.jobStatus && i.jobStatus !== "done") || !paid; });
   const stageOf = i => !i.jobStatus || i.jobStatus === "done" ? "pay" : i.jobStatus;
-  const card = i => { const st = stageOf(i), bal = invBalance(i), paid = bal <= 0.004, od = !paid && i.due && i.due < t, ix = JOB.findIndex(j => j[0] === i.jobStatus), nxt = st !== "pay" ? JOB[Math.min(ix + 1, JOB.length - 1)] : null;
-    return `<div class="bcard"><a href="#/invoice/${i.id}" class="bc-t">#${esc(i.num)} · ${esc(custName(i.customerId))}</a>
-    <div class="bc-s">${paid ? '<span class="badge good">Paid</span>' : `<b class="num">${money(bal)}</b>${bal < invTotals(i).total - 0.004 ? ' <span class="small muted">left</span>' : ""}`} ${od ? `<span class="badge bad">${daysBetween(i.due, t)}d overdue</span>` : ""} ${!paid && !i.emailedAt && !i.sentAt ? '<span class="badge">Not sent</span>' : ""}</div>
-    ${st !== "pay" && i.neededBy ? `<div class="bc-s ${i.neededBy < t ? "neg" : ""}">Needed ${fmtDate(i.neededBy)} (${dueText(i.neededBy)})</div>` : st === "pay" && i.due && !od ? `<div class="bc-s muted">Due ${fmtDate(i.due)}</div>` : ""}
-    <div class="bc-a">${nxt ? `<button class="btn small" data-act="jobStatus" data-id="${i.id}" data-val="${nxt[0]}">→ ${esc(nxt[1])}</button>` : `<button class="btn small" data-act="receivePayment" data-customer="${i.customerId}" data-invoice="${i.id}">Receive payment</button>${!i.emailedAt && !i.sentAt ? ` <button class="btn small" data-act="emailInvoice" data-id="${i.id}">Email</button>` : ""}`}</div></div>`; };
+  const view = (() => { try { return localStorage.getItem("aub-board-view") || "open"; } catch (e) { return "open"; } })();
+  const short = d => d ? pd(d).toLocaleDateString("en-US", {month:"short", day:"numeric"}) : "";
+  const card = i => { const st = stageOf(i), bal = invBalance(i), paid = bal <= 0.004, od = !paid && i.due && i.due < t, late = st !== "pay" && i.neededBy && i.neededBy < t, ix = JOB.findIndex(j => j[0] === i.jobStatus), nxt = st !== "pay" ? JOB[Math.min(ix + 1, JOB.length - 1)] : null;
+    const bits = [od ? `<span class="neg">${daysBetween(i.due, t)}d overdue</span>` : "", !paid && !i.emailedAt && !i.sentAt ? '<span class="muted">Not sent</span>' : "", st !== "pay" && i.neededBy ? `<span class="${late ? "neg" : "muted"}">Needed ${short(i.neededBy)}</span>` : st === "pay" && i.due && !od ? `<span class="muted">Due ${short(i.due)}</span>` : ""].filter(Boolean);
+    const btn = nxt ? `<button class="bc-next" data-act="jobStatus" data-id="${i.id}" data-val="${nxt[0]}" title="Move to ${esc(nxt[1])}" aria-label="Move #${esc(i.num)} to ${esc(nxt[1])}">→</button>` : !paid ? `<button class="bc-next" data-act="receivePayment" data-customer="${i.customerId}" data-invoice="${i.id}" title="Receive payment">Paid?</button>` : "";
+    return `<div class="bcard" data-inv="${i.id}" title="Drag to another stage"><div class="bc-row"><a href="#/invoice/${i.id}" class="bc-t" draggable="false" title="${esc(custName(i.customerId))}">${esc(custName(i.customerId))}</a><span class="bc-amt">${paid ? '<span class="badge good">Paid</span>' : money(bal)}</span></div><div class="bc-s"><span class="muted">#${esc(i.num)}</span>${bits.join("")}${btn}</div></div>`; };
   const sortK = i => (stageOf(i) === "pay" ? (i.due || "9999") : (i.neededBy || "9999")) + (i.date || "");
+  const lists = {}; cols.forEach(([k]) => lists[k] = cur.filter(i => stageOf(i) === k).sort((a, b) => sortK(a) < sortK(b) ? -1 : 1));
+  const tot = k => lists[k].reduce((s, i) => s + invBalance(i), 0);
+  let sel = UI.boardStage && lists[UI.boardStage] ? UI.boardStage : (cols.find(([k]) => lists[k].length) || cols[0])[0];
+  const pills = (act) => cols.map(([k, l]) => `<button type="button" class="bpill" data-stage="${k}" data-act="${act}" data-val="${k}" aria-pressed="${act === "boardStage" && k === sel}">${esc(l.replace(" · waiting on payment", ""))}<b>${lists[k].length}</b></button>`).join("");
+  const head = `<div class="panel-head"><h2>Current invoices</h2><div style="display:flex;gap:10px;align-items:center"><button class="linkbtn small" data-act="boardView" data-val="${view === "mini" ? "open" : "mini"}">${view === "mini" ? "Show cards" : "Shrink"}</button><a href="#/sales">All invoices</a></div></div>`;
+  if (!cur.length) return `<section class="panel bpanel" style="margin-bottom:18px">${head}${empty("No open invoices. Everything is delivered and paid.", '<button class="btn primary" data-act="newInvoice">New invoice</button>')}</section>`;
+  if (view === "mini") return `<section class="panel bpanel" style="margin-bottom:18px">${head}<div class="bmini">${pills("boardOpen")}</div></section>`;
   const all = UI.boardAll || {};
-  const html = cols.map(([k, l]) => { const list = cur.filter(i => stageOf(i) === k).sort((a, b) => sortK(a) < sortK(b) ? -1 : 1), tot = list.reduce((s, i) => s + invBalance(i), 0), shownL = all[k] ? list : list.slice(0, 6);
-    return `<div class="bcol"><div class="bcol-h"><b>${esc(l)}</b><span class="small muted">${list.length}${tot > 0.004 ? " · " + money(tot) : ""}</span></div>${shownL.map(card).join("") || '<div class="small muted" style="padding:6px 2px">None</div>'}${list.length > shownL.length ? `<button class="linkbtn small" data-act="boardMore" data-val="${k}">Show all ${list.length}</button>` : ""}</div>`; }).join("");
-  return `<section class="panel" style="margin-bottom:18px"><div class="panel-head"><h2>Current invoices</h2><a href="#/sales">All invoices</a></div>
-  ${cur.length ? `<div class="board">${html}</div>` : empty("No open invoices. Everything is delivered and paid.", '<button class="btn primary" data-act="newInvoice">New invoice</button>')}</section>`; }
+  const html = cols.map(([k, l]) => { const list = lists[k], shownL = all[k] ? list : list.slice(0, 4), tt = tot(k);
+    return `<div class="bcol${k === sel ? " sel" : ""}" data-stage="${k}"><div class="bcol-h"><b>${esc(l)}</b><span class="small muted">${list.length}${tt > 0.004 ? " · " + money(tt) : ""}</span></div>${shownL.map(card).join("") || '<div class="small muted" style="padding:6px 2px">None</div>'}${list.length > shownL.length ? `<button class="linkbtn small" data-act="boardMore" data-val="${k}">+${list.length - shownL.length} more</button>` : ""}</div>`; }).join("");
+  return `<section class="panel bpanel" style="margin-bottom:18px">${head}<div class="bstages">${pills("boardStage")}</div><div class="board">${html}</div><p class="bhint">Drag a card to move it to another stage${matchMedia("(pointer:coarse)").matches ? " (press and hold first)" : ""}, or tap → to move it one step.</p></section>`; }
 let CSTAT = null, CSTATV = -1;
 function custStats(){ if (CSTATV === version && CSTAT) return CSTAT; const m = new Map(), y = todayISO().slice(0, 4);
   const add = (cid, date, amt, key) => { let r = m.get(cid); if (!r) m.set(cid, r = {life:0, year:0, last:"", first:"9999", orders:new Set()}); r.life += amt; if (date.slice(0, 4) === y) r.year += amt; if (date > r.last) r.last = date; if (date < r.first) r.first = date; r.orders.add(key); };
@@ -1204,7 +1262,7 @@ VIEWS.sales = () => {
     <select aria-label="Year" data-act-change="invYear" style="padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)">${opts([["all","All years"]].concat(years.map(y => [y, y])), yr)}</select></div>
     <div class="chips" style="margin-bottom:12px">${GROUPS.map(([k, l]) => `<button class="chip" data-act="filter" data-key="invg" data-val="${k}" aria-pressed="${g === k}">${l}</button>`).join("")}</div>
   <div class="tbl"><table><thead><tr><th>No.</th><th>Customer</th><th>Date</th><th>Due</th><th>Status</th><th class="num">Total</th><th class="num">Balance</th></tr></thead><tbody>
-  ${rows.map(i => `<tr class="click" data-href="#/invoice/${i.id}"><td>${esc(i.num)}</td><td>${esc(custName(i.customerId))}</td><td>${fmtDate(i.date)}</td><td>${fmtDate(i.due)}</td><td>${statusBadge(invStatus(i))}${invStatus(i) !== "paid" && (i.emailedAt || i.sentAt) ? ' <span class="badge">Sent</span>' : ""}</td><td class="num">${money(invTotals(i).total)}</td><td class="num">${money(invBalance(i))}</td></tr>`).join("") || `<tr><td colspan="7">${empty(S.invoices.length ? "No invoices match." : "No invoices yet.")}</td></tr>`}
+  ${rows.map(i => `<tr class="click" data-href="#/invoice/${i.id}"><td>${esc(i.num)}</td><td>${esc(custName(i.customerId))}</td><td>${fmtDate(i.date)}</td><td>${dueStr(i)}</td><td>${statusBadge(invStatus(i))}${invStatus(i) !== "paid" && (i.emailedAt || i.sentAt) ? ' <span class="badge">Sent</span>' : ""}</td><td class="num">${money(invTotals(i).total)}</td><td class="num">${money(invBalance(i))}</td></tr>`).join("") || `<tr><td colspan="7">${empty(S.invoices.length ? "No invoices match." : "No invoices yet.")}</td></tr>`}
   ${rows.length ? `<tr class="sub"><td colspan="5">${rows.length} invoice${rows.length === 1 ? "" : "s"} shown</td><td class="num">${money(rows.reduce((s, i) => s + invTotals(i).total, 0))}</td><td class="num">${money(tot)}</td></tr>` : ""}
   </tbody></table></div></div>`;
 };
@@ -1258,12 +1316,12 @@ function estTableHTML(inv, t){ const lines = (inv.lines || []), n = lines.filter
   ${lines.map((l, i) => { const p = estParts(l); return `<tr><td class="n">${i + 1}</td><td><div class="nm">${esc(p.name)}</div>${p.sub ? `<div class="sub">${esc(p.sub)}</div>` : ""}</td><td class="num">${esc(p.qty)}</td><td class="num">${esc(p.each)}</td><td class="num tot">${p.total}</td></tr>`; }).join("")}
   </tbody></table>
   <div class="esttotals"><div><span>Subtotal (${n} item${n === 1 ? "" : "s"})</span><span>${money(t.sub)}</span></div>${t.tax ? `<div><span>Sales tax (${esc(inv.taxRate)}%)</span><span>${money(t.tax)}</span></div>` : ""}<div class="big"><span>Estimate total</span><span>${money(t.total)}</span></div></div>
-  ${inv.due ? `<div class="estnote">Prices good through ${fmtDate(inv.due)}.</div>` : ""}`; }
+  ${inv.due ? `<div class="estnote">Prices good through ${dueStr(inv)}.</div>` : ""}`; }
 function invoiceDoc(inv, standalone, kind){
   const est = kind === "estimate";
   const c = byId("customers", inv.customerId) || {}, co = S.company, t = invTotals(inv), paid = est ? 0 : invPaid(inv.id), stp = est ? null : invStamp(inv);
   return `<div class="doc">${stp ? `<div class="stamp ${stp.kind}" aria-label="${stp.text}">${stp.text}${stp.sub ? `<small>${esc(stp.sub)}</small>` : ""}</div>` : ""}<div class="doc-head"><div class="co">${co.showLogo !== false ? `<img class="logo" src="${LOGO_PNG}" alt="">` : ""}<div><b>${esc(co.name)}</b><div class="pre small muted">${esc(shownAddr())}${co.phone ? "\n" + esc(co.phone) : ""}${co.email ? "\n" + esc(co.email) : ""}</div></div></div>
-    <div class="meta"><h2>${est ? "Estimate" : "Invoice"}</h2><div class="kv"><span>${est ? "Estimate" : "Invoice"} no.</span><b>${esc(inv.num)}</b><span>Date</span><div>${fmtDate(inv.date)}</div><span>${est ? "Valid until" : "Due"}</span><div>${fmtDate(inv.due)}</div><span>Terms</span><div>${esc(inv.terms || "")}</div>${inv.po ? `<span>P.O. no.</span><div>${esc(inv.po)}</div>` : ""}</div></div></div>
+    <div class="meta"><h2>${est ? "Estimate" : "Invoice"}</h2><div class="kv"><span>${est ? "Estimate" : "Invoice"} no.</span><b>${esc(inv.num)}</b><span>Date</span><div>${fmtDate(inv.date)}</div><span>${est ? "Valid until" : "Due"}</span><div>${dueStr(inv)}</div><span>Terms</span><div>${esc(inv.terms || "")}</div>${inv.po ? `<span>P.O. no.</span><div>${esc(inv.po)}</div>` : ""}</div></div></div>
     ${(bt => `<div style="margin-bottom:18px"><div class="small muted">${est ? "Prepared for" : "Bill to"}</div><b>${esc(bt.name)}</b>${bt.contact ? `<div>Attn: ${esc(bt.contact)}</div>` : ""}<div class="pre">${esc(bt.address)}</div></div>`)(billToOf(inv))}
     ${est ? estTableHTML(inv, t) : `<div class="tbl"><table><thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>
     ${(inv.lines || []).map(l => `<tr><td>${esc(byId("items", l.itemId)?.name || "")}</td><td class="pre">${esc(l.desc || "")}</td><td class="num">${esc(l.qty)}</td><td class="num">${money(l.rate)}</td><td class="num">${money((+l.qty||0) * (+l.rate||0))}${l.taxable ? "" : standalone ? "" : ' <span class="small muted">N</span>'}</td></tr>`).join("")}
@@ -1821,6 +1879,7 @@ VIEWS.settings = () => { const c = S.company; const counts = COLS.reduce((s, k) 
     <label class="f">Extra footer line (optional)<input name="footer" value="${esc(c.footer)}" placeholder="e.g. Checks payable to Awards USA LLC"></label>
     <label class="check full"><input type="checkbox" name="showLogo" ${c.showLogo !== false ? "checked" : ""}> Show the Awards USA logo on invoices, estimates and statements</label>
     <label class="check full"><input type="checkbox" name="showStreet" ${c.showStreet ? "checked" : ""}> Show my street address on invoices (off = city only, for privacy)</label>
+    <label class="check full"><input type="checkbox" name="netFromDone" ${c.netFromDone !== false ? "checked" : ""}> Start the payment terms (Net 30 etc.) when an order is ready for pickup, not when the invoice is made</label>
     <label class="f full">Mailing address for marketing emails (a PO box or mailbox service keeps your home private)<input name="mailingAddress" value="${esc(c.mailingAddress || "")}" placeholder="e.g. PO Box 123, Lakewood, CO 80215"></label>
     <label class="f full">Google review link (from your Google Business Profile → "Ask for reviews")<input name="reviewLink" type="text" inputmode="url" autocapitalize="off" value="${esc(c.reviewLink || "")}" placeholder="https://g.page/r/..."></label>
     <label class="f">Accountant's email<input name="accountantEmail" type="email" value="${esc(c.accountantEmail || "")}"></label>
@@ -2849,7 +2908,7 @@ function docPDF(inv, kind){
   shownAddr().split("\n").concat([co.phone, co.email]).filter(Boolean).forEach(l => { P.text(lx, y, l, {size:9.5, color:gray}); y += 12.5; });
   y = Math.max(y, logoBottom);
   let ry = 66; P.text(R, ry, est ? "ESTIMATE" : "INVOICE", {size:22, bold:true, color:brass, align:"right"}); ry += 20;
-  [[est ? "Estimate no." : "Invoice no.", inv.num, true], ["Date", fmtDate(inv.date)], [est ? "Valid until" : "Due", fmtDate(inv.due)], ["Terms", est ? "" : inv.terms], ["P.O. no.", inv.po]].filter(r => r[1]).forEach(([k, v, b]) => { P.text(470, ry, k, {size:9.5, color:gray, align:"right"}); P.text(R, ry, String(v), {size:9.5, bold:!!b, align:"right"}); ry += 13; });
+  [[est ? "Estimate no." : "Invoice no.", inv.num, true], ["Date", fmtDate(inv.date)], [est ? "Valid until" : "Due", dueStr(inv)], ["Terms", est ? "" : inv.terms], ["P.O. no.", inv.po]].filter(r => r[1]).forEach(([k, v, b]) => { P.text(470, ry, k, {size:9.5, color:gray, align:"right"}); P.text(R, ry, String(v), {size:9.5, bold:!!b, align:"right"}); ry += 13; });
   y = Math.max(y, ry) + 18;
   P.text(L, y, est ? "PREPARED FOR" : "BILL TO", {size:8, bold:true, color:gray});
   { const sp = est ? null : invStamp(inv); if (sp) P.stamp(360, y + 20, sp.text, sp.sub, sp.kind === "paid" ? [0.17, 0.46, 0.29] : [0.11, 0.37, 0.66]); }
@@ -2874,7 +2933,7 @@ function docPDF(inv, kind){
     const tr = (k, v) => { P.text(tl, y, k, {size:10}); P.text(R - 8, y, v, {size:10, align:"right"}); y += 15; };
     tr(`Subtotal (${nItems} item${nItems === 1 ? "" : "s"})`, money(t.sub)); if (t.tax) tr(`Sales tax (${inv.taxRate}%)`, money(t.tax));
     y += 4; P.rect(tl - 10, y - 16, R - tl + 10, 26, [0.95, 0.91, 0.82]); P.text(tl, y + 1, "Estimate total", {size:12.5, bold:true}); P.text(R - 8, y + 1, money(t.total), {size:12.5, bold:true, align:"right"}); y += 28;
-    if (inv.due) { P.text(R - 8, y, "Prices good through " + fmtDate(inv.due) + ".", {size:9, color:gray, align:"right"}); y += 14; }
+    if (inv.due) { P.text(R - 8, y, "Prices good through " + dueStr(inv) + ".", {size:9, color:gray, align:"right"}); y += 14; }
     y += 10;
   } else {
   const cols = {item:L + 6, desc:148, qty:402, rate:482, amt:R - 6};
@@ -3888,7 +3947,7 @@ function invoiceForm(inv, customerId, kind, fromEstimate){
   <label class="f">${est ? "Estimate" : "Invoice"} no.<input name="num" required value="${esc(inv.num)}"></label>
   <label class="f">Date<input name="date" type="date" required value="${esc(inv.date)}" ${est ? "" : 'data-act-change="invTerms"'}></label>
   <label class="f">Terms<select name="terms" ${est ? "" : 'data-act-change="invTerms"'}>${opts(Object.keys(TERMS).map(t => [t, t]), inv.terms)}</select></label>
-  <label class="f">${est ? "Valid until" : "Due date"}<input name="due" type="date" value="${esc(inv.due || addDays(inv.date, termDays(inv.terms)))}">${est ? "" : `<span class="chips" style="margin-top:4px">${[["0","On receipt"],["15","15 days"],["30","30 days"],["45","45 days"]].map(([d, l]) => `<button type="button" class="chip" style="padding:2px 9px;font-size:12.5px" data-act="dueQuick" data-days="${d}">${l}</button>`).join("")}</span>`}</label>
+  <label class="f">${est ? "Valid until" : "Due date"}<input name="due" type="date" value="${esc(inv.due || (!est && (isNew ? netOn() : true) && IN_PROGRESS.has(inv.jobStatus || "new") ? "" : addDays(inv.date, termDays(inv.terms))))}" data-pending="${!est && !inv.due && (isNew ? netOn() : true) && IN_PROGRESS.has(inv.jobStatus || "new") ? 1 : ""}" data-from="${esc(inv.dueFrom || "")}">${!est && !inv.due && (isNew ? netOn() : true) && IN_PROGRESS.has(inv.jobStatus || "new") ? `<span class="small muted" data-duehint style="margin-top:3px">Blank = the clock starts when the order is ready for pickup (${esc(inv.terms || "Net 30")} → due ${termDays(inv.terms) || 0} days after). Pick a date only if you want a fixed one.</span>` : ""}${est ? "" : `<span class="chips" style="margin-top:4px">${[["0","On receipt"],["15","15 days"],["30","30 days"],["45","45 days"]].map(([d, l]) => `<button type="button" class="chip" style="padding:2px 9px;font-size:12.5px" data-act="dueQuick" data-days="${d}">${l}</button>`).join("")}</span>`}</label>
   <label class="f">P.O. no.<input name="po" value="${esc(inv.po)}"></label>
   <label class="f">Needed by (event date)<input name="neededBy" type="date" value="${esc(inv.neededBy || "")}"></label>
   <label class="f">Sales tax rate (%)<input name="taxRate" type="number" step="0.001" min="0" value="${esc(inv.taxRate)}"></label>
@@ -4034,7 +4093,7 @@ function fillApply(p){ const box = $("#applyList"); if (!box) return; const f = 
   if (!cid) { box.innerHTML = '<p class="muted">Choose a customer to see their unpaid invoices.</p>'; payTotal(); return; }
   const applied = {}; (p?.applied || []).forEach(a => applied[a.invoiceId] = a.amount);
   const list = S.invoices.filter(i => i.customerId === cid && (invBalance(i, p?.id) > 0.004 || applied[i.id])).sort((a, b) => (a.due || a.date) < (b.due || b.date) ? -1 : 1);
-  box.innerHTML = list.length ? `<div class="tbl"><table><thead><tr><th></th><th>Invoice</th><th>Due</th><th class="num">Open</th><th class="num">Payment</th></tr></thead><tbody>${list.map(i => { const open = invBalance(i, p?.id), a = applied[i.id]; return `<tr><td><input type="checkbox" data-act-change="applyCheck" data-open="${open}" ${a ? "checked" : ""} aria-label="Apply to invoice ${esc(i.num)}"></td><td>#${esc(i.num)}</td><td>${fmtDate(i.due)}</td><td class="num">${money(open)}</td><td class="num"><input type="number" step="0.01" min="0" data-inv="${i.id}" value="${a ? r2(a) : ""}" style="width:110px;text-align:right;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface)" aria-label="Payment amount"></td></tr>`; }).join("")}</tbody></table></div>`
+  box.innerHTML = list.length ? `<div class="tbl"><table><thead><tr><th></th><th>Invoice</th><th>Due</th><th class="num">Open</th><th class="num">Payment</th></tr></thead><tbody>${list.map(i => { const open = invBalance(i, p?.id), a = applied[i.id]; return `<tr><td><input type="checkbox" data-act-change="applyCheck" data-open="${open}" ${a ? "checked" : ""} aria-label="Apply to invoice ${esc(i.num)}"></td><td>#${esc(i.num)}</td><td>${dueStr(i)}</td><td class="num">${money(open)}</td><td class="num"><input type="number" step="0.01" min="0" data-inv="${i.id}" value="${a ? r2(a) : ""}" style="width:110px;text-align:right;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface)" aria-label="Payment amount"></td></tr>`; }).join("")}</tbody></table></div>`
     : '<p class="muted">This customer has no unpaid invoices.</p>';
   payTotal(); }
 function payTotal(){ const t = $$("#applyList [data-inv]").reduce((s, i) => s + (+i.value || 0), 0); const b = $("#payTotal"); if (!b) return; b.innerHTML = `<div class="grand"><span>Amount received</span><span>${money(t)}</span></div>`;
@@ -4082,7 +4141,7 @@ const FORMS = {
     if (!lines.length) return formErr(f, "Add at least one line.");
     if (lines.some(l => !l.itemId && !l.desc)) return formErr(f, "Each line needs an item or a description.");
     let numv = val(f, "num"); if (S.invoices.some(i => i.id !== id && String(i.num) === numv)) { if (id) return formErr(f, "Invoice #" + numv + " already exists. Use a different number."); const nn = nextInvNum(); toast("#" + numv + " was already used, so this is #" + nn); numv = nn; f.elements.num.value = nn; }
-    const inv = {...clone(byId("invoices", id) || {}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due") || addDays(val(f, "date"), termDays(val(f, "terms"))), po:val(f, "po"), neededBy:val(f, "neededBy"), jobStatus:(byId("invoices", id) || {}).jobStatus || "new", taxRate:num(f, "taxRate"), memo:val(f, "memo"), privNote:(f.elements.privNote ? f.elements.privNote.value.trim() : ""), lines};
+    const inv = {...clone(byId("invoices", id) || {}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due") || (f.elements.due && f.elements.due.dataset.pending === "1" ? "" : addDays(f.elements.due && f.elements.due.dataset.from || val(f, "date"), termDays(val(f, "terms")))), po:val(f, "po"), neededBy:val(f, "neededBy"), jobStatus:(byId("invoices", id) || {}).jobStatus || "new", taxRate:num(f, "taxRate"), memo:val(f, "memo"), privNote:(f.elements.privNote ? f.elements.privNote.value.trim() : ""), lines};
     inv.billTo = await readBillTo(f, inv.customerId); if (!inv.billTo) delete inv.billTo;
     if (payLink !== undefined) { if (payLink) inv.payLink = payLink; else delete inv.payLink; }
     inv.taxParts = Math.abs(inv.taxRate - partsRate(S.company.taxParts)) < 0.0005 ? clone(S.company.taxParts || []) : [];
@@ -4199,6 +4258,8 @@ const FORMS = {
     const kw = val(f, "kw"); if (f.elements.remember.checked && kw) { const ex = S.bankrules.find(r => r.text.toLowerCase() === kw.toLowerCase()); await put("bankrules", {...(ex ? clone(ex) : {}), text:kw, acct, vendorId}); }
     toast("Added"); },
   async reconcile(f){ const a = byId("accounts", f.dataset.id); await put("accounts", {...clone(a), recon:{date:val(f, "date"), balance:num(f, "balance")}}); return "keep"; },
+  leadMail(f){ const to = val(f, "to"), subject = val(f, "subject"), body = f.elements.body.value; window.open(gmailCompose(to, subject, body, []), "_blank", "noopener");
+    const c = f.dataset.cust && byId("customers", f.dataset.cust); if (c) put("customers", {...clone(c), leadTouched:todayISO()}); toast("Opened in Gmail. Press Send there when it looks right."); },
   async sendEstimate(f){ const e = byId("estimates", f.dataset.id); if (!e) return false; const to = val(f, "to"), cc = ccList(f.elements.cc ? f.elements.cc.value : "");
     if (!validEmail(to)) return formErr(f, "Enter a valid email address.");
     if (cc.some(x => !validEmail(x))) return formErr(f, "Check the CC email address.");
@@ -4368,7 +4429,7 @@ Answer with JSON only: {"subject": "...", "body": "..."}`;
     const wh = d.fedWH + d.coWH + d.ssEE + d.medEE + d.famliEE; if (wh > g) return formErr(f, "Withholding is more than gross pay.");
     await put("payruns", d); toast("Paycheck recorded"); },
   async company(f){ const taxParts = readLines(f).filter(p => p.name || p.rate); if (taxParts.some(p => !p.name)) return formErr(f, "Give each tax rate a name.");
-    await saveCompany({name:val(f, "bizName") || S.company.name || "Awards USA LLC", phone:val(f, "phone"), email:val(f, "email"), taxParts, taxRate:partsRate(taxParts), address:val(f, "address"), nextInvoice:num(f, "nextInvoice") || 1001, footer:val(f, "footer"), defaultMemo:f.elements.defaultMemo.value, ownerName:val(f, "ownerName"), tagline:val(f, "tagline"), showStreet:f.elements.showStreet.checked, showLogo:f.elements.showLogo.checked, autoCal:f.elements.autoCal.checked, mailingAddress:val(f, "mailingAddress"), accountantEmail:val(f, "accountantEmail"), reviewLink:val(f, "reviewLink"), hasEmployees:f.elements.hasEmployees.checked,
+    await saveCompany({name:val(f, "bizName") || S.company.name || "Awards USA LLC", phone:val(f, "phone"), email:val(f, "email"), taxParts, taxRate:partsRate(taxParts), address:val(f, "address"), nextInvoice:num(f, "nextInvoice") || 1001, footer:val(f, "footer"), defaultMemo:f.elements.defaultMemo.value, ownerName:val(f, "ownerName"), tagline:val(f, "tagline"), showStreet:f.elements.showStreet.checked, showLogo:f.elements.showLogo.checked, netFromDone:f.elements.netFromDone ? f.elements.netFromDone.checked : true, autoCal:f.elements.autoCal.checked, mailingAddress:val(f, "mailingAddress"), accountantEmail:val(f, "accountantEmail"), reviewLink:val(f, "reviewLink"), hasEmployees:f.elements.hasEmployees.checked,
       salesTaxFreq:val(f, "salesTaxFreq") || "monthly", taxStart:val(f, "taxStart") || "2026-09-01", estTaxOn:f.elements.estTaxOn.checked, estFed:num(f, "estFed"), estCO:num(f, "estCO"),
       entity:val(f, "entity") || "llc", coUIRate:num(f, "coUIRate"), famliEE:num(f, "famliEE"), famliER:num(f, "famliER")});
     if (S.company.entity === "scorp") await ensurePayrollAccounts();
@@ -4515,7 +4576,7 @@ const ACT = {
   newItem: () => itemForm(), editItem: el => itemForm(clone(byId("items", el.dataset.id))),
   newAccount: () => accountForm(), editAccount: el => accountForm(clone(byId("accounts", el.dataset.id))),
   newFollowup: el => followupForm(null, el.dataset.customer), openFollowup: el => followupForm(clone(byId("followups", el.dataset.id))),
-  async doneFollowup(el){ const f = byId("followups", el.dataset.id); await put("followups", {...clone(f), done:true}); toast("Marked done"); },
+  async doneFollowup(el){ const f = byId("followups", el.dataset.id); await put("followups", {...clone(f), done:true, doneOn:todayISO()}); toast("Marked done"); },
   newInvoice: el => invoiceForm(null, el.dataset.customer), editInvoice: el => invoiceForm(clone(byId("invoices", el.dataset.id))),
   copyInvoice(el){ const o = clone(byId("invoices", el.dataset.id)); delete o.id; o.num = nextInvNum(); o.date = todayISO(); o.due = ""; invoiceForm(o); },
   receivePayment: el => paymentForm(null, el.dataset.customer, el.dataset.invoice), editPayment: el => paymentForm(clone(byId("payments", el.dataset.id))),
@@ -4579,7 +4640,7 @@ const ACT = {
     const total = b.reduce((s, x) => s + x, 0);
     const body = `<div class="doc"><div class="doc-head"><div class="co">${co.showLogo !== false ? `<img class="logo" src="${LOGO_PNG}" alt="">` : ""}<div><b>${esc(co.name)}</b><div class="pre small muted">${esc(shownAddr())}${co.phone ? "\n" + esc(co.phone) : ""}${co.email ? "\n" + esc(co.email) : ""}</div></div></div><div class="meta"><h2>Statement</h2><div class="kv"><span>Date</span><div>${fmtDate(t)}</div><span>Amount due</span><b>${money(total)}</b></div></div></div>
       <div style="margin-bottom:18px"><div class="small muted">To</div><b>${esc(c.name)}</b>${c.contact ? `<div>${esc(c.contact)}</div>` : ""}<div class="pre">${esc(c.address || "")}</div></div>
-      <div class="tbl"><table><thead><tr><th>Invoice</th><th>Date</th><th>Due</th><th class="num">Amount</th><th class="num">Balance</th></tr></thead><tbody>${open.map(i => `<tr><td>#${esc(i.num)}</td><td>${fmtDate(i.date)}</td><td>${fmtDate(i.due)}</td><td class="num">${money(invTotals(i).total)}</td><td class="num">${money(invBalance(i))}</td></tr>`).join("") || '<tr><td colspan="5">No open invoices. Thank you!</td></tr>'}</tbody></table></div>
+      <div class="tbl"><table><thead><tr><th>Invoice</th><th>Date</th><th>Due</th><th class="num">Amount</th><th class="num">Balance</th></tr></thead><tbody>${open.map(i => `<tr><td>#${esc(i.num)}</td><td>${fmtDate(i.date)}</td><td>${dueStr(i)}</td><td class="num">${money(invTotals(i).total)}</td><td class="num">${money(invBalance(i))}</td></tr>`).join("") || '<tr><td colspan="5">No open invoices. Thank you!</td></tr>'}</tbody></table></div>
       <div class="tbl" style="margin-top:16px"><table><thead><tr><th class="num">Current</th><th class="num">1–30 days</th><th class="num">31–60</th><th class="num">61–90</th><th class="num">Over 90</th><th class="num">Total due</th></tr></thead><tbody><tr>${b.map(x => `<td class="num">${money(x)}</td>`).join("")}<td class="num"><b>${money(total)}</b></td></tr></tbody></table></div>
       ${co.footer ? `<p class="muted" style="margin-top:18px">${esc(co.footer)}</p>` : ""}</div>`;
     saveFile(("Statement-" + c.name + "-" + t).replace(/[^\w-]+/g, "-") + ".html", standaloneDoc("Statement – " + c.name, body)); },
@@ -4640,7 +4701,12 @@ ${text}`, {modelTier:"default"});
   invCashEdit(){ openSheet("Cash in the brokerage", `<form data-form="invcash"><div class="fields"><label class="f">Uninvested cash<input name="cash" type="number" step="0.01" min="0" value="${esc(S.company.invCash || "")}"></label></div>${foot(null, "Save")}</form>`, true); },
   delInvEntry(el){ const j = byId("journals", el.dataset.id); confirmBox(`Delete "${j.memo}" from ${fmtDate(j.date)}? Your books will be adjusted back.`, "Delete", async () => { await remove("journals", j.id); }); },
   calSyncNow(){ calSync(false); },
-  async jobStatus(el){ const i = byId("invoices", el.dataset.id); await put("invoices", {...clone(i), jobStatus:el.dataset.val, doneAt:el.dataset.val === "done" ? new Date().toISOString() : i.doneAt || ""}); toast(jobLabel(el.dataset.val)); },
+  async jobStatus(el){ const i = byId("invoices", el.dataset.id); if (!i) return; const x = await setJobStage(i.id, el.dataset.val); toast(jobLabel(el.dataset.val) + (x && x.dueFrom && !i.dueFrom ? " · due " + fmtDate(x.due) + " (" + (i.terms || "Net 30") + " starts today)" : "")); },
+  boardStage(el){ UI.boardStage = el.dataset.val; render(); },
+  boardView(el){ try { localStorage.setItem("aub-board-view", el.dataset.val); } catch (e) {} render(); },
+  boardOpen(el){ UI.boardStage = el.dataset.val; try { localStorage.setItem("aub-board-view", "open"); } catch (e) {} render(); },
+  scrollLeads(){ const p = document.getElementById("leadsPanel"); if (p) p.scrollIntoView({behavior:"smooth", block:"start"}); },
+  leadMail(el){ leadMailForm(el.dataset.kind, el.dataset.id, el.dataset.key); },
   payMyself(){ openSheet("Pay myself", `<form data-form="ownerpay"><div class="fields">
     <label class="f">Amount<input name="amount" type="number" step="0.01" min="0" required></label>
     <label class="f">Date<input name="date" type="date" required value="${todayISO()}"></label>
@@ -4765,6 +4831,7 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
   if (t.dataset.pick) { UI.pick = UI.pick || new Set(); if (t.checked) UI.pick.add(t.dataset.pick); else UI.pick.delete(t.dataset.pick); render(); return; }
   if (t.dataset.kitItem !== undefined) { kitSum(t.closest("form")); return; }
   if (t.dataset.actChange === "ordTo") { const row = t.closest(".ordrow"), it = byId("items", t.value), nm = row.querySelector("[name=name]"), pr = row.querySelector("[name=price]"), note = row.querySelector(".or-note"); nm.value = it ? it.name : t.value === "exp" ? "" : row.dataset.sug; nm.disabled = t.value === "exp"; pr.disabled = t.value === "exp"; if (it && it.price && !pr.value) pr.value = it.price; if (note) note.textContent = it ? onHand(it) + " on hand now" + (it.cost ? " · last cost " + money(it.cost) : "") : t.value === "exp" ? "Recorded as shop supplies, not counted in stock." : "A new stocked item will be created."; const b = row.querySelector(".or-top .badge"); if (b) { b.className = "badge"; b.textContent = it ? "Your pick" : t.value === "exp" ? "Supplies" : "New item"; } return; }
+  if (t.dataset.actChange === "todoTick") { todoTick(t.dataset.key, t.checked); return; }
   if (t.dataset.actChange === "estPickCust") { estPastRender(); return; }
   if (t.dataset.actChange === "minvPick") { const f = t.closest("form"), list = multiPicked(f);
     if (list.length) { const nb = invMailBody(f._c || {}, list), ns = invMailSubject(list);
@@ -4840,7 +4907,7 @@ document.addEventListener("change", async e => {
   if (t.name === "itemId" && t.closest(".line.inv")) { const it = byId("items", t.value), row = t.closest(".line"); if (it) { const lp = f.elements.customerId && f.elements.customerId.value ? lastPrice(f.elements.customerId.value, it.id) : null; row.querySelector("[name=desc]").value = it.desc || it.name; row.querySelector("[name=rate]").value = lp ? lp.rate : (it.price || ""); if (lp && lp.rate !== +it.price) toast(`Using ${custName(f.elements.customerId.value)}’s last price: ${money(lp.rate)} (list ${money(it.price)})`); row.querySelector("[name=taxable]").checked = it.taxable !== false && +(f.elements.taxRate?.value || 0) > 0; shipRowCheck(row); } recalc(f); }
   if (t.name === "ref" && t.closest(".line.buy") && t.value.startsWith("i:")) { const it = byId("items", t.value.slice(2)), row = t.closest(".line"); if (it && !row.querySelector("[name=rate]").value) row.querySelector("[name=rate]").value = it.cost || ""; if (it && !row.querySelector("[name=memo]").value) row.querySelector("[name=memo]").value = it.name; recalc(f); }
   if (act === "itemType") toggleItemType();
-  if (act === "invTerms" && f.elements.due) { f.elements.due.value = addDays(f.elements.date.value || todayISO(), termDays(f.elements.terms.value)); }
+  if (act === "invTerms" && f.elements.due && !(f.elements.due.dataset.pending === "1" && !f.elements.due.value)) { f.elements.due.value = addDays(f.elements.due.dataset.from || f.elements.date.value || todayISO(), termDays(f.elements.terms.value)); }
   if (act === "custSort") { UI.filter.csort = t.value; render(); return; }
   if (act === "invYear") { UI.filter.invy = t.value; render(); return; }
   if (act === "invCustomer" && t.value === "__newcust") { t.value = ""; openInlineCustomer(f); return; }
@@ -4954,6 +5021,119 @@ document.addEventListener("change", async e => {
   document.addEventListener("click", e => { if (e.target.closest && e.target.closest(".lines, #sheetBody")) setTimeout(all, 50); }, true);
   new MutationObserver(() => { requestAnimationFrame(all); setTimeout(all, 400); }).observe(document.body, {childList:true, subtree:true});
   addEventListener("resize", () => requestAnimationFrame(all));
+})();
+/* ---------- net terms start when the order is ready ---------- */
+const netOn = () => S.company.netFromDone !== false;
+const IN_PROGRESS = new Set(["new", "ordered", "production"]);
+const duePending = i => !i.due && IN_PROGRESS.has(i.jobStatus || "");
+function dueStr(i){ if (!i) return ""; if (i.due) return fmtDate(i.due); if (duePending(i)) { const n = termDays(i.terms); return n ? n + " days after pickup" : "On pickup"; } return ""; }
+async function setJobStage(id, stage){ const i = byId("invoices", id); if (!i) return null; const t = todayISO();
+  const x = {...clone(i), jobStatus:stage, doneAt:stage === "done" ? (i.doneAt || new Date().toISOString()) : (i.doneAt || "")};
+  const complete = stage === "ready" || stage === "done";
+  if (stage === "ready" && !i.readyOn) x.readyOn = t;
+  if (complete && !i.due) { x.due = addDays(t, termDays(i.terms)); x.dueFrom = t; }
+  else if (!complete && i.dueFrom) { x.due = ""; delete x.dueFrom; delete x.readyOn; }
+  await put("invoices", x); return x; }
+/* ---------- Home: today's checklist ---------- */
+async function todoTick(key, on){ const t = todayISO();
+  if (key.startsWith("fu:")) { const f = byId("followups", key.slice(3)); if (f) await put("followups", {...clone(f), done:on, doneOn:on ? t : ""}); return; }
+  const cur = S.company.todayDone && S.company.todayDone.date === t ? S.company.todayDone.keys : [];
+  await saveCompany({todayDone:{date:t, keys:on ? [...new Set([...cur, key])] : cur.filter(k => k !== key)}}); }
+/* ---------- Home: leads this week ---------- */
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const SEASON = [
+  [{who:"Employee-of-the-year and annual awards banquets", why:"HR and office managers plan January–March banquets now.", q:"annual awards banquet Lakewood Colorado", subj:"Plaques for your annual awards", pitch:"Many companies hold their employee-of-the-year and annual awards early in the year, and I'd love to help with yours."},
+   {who:"Chambers of commerce and business groups", why:"Annual meetings and business awards happen in winter.", q:"chamber of commerce annual awards Jefferson County Colorado", subj:"Awards for your annual meeting", pitch:"If your group has an annual meeting or business awards coming up, I can help with plaques and recognition awards."},
+   {who:"Winter youth leagues (basketball, hockey, wrestling)", why:"End-of-season trophies are needed in February and March.", q:"youth basketball league Lakewood CO", subj:"End-of-season trophies for your league", pitch:"With winter seasons wrapping up soon, I can get trophies and medals ready for your teams."}],
+  [{who:"High school winter sports banquets", why:"Basketball, wrestling, hockey and swim banquets are coming up.", q:"high school winter sports banquet Jefferson County Colorado", subj:"Awards for your winter sports banquet", pitch:"Winter sports banquets are coming up, and I can make plaques, trophies and certificate frames for your athletes and coaches."},
+   {who:"Spring rec leagues (soccer, baseball, softball)", why:"Leagues registering now will need medals April–June.", q:"spring youth soccer league Lakewood Colorado", subj:"Medals and trophies for your spring season", pitch:"If your spring league is getting set up, I can have medals and trophies ready before the season ends."},
+   {who:"Science fairs and academic competitions", why:"School and district competitions run in late winter.", q:"Jefferson County science fair awards", subj:"Awards for your competition", pitch:"I make medals, plaques and trophies for science fairs and academic competitions."}],
+  [{who:"Spring high school sports", why:"Baseball, softball, track and soccer are starting; order season awards early.", q:"high school spring sports booster club Jefferson County Colorado", subj:"Season awards for your spring teams", pitch:"Spring seasons are starting, and ordering end-of-season awards early means they're ready on time."},
+   {who:"Schools and PTAs (Teacher Appreciation, year-end awards)", why:"Teacher Appreciation Week is in early May and year-end awards follow.", q:"PTA teacher appreciation Lakewood Colorado", subj:"Teacher appreciation and year-end awards", pitch:"I can help with engraved gifts for Teacher Appreciation Week and plaques for end-of-year awards."},
+   {who:"Nonprofits (National Volunteer Week in April)", why:"Volunteer recognition events happen in April.", q:"volunteer appreciation event Lakewood Colorado", subj:"Volunteer recognition awards", pitch:"If you're recognizing volunteers this spring, I can make plaques and engraved gifts."}],
+  [{who:"Offices (Administrative Professionals Day, late April)", why:"Desk nameplates and engraved gifts.", q:"Lakewood Colorado office managers", subj:"Administrative Professionals Day gifts", pitch:"Administrative Professionals Day is coming up, and engraved nameplates and gifts make great thank-yous."},
+   {who:"Schools: graduation and end-of-year awards", why:"Principals and PTAs order in April for May events.", q:"end of year awards ceremony Jefferson County schools", subj:"Year-end awards for your students", pitch:"End-of-year award ceremonies are coming up, and I can make medals, plaques and trophies for your students and staff."},
+   {who:"Charity golf tournaments (May–September)", why:"Organizers need trophies, plaques and sponsor awards.", q:"charity golf tournament Colorado 2026", subj:"Trophies for your golf tournament", pitch:"I make trophies and sponsor plaques for golf tournaments and can match your event colors and logo."}],
+  [{who:"Graduations and teacher retirements", why:"Retirement plaques and senior awards in May.", q:"teacher retirement celebration Lakewood Colorado", subj:"Retirement and graduation plaques", pitch:"May is busy with graduations and retirements, and a custom plaque is a lasting way to recognize them."},
+   {who:"Spring sports banquets", why:"Track, baseball, softball and girls soccer banquets.", q:"spring sports banquet high school Colorado", subj:"Awards for your spring banquet", pitch:"Spring sports banquets are coming up, and I can have plaques and trophies ready in time."},
+   {who:"Summer camps and leagues", why:"Participation medals and awards for summer programs.", q:"summer youth sports camp Lakewood Colorado", subj:"Medals for your summer program", pitch:"I make participation medals and trophies for summer camps and leagues."}],
+  [{who:"Summer swim teams and baseball tournaments", why:"Medals and trophies for tournaments all summer.", q:"youth baseball tournament Colorado June", subj:"Medals and trophies for your tournament", pitch:"Summer tournament season is here, and I can make medals and trophies for your teams."},
+   {who:"Fun runs, 5Ks and fundraisers", why:"Finisher medals and sponsor plaques.", q:"5K fun run Lakewood Colorado", subj:"Medals for your race", pitch:"I make finisher medals, age-group awards and sponsor plaques for races and fundraisers."},
+   {who:"Retirements and years-of-service", why:"Mid-year recognition at companies and agencies.", q:"years of service awards Colorado employers", subj:"Years-of-service awards", pitch:"I can help with years-of-service and retirement plaques for your team."}],
+  [{who:"School staff name badges for the new year", why:"Schools order badges and nameplates by early August.", q:"Jefferson County school front office", subj:"Name badges for the new school year", pitch:"With the new school year coming, I can make staff name badges and door or desk nameplates."},
+   {who:"County fairs and rodeos", why:"Ribbons, plaques and buckles for fair and rodeo events.", q:"county fair Colorado awards", subj:"Awards for your fair or rodeo", pitch:"I make plaques and awards for fair and rodeo events."},
+   {who:"Fall leagues (soccer, flag football)", why:"Leagues registering now need end-of-season awards in fall.", q:"fall youth soccer league Lakewood Colorado", subj:"Awards for your fall season", pitch:"If your fall league is getting started, I can have trophies and medals ready for the end of the season."}],
+  [{who:"New school-year staff badges and nameplates", why:"New staff need name badges in August.", q:"Lakewood Colorado schools new staff", subj:"Staff name badges", pitch:"I can make name badges and nameplates for new and returning staff."},
+   {who:"High school fall sports booster clubs", why:"Get on their list now for November banquets.", q:"high school booster club Jefferson County Colorado", subj:"End-of-season awards for your fall teams", pitch:"Fall seasons are starting, and ordering banquet awards early means everything is ready on time."},
+   {who:"Conferences and corporate events", why:"Fall events need name badges.", q:"conference Denver fall 2026 name badges", subj:"Name badges for your event", pitch:"I make name badges for conferences, staff and events, with your logo."}],
+  [{who:"Fall golf tournaments and fundraisers", why:"Trophies and sponsor plaques.", q:"fall golf tournament fundraiser Colorado", subj:"Trophies for your fall tournament", pitch:"I make trophies and sponsor plaques for golf tournaments and fundraisers."},
+   {who:"Homecoming and hall of fame inductions", why:"Schools and clubs honor alumni in the fall.", q:"athletic hall of fame induction Colorado high school", subj:"Hall of fame plaques", pitch:"I make hall of fame plaques and recognition awards for schools and clubs."},
+   {who:"Conferences and trade shows", why:"Name badges for fall events.", q:"Denver trade show fall name badges", subj:"Name badges for your event", pitch:"I make name badges for staff, conferences and trade shows."}],
+  [{who:"Fall sports booster clubs (banquets in November)", why:"Now is the time to get their banquet orders.", q:"high school fall sports banquet Jefferson County Colorado", subj:"Awards for your fall sports banquet", pitch:"Fall sports banquets are coming up in November, and I'd love to help with plaques, trophies and coach gifts."},
+   {who:"Boss's Day (October 16)", why:"Engraved gifts and desk nameplates.", q:"Lakewood Colorado office managers", subj:"Boss's Day gifts", pitch:"Boss's Day is coming up, and engraved gifts and desk nameplates make great thank-yous."},
+   {who:"Year-end corporate awards (plan now)", why:"Holiday parties and year-end awards need lead time.", q:"year end employee awards Denver companies", subj:"Year-end employee awards", pitch:"If you're planning year-end awards or holiday party recognition, ordering now leaves plenty of time."}],
+  [{who:"High school fall sports banquets", why:"Football, volleyball, cross country, softball and boys soccer banquets happen now.", q:"high school fall sports banquet Jefferson County Colorado", subj:"Awards for your fall sports banquet", pitch:"Fall sports banquets are happening now, and I can turn around plaques, trophies and coach gifts quickly."},
+   {who:"Year-end employee recognition", why:"Years-of-service and employee-of-the-year awards for December.", q:"employee recognition awards Lakewood Colorado", subj:"Year-end employee awards", pitch:"If you're recognizing your team at the end of the year, I make plaques, crystal awards and engraved gifts."},
+   {who:"Veterans groups and Veterans Day events", why:"Plaques and shadow boxes; you're a veteran-owned shop.", q:"veterans organization Lakewood Colorado", subj:"Recognition awards for veterans", pitch:"As a veteran-owned shop, I'd be honored to help with plaques and recognition awards for your members."}],
+  [{who:"Holiday parties and year-end awards", why:"Last-minute plaques and engraved gifts.", q:"holiday party awards Denver companies", subj:"Year-end awards and gifts", pitch:"If you need awards or engraved gifts for a holiday party or year-end meeting, I can still help."},
+   {who:"Winter youth leagues", why:"Order end-of-season trophies now for February.", q:"winter youth basketball league Lakewood Colorado", subj:"End-of-season trophies", pitch:"Winter seasons are underway, and ordering trophies now means they're ready for the end of the season."},
+   {who:"January annual awards (plan now)", why:"Employee-of-the-year banquets need plaques in January.", q:"annual awards banquet January Colorado", subj:"Plaques for your annual awards", pitch:"If you have annual awards in January, ordering now leaves plenty of time."}]
+];
+function leadsWeek(){ const t = todayISO(), st = custStats(), m = +t.slice(5, 7) - 1;
+  const touched = c => c.leadTouched && daysBetween(c.leadTouched, t) < 30;
+  const repeat = repeatRadar(45).filter(r => !r.contacted).slice(0, 5), rep = new Set(repeat.map(r => r.c.id));
+  const back = S.customers.filter(c => c.status !== "inactive" && c.status !== "lead" && !rep.has(c.id) && !touched(c)).map(c => ({c, x:st.get(c.id)})).filter(o => o.x && o.x.orders.size >= 2 && o.x.last && daysBetween(o.x.last, t) >= 330 && daysBetween(o.x.last, t) <= 3 * 366).sort((a, b) => b.x.life - a.x.life).slice(0, 4);
+  const open = S.customers.filter(c => c.status === "lead" && !touched(c)).slice(0, 4);
+  const ideas = SEASON[m].map((x, i) => ({...x, key:m + ":" + i})).concat([{...SEASON[(m + 1) % 12][0], key:m + ":" + SEASON[m].length, next:true}]);
+  return {repeat, back, open, ideas, m}; }
+function leadsPanel(){ const L = leadsWeek();
+  const row = (t, s, btns) => `<div class="item" style="cursor:default"><div><div class="t">${t}</div><div class="s">${s}</div></div><div class="r lead-b">${btns}</div></div>`;
+  const parts = [];
+  if (L.repeat.length) parts.push(`<h3 class="lh">Usually order around now</h3>` + L.repeat.map(r => row(esc(r.c.name), `Ordered around ${fmtDate(r.expected).replace(/, \d{4}$/, "")} ${r.years && r.years.length > 1 ? "in " + r.years.join(", ") : "last year"}`, `<a class="btn small" href="#/repeat">Remind</a>`)).join(""));
+  if (L.back.length) parts.push(`<h3 class="lh">Haven't ordered in a while</h3>` + L.back.map(o => row(esc(o.c.name), `Last order ${fmtDate(o.x.last)} · ${shortMoney(o.x.life)} all-time`, `<button class="btn small" data-act="leadMail" data-kind="back" data-id="${o.c.id}">Write email</button>`)).join(""));
+  if (L.open.length) parts.push(`<h3 class="lh">Leads to follow up</h3>` + L.open.map(c => row(esc(c.name), esc(c.contact || c.email || "Lead"), `<button class="btn small" data-act="leadMail" data-kind="lead" data-id="${c.id}">Write email</button>`)).join(""));
+  parts.push(`<h3 class="lh">Who's buying awards in ${MONTH_NAMES[L.m]}</h3>` + L.ideas.map(x => row(`${x.next ? '<span class="badge">Next month</span> ' : ""}${esc(x.who)}`, esc(x.why), `<a class="btn small" href="https://www.google.com/search?q=${encodeURIComponent(x.q)}" target="_blank" rel="noopener noreferrer">Find contacts</a><button class="btn small" data-act="leadMail" data-kind="idea" data-key="${x.key}">Write email</button>`)).join(""));
+  return `<section class="panel" id="leadsPanel"><div class="panel-head"><h2>Leads this week</h2><a href="#/customers">Customers</a></div>${parts.join("")}<p class="small muted" style="margin:8px 0 0">"Write email" opens Gmail with a message ready to edit. Nothing is sent until you press Send there.</p></section>`; }
+function leadMailForm(kind, id, key){ const co = S.company, biz = co.name || "Awards USA", sign = `Thanks,\n\nParker\n${biz}${co.phone ? "\n" + co.phone : ""}`; let to = "", subj = "", body = "", cid = "";
+  if (kind === "idea") { const [m, i] = String(key).split(":").map(Number), x = i < SEASON[m].length ? SEASON[m][i] : SEASON[(m + 1) % 12][0];
+    subj = x.subj; body = `Hi there,\n\nI'm Parker with ${biz}, a small, veteran-owned awards and engraving shop in Lakewood. ${x.pitch}\n\nI make custom plaques, trophies, medals, name badges and engraved gifts, and I'm happy to match your colors and logo. If you have something coming up, I'd be glad to put together a free estimate.\n\n${sign}`; }
+  else { const c = byId("customers", id); if (!c) return; cid = c.id; to = c.email || "";
+    subj = kind === "back" ? "Checking in from " + biz : "Following up from " + biz;
+    body = kind === "back" ? `Hi ${firstName(c)},\n\nIt's Parker with ${biz}. It's been a while since your last order and I wanted to check in. If you have any awards, plaques, name badges or gifts coming up, I'd be glad to help. I still have your past orders on file, so reorders are quick.\n\n${sign}`
+      : `Hi ${firstName(c)},\n\nIt's Parker with ${biz}. I wanted to follow up and see if there's anything I can help you with, like awards, plaques, name badges or engraved gifts. I'm happy to put together a free estimate.\n\n${sign}`; }
+  openSheet("Write email", `<form data-form="leadMail" data-cust="${esc(cid)}"><div class="fields">
+    <label class="f full">To<input name="to" type="email" value="${esc(to)}" placeholder="Their email (you can also add it in Gmail)"></label>
+    <label class="f full">Subject<input name="subject" value="${esc(subj)}"></label>
+    <label class="f full">Message<textarea name="body" style="min-height:230px">${esc(body)}</textarea></label></div>
+    <p class="small muted">This opens Gmail with the message ready. Nothing is sent until you press Send there.</p>${foot(null, "Open in Gmail")}</form>`, true); }
+/* ---------- Home: drag invoice cards between stages ---------- */
+(function(){
+  let d = null, eatClick = false;
+  const zoneAt = (x, y) => { const el = document.elementFromPoint(x, y); return el && el.closest ? el.closest("[data-stage]") : null; };
+  const clear = () => document.querySelectorAll(".bdrop").forEach(x => x.classList.remove("bdrop"));
+  const begin = (x, y) => { const card = d.card, r = card.getBoundingClientRect(), g = card.cloneNode(true);
+    g.classList.add("bghost"); g.style.width = r.width + "px"; g.style.left = r.left + "px"; g.style.top = r.top + "px"; document.body.appendChild(g);
+    card.classList.add("bdrag"); d.g = g; d.dx = x - r.left; d.dy = y - r.top; d.on = true; try { navigator.vibrate && navigator.vibrate(10); } catch (_) {} };
+  const end = async ok => { if (!d) return; const s = d; d = null; clearTimeout(s.timer); if (!s.on) return; eatClick = true; setTimeout(() => eatClick = false, 400);
+    s.g.remove(); s.card.classList.remove("bdrag"); clear();
+    if (!ok || !s.z) return; const to = s.z.dataset.stage, i = byId("invoices", s.id); if (!i) return;
+    const cur = !i.jobStatus || i.jobStatus === "done" ? "pay" : i.jobStatus; if (to === cur) return;
+    const x = await setJobStage(s.id, to === "pay" ? "done" : to);
+    toast("#" + i.num + " moved to " + jobLabel(to === "pay" ? "done" : to) + (x && x.dueFrom && !i.dueFrom ? " · due " + fmtDate(x.due) : "")); };
+  document.addEventListener("pointerdown", e => { const card = e.target.closest && e.target.closest(".bcard[data-inv]"); if (!card || e.button > 0 || e.target.closest("button")) return;
+    d = {card, id:card.dataset.inv, x0:e.clientX, y0:e.clientY, pid:e.pointerId, touch:e.pointerType !== "mouse", on:false, timer:0, z:null};
+    if (d.touch) d.timer = setTimeout(() => { if (d && !d.on) begin(d.x0, d.y0); }, 380); });
+  document.addEventListener("pointermove", e => { if (!d || e.pointerId !== d.pid) return;
+    if (!d.on) { const m = Math.hypot(e.clientX - d.x0, e.clientY - d.y0); if (d.touch) { if (m > 10) { clearTimeout(d.timer); d = null; } return; } if (m < 6) return; begin(e.clientX, e.clientY); }
+    e.preventDefault(); d.g.style.left = (e.clientX - d.dx) + "px"; d.g.style.top = (e.clientY - d.dy) + "px";
+    const z = zoneAt(e.clientX, e.clientY); if (z !== d.z) { clear(); if (z) z.classList.add("bdrop"); d.z = z; }
+    if (e.clientY < 70) scrollBy(0, -14); else if (e.clientY > innerHeight - 70) scrollBy(0, 14); }, {passive:false});
+  document.addEventListener("touchmove", e => { if (d && d.on) e.preventDefault(); }, {passive:false});
+  document.addEventListener("pointerup", e => { if (d && e.pointerId === d.pid) end(true); });
+  document.addEventListener("pointercancel", e => { if (d && e.pointerId === d.pid) end(false); });
+  document.addEventListener("dragstart", e => { if (e.target.closest && e.target.closest(".bcard[data-inv]")) e.preventDefault(); }, true);
+  document.addEventListener("contextmenu", e => { if (e.target.closest && e.target.closest(".bcard[data-inv]")) e.preventDefault(); });
+  document.addEventListener("click", e => { if (eatClick && e.target.closest && e.target.closest(".bcard")) { e.preventDefault(); e.stopPropagation(); eatClick = false; } }, true);
 })();
 $("#bankFile").addEventListener("change", async e => {
   const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
