@@ -526,7 +526,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "e56cfa2b9c";
+const APP_BUILD = "361a047bd7";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -4810,6 +4810,16 @@ document.addEventListener("change", async e => {
   document.addEventListener("keydown", e => { const g = e.target.closest && e.target.closest(".grip"); if (!g || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return; e.preventDefault();
     const row = g.closest(".line"), sib = e.key === "ArrowUp" ? row.previousElementSibling : row.nextElementSibling; if (!sib || !sib.classList.contains("line")) return;
     if (e.key === "ArrowUp") sib.before(row); else sib.after(row); g.focus(); const f = row.closest("form"); if (f) recalc(f); sheetDraftSoon(); });
+})();
+/* ---------- spell check everywhere text is typed ---------- */
+(function(){
+  const NO_T = /^(email|number|url|tel|date|datetime-local|time|month|week|password|hidden|checkbox|radio|file|color|range|submit|button)$/i, NO_N = /^(to|cc|bcc|email|num|po|sku|ref|paylink|reviewlink|zip|phone|website|link|url|code|check|key|token|billingcc|sosid|accountantemail)$/i;
+  const fix = el => { if (!el.matches || el.hasAttribute("spellcheck")) return;
+    if (el.matches("textarea")) { el.spellcheck = true; el.setAttribute("autocorrect", "on"); return; }
+    if (el.matches("input")) { const t = el.getAttribute("type") || "text"; if (NO_T.test(t) || NO_N.test(el.name || "")) { el.spellcheck = false; return; } el.spellcheck = true; el.setAttribute("autocorrect", "on"); } };
+  const sweep = n => { if (n.nodeType !== 1) return; fix(n); if (n.querySelectorAll) n.querySelectorAll("input, textarea").forEach(fix); };
+  sweep(document.body);
+  new MutationObserver(ms => { for (const m of ms) m.addedNodes.forEach(sweep); }).observe(document.body, {childList:true, subtree:true});
 })();
 $("#bankFile").addEventListener("change", async e => {
   const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
