@@ -125,6 +125,22 @@ body.dragging::after{content:"Drop statement to import";position:fixed;inset:12p
 .bc-s{margin-top:4px;font-size:12.5px}.bc-a{margin-top:7px}
 @media (max-width:1100px){.board{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .bpanel .panel-head{margin-bottom:8px}
+.ohc{display:inline-flex;align-items:center;gap:4px;justify-content:flex-end}
+.qbtn{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:7px;min-width:34px;height:30px;padding:0 6px;font-size:12.5px;cursor:pointer;font-variant-numeric:tabular-nums}
+.qbtn:hover{color:var(--ink,inherit);border-color:var(--brass,#a07a2f)}
+.ohnum{border:1px solid transparent;background:none;color:inherit;font:inherit;font-weight:700;min-width:44px;padding:2px 6px;border-radius:7px;cursor:pointer;line-height:1.15;text-align:center;font-variant-numeric:tabular-nums}
+.ohnum:hover{border-color:var(--line);background:var(--surface)}
+.ohnum small{display:block;font-weight:400;font-size:11px;color:var(--muted)}
+.invtbl td.loc{font-size:13px}.invtbl td.sku{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+.invtbl tr.grp td{background:color-mix(in srgb, var(--brass, #a07a2f) 10%, transparent);font-weight:700;font-size:13px;letter-spacing:.02em;padding:7px 10px}
+.stk-top{display:flex;gap:24px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.stk-num{font-size:40px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
+.stk-meta{display:grid;gap:3px;font-size:14px;max-width:420px}
+.stk-quick{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.stk-quick .btn{min-width:64px;font-weight:600}
+.stk-h{display:grid;grid-template-columns:96px 60px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:13.5px}
+.stk-h .pos{color:var(--good,#2c7a4b)}
+@media (max-width:640px){.invtbl th:nth-child(6),.invtbl td:nth-child(6),.invtbl th:nth-child(7),.invtbl td:nth-child(7){display:none}.qbtn{min-width:38px;height:34px}.stk-h{grid-template-columns:80px 50px minmax(0,1fr) auto}}
 .board{gap:10px}
 .bcol{padding:8px;transition:background .12s}
 .bcol-h{margin-bottom:6px;font-size:13px}
@@ -588,7 +604,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "e788dc6a21";
+const APP_BUILD = "af3fe1fddd";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -1561,20 +1577,21 @@ VIEWS.inventory = id => {
   const bTotal = bn("total"), bQty = Math.max(1, Math.round(bn("qty")) || 1), bMin = bn("min"), bMax = bn("max"), taxF = B.tax ? 1 + coRate() / 100 : 1;
   const eachCap = bTotal ? r2(bTotal / bQty / taxF) : 0, budgetOn = !!(bTotal || bMin || bMax);
   const fits = it => { const pr = +it.price || 0; if (!budgetOn) return true; if (!(pr > 0)) return false; if (bMin && pr < bMin) return false; if (bMax && pr > bMax) return false; if (eachCap && pr > eachCap + 0.004) return false; return true; };
-  const fv = UI.filter.invV || "", fc = UI.filter.invC || "", fs = UI.filter.invS || "name", fin = !!UI.filter.invIn, pick = UI.pick || (UI.pick = new Set());
+  const fl = UI.filter.invL || "", fv = UI.filter.invV || "", fc = UI.filter.invC || "", fs = UI.filter.invS || "name", fin = !!UI.filter.invIn, pick = UI.pick || (UI.pick = new Set());
   const stockOf = it => it.type === "kit" ? kitCanMake(it) : onHand(it);
-  const SORTS = {name:byName, most:(a, b) => (stockOf(b) ?? -1e9) - (stockOf(a) ?? -1e9) || byName(a, b), least:(a, b) => (stockOf(a) ?? 1e9) - (stockOf(b) ?? 1e9) || byName(a, b), phigh:(a, b) => (+b.price || 0) - (+a.price || 0) || byName(a, b), plow:(a, b) => (+a.price || 1e9) - (+b.price || 1e9) || byName(a, b), value:(a, b) => Math.max(0, stockOf(b) || 0) * (+b.cost || 0) - Math.max(0, stockOf(a) || 0) * (+a.cost || 0) || byName(a, b), cat:(a, b) => (a.category || "~").localeCompare(b.category || "~") || byName(a, b)};
-  const rows = S.items.filter(it => (f === "all" || (f === "low" ? isLow(it) : it.type === f)) && (!q || [it.name, it.sku, it.desc, it.category, ...(it.aliases || []).map(a => a.sku)].join(" ").toLowerCase().includes(q)) && fits(it)
-    && (!fv || (fv === "_none" ? !it.vendorId : it.vendorId === fv)) && (!fc || (fc === "_none" ? !(it.category || "").trim() : (it.category || "").trim() === fc)) && (!fin || (stockOf(it) ?? 1) > 0))
+  const SORTS = {name:byName, most:(a, b) => (stockOf(b) ?? -1e9) - (stockOf(a) ?? -1e9) || byName(a, b), least:(a, b) => (stockOf(a) ?? 1e9) - (stockOf(b) ?? 1e9) || byName(a, b), phigh:(a, b) => (+b.price || 0) - (+a.price || 0) || byName(a, b), plow:(a, b) => (+a.price || 1e9) - (+b.price || 1e9) || byName(a, b), value:(a, b) => Math.max(0, stockOf(b) || 0) * (+b.cost || 0) - Math.max(0, stockOf(a) || 0) * (+a.cost || 0) || byName(a, b), cat:(a, b) => (a.category || "~").localeCompare(b.category || "~") || byName(a, b), loc:(a, b) => ((a.location || "").trim() || "~").localeCompare((b.location || "").trim() || "~", undefined, {numeric:true}) || byName(a, b)};
+  const rows = S.items.filter(it => (f === "all" || (f === "low" ? isLow(it) : it.type === f)) && itemMatch(it, q) && fits(it)
+    && (!fv || (fv === "_none" ? !it.vendorId : it.vendorId === fv)) && (!fc || (fc === "_none" ? !(it.category || "").trim() : (it.category || "").trim() === fc)) && (!fin || (stockOf(it) ?? 1) > 0) && (!fl || (fl === "_none" ? !(it.location || "").trim() : (it.location || "").trim() === fl)))
     .sort(budgetOn ? (a, b) => (+b.price || 0) - (+a.price || 0) || byName(a, b) : (SORTS[fs] || byName));
   const vIds = [...new Set(S.items.map(i => i.vendorId).filter(Boolean))].sort((a, b) => vendName(a).localeCompare(vendName(b))), cats = itemCats(), uncat = S.items.filter(i => !(i.category || "").trim()).length;
   const sel = (key, cur, list, label) => `<select data-invf="${key}" aria-label="${label}" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:inherit;max-width:200px">${list.map(([v, l]) => `<option value="${esc(v)}" ${cur === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
   const filterBar = `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px">
     ${sel("invV", fv, [["", "All suppliers"], ...vIds.map(v => [v, vendName(v)]), ["_none", "No supplier set"]], "Supplier")}
     ${sel("invC", fc, [["", "All categories"], ...cats.map(c => [c, c]), ["_none", "No category"]], "Category")}
-    ${sel("invS", fs, [["name", "Sort: A to Z"], ["cat", "Sort: by category"], ["most", "Most in stock"], ["least", "Least in stock"], ["phigh", "Price: high to low"], ["plow", "Price: low to high"], ["value", "Stock value"]], "Sort")}
+    ${itemLocs().length ? sel("invL", fl, [["", "All storage spots"], ...itemLocs().map(l => [l, l]), ["_none", "No spot set"]], "Where stored") : ""}
+    ${sel("invS", fs, [["name", "Sort: A to Z"], ["cat", "Sort: by category"], ["loc", "Sort: by where stored"], ["most", "Most in stock"], ["least", "Least in stock"], ["phigh", "Price: high to low"], ["plow", "Price: low to high"], ["value", "Stock value"]], "Sort")}
     <label class="check small" style="margin:0"><input type="checkbox" data-invf="invIn" ${fin ? "checked" : ""}> In stock only</label>
-    ${fv || fc || fin || fs !== "name" || q || f !== "all" ? `<button class="btn small" data-act="invFClear">Clear filters</button>` : ""}
+    ${fl || fv || fc || fin || fs !== "name" || q || f !== "all" ? `<button class="btn small" data-act="invFClear">Clear filters</button>` : ""}
     ${uncat ? `<button class="btn small" data-act="autoCat">Sort items into categories (${uncat})</button>` : ""}
     <span class="small muted" style="margin-left:auto">${rows.length} of ${S.items.length} items</span></div>
     ${pick.size ? `<div class="notice" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center"><b>${pick.size} selected</b><button class="btn small primary" data-act="kitFromPick">Make an award kit from these</button><button class="btn small" data-act="catPick">Set category</button><button class="linkbtn small" data-act="pickClear">Clear</button></div>` : ""}`;
@@ -1587,11 +1604,11 @@ VIEWS.inventory = id => {
     ${eachCap ? `<div class="small" style="flex-basis:100%">Up to <b>${money(eachCap)}</b> each${B.tax ? " before tax" : ""} for ${bQty} piece${bQty > 1 ? "s" : ""}. ${rows.length} item${rows.length === 1 ? "" : "s"} fit, nicest first.</div>` : budgetOn ? `<div class="small" style="flex-basis:100%">${rows.length} item${rows.length === 1 ? "" : "s"} in that price range, highest price first.</div>` : ""}</div>`;
   const value = S.items.filter(it => it.type === "inventory").reduce((s, it) => s + Math.max(0, onHand(it)) * (+it.cost || 0), 0);
   void value; return invHead("stock") + `
-  <div class="panel"><div class="toolbar"><input class="search" id="searchItem" type="search" placeholder="Search name or SKU" value="${esc(UI.q.item || "")}" data-q="item" aria-label="Search items"><div class="chips">${[["all","All"],["inventory","Stocked"],["kit","Award kits"],["low","Low stock"],["noninventory","Non-stocked"],["service","Services"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="item" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
-  ${filterBar}${budgetBar}
-  <div class="tbl"><table><thead><tr><th style="width:28px"></th><th>Item</th><th>SKU</th><th>Type</th><th class="num">On hand</th><th class="num">Reorder at</th><th class="num">Cost</th><th class="num">Price</th>${eachCap ? `<th class="num">${bQty} pcs${B.tax ? " + tax" : ""}</th>` : ""}</tr></thead><tbody>
+  <div class="panel"><div class="toolbar"><input class="search" id="searchItem" type="search" placeholder="Search SKU, name, description, where stored…" value="${esc(UI.q.item || "")}" data-q="item" aria-label="Search items"><div class="chips">${[["all","All"],["inventory","Stocked"],["kit","Award kits"],["low","Low stock"],["noninventory","Non-stocked"],["service","Services"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="item" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
+  ${filterBar}${(() => { const la = UI.lastAdj && Date.now() - (UI.lastAdjAt || 0) < 180000 && byId("adjustments", UI.lastAdj), li = la && byId("items", la.itemId); return li ? `<div class="notice" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">${la.qty < 0 ? "Took " + (-la.qty) + " out of" : "Put " + la.qty + " into"} <b>${esc(li.name)}</b> · ${onHand(li)} on hand now <button class="linkbtn" data-act="stkUndo" data-id="${la.id}">Undo</button> <button class="linkbtn" data-act="stkDismiss">Dismiss</button></div>` : ""; })()}${budgetBar}
+  <div class="tbl"><table class="invtbl"><thead><tr><th style="width:28px"></th><th>Item</th><th>SKU</th><th>Stored</th><th class="num">On hand</th><th class="num">Reorder at</th><th class="num">Cost</th><th class="num">Price</th>${eachCap ? `<th class="num">${bQty} pcs${B.tax ? " + tax" : ""}</th>` : ""}</tr></thead><tbody>
   ${rows.length ? "" : `<tr><td colspan="9">${empty(budgetOn ? "Nothing in your items fits that budget. Try a lower quantity or a wider price range." : "No items match.")}</td></tr>`}
-  ${rows.map(it => { const kit = it.type === "kit", oh = kit ? kitCanMake(it) : onHand(it), oo = onOrder(it.id); return `<tr class="click" data-act="editItem" data-id="${it.id}"><td data-act="none"><input type="checkbox" data-pick="${it.id}" ${pick.has(it.id) ? "checked" : ""} aria-label="Select ${esc(it.name)}"></td><td><b>${esc(it.name)}</b>${it.category ? ` <span class="badge">${esc(it.category)}</span>` : ""}${kit ? `<div class="small muted">${esc(kitText(it) || "No parts yet")}</div>` : ""}${isLow(it) ? ' <span class="badge warn">Low</span>' : ""}${oo ? ` <span class="badge brass">${oo} on order</span>` : isLow(it) ? ` <button class="btn small" data-act="reorderItem" data-id="${it.id}">Order more</button>` : ""}${it.desc && it.desc !== it.name ? `<div class="small muted">${esc(it.desc)}</div>` : ""}${it.vendorId ? `<div class="small muted">From ${esc(vendName(it.vendorId))}</div>` : ""}</td><td>${esc(it.sku || "")}</td><td>${it.type === "inventory" ? "Stocked" : it.type === "service" ? "Service" : kit ? "Award kit" : "Non-stocked"}</td><td class="num ${oh < 0 ? "neg" : ""}">${oh == null ? "—" : kit ? `<span title="How many you can make from parts in stock">can make ${oh}</span>` : oh}</td><td class="num">${it.type === "inventory" && it.reorder !== "" && it.reorder != null ? esc(it.reorder) : "—"}</td><td class="num">${kit ? money(kitCost(it)) : it.cost ? money(it.cost) : "—"}</td><td class="num">${it.price ? money(it.price) : "—"}</td>${eachCap ? `<td class="num"><b>${money(r2((+it.price || 0) * bQty * taxF))}</b>${oh !== null && (it.type === "inventory" || kit) && oh < bQty ? `<div class="small neg">only ${Math.max(0, oh)} ${kit ? "can be made" : "in stock"}</div>` : ""}</td>` : ""}</tr>`; }).join("") || `<tr><td colspan="8">${empty(S.items.length ? "No items match." : "Add the products and services you sell: plaques, trophies, name badges, engraving.", S.items.length ? "" : '<button class="btn primary" data-act="newItem">Add an item</button>')}</td></tr>`}
+  ${rows.map((it, ix) => { const gkey = x => fs === "loc" ? ((x.location || "").trim() || "No storage spot set") : ((x.category || "").trim() || "No category"), gh = !budgetOn && (fs === "loc" || fs === "cat") && (ix === 0 || gkey(it) !== gkey(rows[ix - 1])) ? `<tr class="grp"><td colspan="9">${esc(gkey(it))}</td></tr>` : ""; const kit = it.type === "kit", oh = kit ? kitCanMake(it) : onHand(it), oo = onOrder(it.id); return gh + `<tr class="click" data-act="editItem" data-id="${it.id}"><td data-act="none"><input type="checkbox" data-pick="${it.id}" ${pick.has(it.id) ? "checked" : ""} aria-label="Select ${esc(it.name)}"></td><td><b>${esc(it.name)}</b>${it.type !== "inventory" ? ` <span class="badge">${it.type === "service" ? "Service" : kit ? "Award kit" : "Non-stocked"}</span>` : ""}${it.category ? ` <span class="badge">${esc(it.category)}</span>` : ""}${kit ? `<div class="small muted">${esc(kitText(it) || "No parts yet")}</div>` : ""}${isLow(it) ? ' <span class="badge warn">Low</span>' : ""}${oo ? ` <span class="badge brass">${oo} on order</span>` : isLow(it) ? ` <button class="btn small" data-act="reorderItem" data-id="${it.id}">Order more</button>` : ""}${it.desc && it.desc !== it.name ? `<div class="small muted">${esc(it.desc)}</div>` : ""}${it.vendorId ? `<div class="small muted">From ${esc(vendName(it.vendorId))}</div>` : ""}</td><td class="sku">${esc(it.sku || "")}</td><td class="loc">${it.location ? esc(it.location) : '<span class="muted">—</span>'}</td><td class="num ${oh < 0 ? "neg" : ""}">${oh == null ? "—" : kit ? `<span title="How many you can make from parts in stock">can make ${oh}</span>` : ohCell(it, oh)}</td><td class="num">${it.type === "inventory" && it.reorder !== "" && it.reorder != null ? esc(it.reorder) : "—"}</td><td class="num">${kit ? money(kitCost(it)) : it.cost ? money(it.cost) : "—"}</td><td class="num">${it.price ? money(it.price) : "—"}</td>${eachCap ? `<td class="num"><b>${money(r2((+it.price || 0) * bQty * taxF))}</b>${oh !== null && (it.type === "inventory" || kit) && oh < bQty ? `<div class="small neg">only ${Math.max(0, oh)} ${kit ? "can be made" : "in stock"}</div>` : ""}</td>` : ""}</tr>`; }).join("") || `<tr><td colspan="8">${empty(S.items.length ? "No items match." : "Add the products and services you sell: plaques, trophies, name badges, engraving.", S.items.length ? "" : '<button class="btn primary" data-act="newItem">Add an item</button>')}</td></tr>`}
   </tbody></table></div></div>`;
 };
 
@@ -1735,7 +1752,7 @@ function gsMark(text, words){ let t = esc(text || ""); words.filter(w => w.lengt
 function globalSearch(q){ const words = String(q || "").toLowerCase().split(/\s+/).filter(Boolean); if (!words.length) return null; const R = {};
   // products & services, from every sale (QuickBooks history too)
   const g = new Map(); for (const l of allSoldLines()) { if (!gsMatch(l.name + " " + l.desc, words)) continue; if (!g.has(l.key)) g.set(l.key, {key:l.key, name:l.name, n:0, custs:new Set(), last:null, min:Infinity, max:0, descs:{}}); const x = g.get(l.key); x.n++; x.custs.add(l.custId); if (!x.last || (l.date || "") > (x.last.date || "")) x.last = l; x.min = Math.min(x.min, l.rate); x.max = Math.max(x.max, l.rate); if (l.desc) x.descs[l.desc] = (x.descs[l.desc] || 0) + 1; }
-  S.items.filter(i => !i.inactive && gsMatch(i.name + " " + (i.desc || "") + " " + (i.sku || ""), words)).forEach(i => { const k = "i:" + i.id; if (!g.has(k)) g.set(k, {key:k, name:i.name, n:0, custs:new Set(), last:null, min:i.price || 0, max:i.price || 0, descs:{}, item:i}); });
+  S.items.filter(i => !i.inactive && itemMatch(i, words.join(" "))).forEach(i => { const k = "i:" + i.id; if (!g.has(k)) g.set(k, {key:k, name:i.name, n:0, custs:new Set(), last:null, min:i.price || 0, max:i.price || 0, descs:{}, item:i}); });
   R.products = [...g.values()].map(x => { const d = Object.entries(x.descs).sort((a, b) => b[1] - a[1])[0]; return {...x, sub:d && d[0].toLowerCase().replace(/\W+/g, "") !== String(x.name).toLowerCase().replace(/\W+/g, "") ? d[0] : ""}; }).sort((a, b) => b.n - a.n).slice(0, 12);
   R.customers = S.customers.filter(c => gsMatch([c.name, c.contact, c.email, c.phone, c.type, (c.contacts || []).map(x => x.name + " " + x.email).join(" ")].join(" "), words)).slice(0, 8);
   R.invoices = S.invoices.filter(i => gsMatch(["#" + i.num, i.num, i.po, custName(i.customerId), (i.lines || []).map(l => l.desc).join(" "), i.memo, i.privNote].join(" "), words)).sort((a, b) => (a.date || "") < (b.date || "") ? 1 : -1).slice(0, 8);
@@ -3841,11 +3858,13 @@ function itemForm(it){ it = it || {type:"inventory", taxable:true, incomeAcct:SY
   <label class="f stockonly">Quantity on hand to start<input name="openQty" type="number" step="any" value="${esc(it.openQty ?? 0)}"></label>
   <label class="f stockonly">As of<input name="openDate" type="date" value="${esc(it.openDate || todayISO())}"></label>
   <label class="f stockonly">Reorder when at or below<input name="reorder" type="number" step="any" min="0" value="${esc(it.reorder ?? "")}"></label>
+  <label class="f stockonly">Units in a box<input name="boxQty" type="number" min="0" step="1" inputmode="numeric" value="${esc(+it.boxQty > 0 ? it.boxQty : "")}" placeholder="${boxGuess(it) ? boxQty(it) + " (from the description)" : "e.g. 24"}"></label>
+  <label class="f">Where it's stored<input name="location" list="locList2" value="${esc(it.location || "")}" placeholder="e.g. Garage shelf B, bin 3"><datalist id="locList2">${itemLocs().map(l => `<option value="${esc(l)}">`).join("")}</datalist></label>
   <label class="f">Preferred vendor<select name="vendorId">${opts(S.vendors.slice().sort(byName).map(v => [v.id, v.name]), it.vendorId, "None")}</select></label>
   <label class="f full">Notes<textarea name="notes" placeholder="Special pricing, supplier links, reorder notes">${esc(it.notes)}</textarea></label>
   <label class="f nonstock">Expense account when purchased<select name="expenseAcct">${acctOpts(it.expenseAcct || SYS.COGS, a => ["expense","cogs"].includes(a.type))}</select></label>
   <label class="check full"><input type="checkbox" name="taxable" ${it.taxable === false ? "" : "checked"}> Taxable</label>
-  ${it.id && it.type === "inventory" ? `<p class="full small muted" style="margin:0">On hand now: <b>${onHand(it)}</b>. To correct a count, use Adjust stock instead of changing the starting quantity.</p>` : ""}
+  ${it.id && it.type === "inventory" ? `<p class="full small muted" style="margin:0">On hand now: <b>${onHand(it)}</b>. To take some out, put some in or fix a count, use <button type="button" class="btn small" data-act="stockSheet" data-id="${it.id}">Update stock</button> instead of changing the starting quantity.</p>` : ""}
   </div>${foot(it.id ? {act:"delItem", id:it.id} : null)}</form>`);
   toggleItemType(); }
 function toggleItemType(){ const f = $("#sheetBody form[data-form=item]"); if (!f) return; const t = f.elements.type.value;
@@ -4132,7 +4151,7 @@ const FORMS = {
   async item(f){ const id = f.dataset.id, type = val(f, "type");
     const dup = S.items.find(i => i.id !== id && i.name.toLowerCase() === val(f, "name").toLowerCase()); if (dup) return formErr(f, "An item with this name already exists.");
     let parts = []; if (type === "kit") { parts = $$(".kitrow", f).map(r => ({itemId:r.querySelector("[data-kit-item]").value, qty:+r.querySelector("[data-kit-qty]").value || 0})).filter(p => p.itemId && p.qty > 0); if (!parts.length) return formErr(f, "Add at least one part to the award kit."); if (id && parts.some(p => p.itemId === id)) return formErr(f, "A kit can't include itself."); }
-    await put("items", {...clone(byId("items", id) || {}), id:id || undefined, name:val(f, "name"), sku:val(f, "sku"), type, category:val(f, "category"), parts, incomeAcct:val(f, "incomeAcct"), desc:val(f, "desc"), price:num(f, "price"), cost:type === "kit" ? kitCost({parts}) : num(f, "cost"), openQty:type === "inventory" ? num(f, "openQty") : 0, openDate:val(f, "openDate") || todayISO(), reorder:type === "inventory" ? val(f, "reorder") : "", expenseAcct:type === "noninventory" ? val(f, "expenseAcct") : "", taxable:f.elements.taxable.checked, vendorId:val(f, "vendorId"), notes:val(f, "notes")}); toast("Item saved"); },
+    await put("items", {...clone(byId("items", id) || {}), id:id || undefined, name:val(f, "name"), sku:val(f, "sku"), type, category:val(f, "category"), parts, incomeAcct:val(f, "incomeAcct"), desc:val(f, "desc"), price:num(f, "price"), cost:type === "kit" ? kitCost({parts}) : num(f, "cost"), openQty:type === "inventory" ? num(f, "openQty") : 0, openDate:val(f, "openDate") || todayISO(), reorder:type === "inventory" ? val(f, "reorder") : "", expenseAcct:type === "noninventory" ? val(f, "expenseAcct") : "", taxable:f.elements.taxable.checked, vendorId:val(f, "vendorId"), notes:val(f, "notes"), location:f.elements.location ? val(f, "location") : ((byId("items", id) || {}).location || ""), boxQty:type === "inventory" && f.elements.boxQty ? (Math.round(+f.elements.boxQty.value) || (boxGuess(byId("items", id) || {}) ? "" : "")) : ((byId("items", id) || {}).boxQty || "")}); toast("Item saved"); },
   async account(f){ const id = f.dataset.id, old = byId("accounts", id) || {};
     await put("accounts", {...clone(old), id:id || undefined, number:val(f, "number"), name:val(f, "name"), type:SYSTEM_IDS.has(id) ? old.type : val(f, "type"), openBal:num(f, "openBal"), openDate:val(f, "openDate")}); toast("Account saved"); },
   async followup(f){ const id = f.dataset.id; await put("followups", {...clone(byId("followups", id) || {}), id:id || undefined, text:val(f, "text"), customerId:val(f, "customerId"), due:val(f, "due"), done:f.elements.done ? f.elements.done.checked : false}); toast("Follow-up saved"); },
@@ -4242,6 +4261,16 @@ const FORMS = {
     const byV = {}; picks.forEach(a => { const v = byId("bills", a.billId).vendorId; (byV[v] = byV[v] || []).push(a); });
     for (const [v, applied] of Object.entries(byV)) await put("billpays", {vendorId:v, date:val(f, "date"), fromAcct:val(f, "fromAcct"), ref:val(f, "ref"), applied});
     toast("Paid " + picks.length + " bill" + (picks.length > 1 ? "s" : "")); },
+  async stock(f){ const it = byId("items", f.dataset.id); if (!it) return; const bq0 = boxQty(it);
+    const bqNew = Math.round(+f.elements.boxQty.value || 0), loc = val(f, "location"), reorder = val(f, "reorder");
+    const changed = bqNew !== (+it.boxQty || 0) && !(bqNew === bq0 && !(+it.boxQty) && false) || loc !== (it.location || "") || String(reorder) !== String(it.reorder ?? "");
+    if (changed) await put("items", {...clone(it), boxQty:bqNew || "", location:loc, reorder});
+    if (f.elements.n.value !== "") { const per = f.elements.unit.value === "box" ? (bqNew || bq0 || 1) : 1, n = r2((+f.elements.n.value || 0) * per), mode = f.elements.mode.value, oh = onHand(byId("items", it.id));
+      const diff = mode === "set" ? r2(n - oh) : mode === "add" ? n : -n;
+      if (diff) { await stkAdd(it.id, diff, val(f, "memo") || (mode === "set" ? "Recount" : "")); toast(`${it.name}: ${diff > 0 ? "+" : ""}${diff} · ${onHand(byId("items", it.id))} on hand`); return; }
+      if (!changed) return formErr(f, mode === "set" ? "That's already the count on hand." : "Enter how many.");
+    }
+    toast(changed ? "Saved" : "Nothing changed"); },
   async adjust(f){ const it = byId("items", val(f, "itemId")); const diff = r2(num(f, "count") - onHand(it)); if (!diff) return formErr(f, "The count matches what's on hand. Nothing to adjust.");
     await put("adjustments", {itemId:it.id, qty:diff, date:val(f, "date") || todayISO(), memo:val(f, "memo")}); toast(it.name + " adjusted by " + (diff > 0 ? "+" : "") + diff); },
   async bankimport(f){ const P = PENDING_IMPORT; if (!P) return;
@@ -4499,7 +4528,7 @@ const ACT = {
   kitFromPick(){ const ids = [...(UI.pick || [])].filter(id => { const i = byId("items", id); return i && i.type !== "kit" && i.type !== "service"; }); if (!ids.length) { toast("Pick stocked items to put in the kit."); return; }
     const its = ids.map(id => byId("items", id)); itemForm({type:"kit", taxable:true, incomeAcct:SYS.SALES, openDate:todayISO(), name:"", category:"Award kits", vendorId:"", parts:ids.map(id => ({itemId:id, qty:1})), desc:""}); void its; UI.pick = new Set(); },
   pickClear(){ UI.pick = new Set(); render(); },
-  invFClear(){ ["invV", "invC", "invS", "invIn", "item"].forEach(k => delete UI.filter[k]); UI.q.item = ""; render(); },
+  invFClear(){ ["invL", "invV", "invC", "invS", "invIn", "item"].forEach(k => delete UI.filter[k]); UI.q.item = ""; render(); },
   catPick(){ const ids = [...(UI.pick || [])]; openSheet("Set category for " + ids.length + " item" + (ids.length > 1 ? "s" : ""), `<form data-form="catPick"><div class="fields"><label class="f full">Category<input name="category" list="catList2" required placeholder="e.g. Plaques"><datalist id="catList2">${itemCats().map(c => `<option value="${esc(c)}">`).join("")}</datalist></label></div>${foot(null, "Save")}</form>`, true); },
   autoCat(){ const list = S.items.filter(i => !(i.category || "").trim()).sort(byName);
     openSheet("Sort items into categories", `<form data-form="autoCat"><p class="small muted" style="margin-top:0">The app guessed a category from each item's name and supplier. Change any guess or leave it blank, then save. You can filter by category afterwards.</p>
@@ -4574,6 +4603,11 @@ const ACT = {
   newCustomer: () => customerForm(), editCustomer: el => customerForm(clone(byId("customers", el.dataset.id))),
   newVendor: () => vendorForm(), editVendor: el => vendorForm(clone(byId("vendors", el.dataset.id))),
   newItem: () => itemForm(), editItem: el => itemForm(clone(byId("items", el.dataset.id))),
+  stockSheet: el => stockSheet(el.dataset.id),
+  async stkQuick(el){ const it = byId("items", el.dataset.id), q = +el.dataset.q; if (!it || !q) return; const inSheet = !!el.closest("#sheetBody"), f = el.closest("form"), memo = f && f.elements.memo ? f.elements.memo.value.trim() : "";
+    await stkAdd(it.id, q, memo); const now = onHand(byId("items", it.id)); toast(`${q < 0 ? "Took " + (-q) + " out of" : "Put " + q + " into"} ${it.name} · ${now} on hand`); if (inSheet) stockSheet(it.id); },
+  async stkUndo(el){ const a = byId("adjustments", el.dataset.id); if (!a) return; await remove("adjustments", a.id); if (UI.lastAdj === a.id) UI.lastAdj = null; toast("Undone · " + onHand(byId("items", a.itemId)) + " on hand"); if (el.closest("#sheetBody")) stockSheet(a.itemId); },
+  stkDismiss(){ UI.lastAdj = null; render(); },
   newAccount: () => accountForm(), editAccount: el => accountForm(clone(byId("accounts", el.dataset.id))),
   newFollowup: el => followupForm(null, el.dataset.customer), openFollowup: el => followupForm(clone(byId("followups", el.dataset.id))),
   async doneFollowup(el){ const f = byId("followups", el.dataset.id); await put("followups", {...clone(f), done:true, doneOn:todayISO()}); toast("Marked done"); },
@@ -4956,7 +4990,8 @@ document.addEventListener("change", async e => {
   const MIN = 9, SKIP = /month|terms|status|freq|period|year|entity|filing|kind|type|method|sort/i;
   const want = s => s.tagName === "SELECT" && !s.multiple && !s.dataset.ss && !s.closest("[data-no-ss]") && s.options.length >= MIN && !SKIP.test(s.name || s.id || "");
   const escH = x => String(x).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
-  const opts = sel => [...sel.options].map(o => ({o, v:o.value, t:o.textContent.trim(), g:o.parentElement && o.parentElement.tagName === "OPTGROUP" ? o.parentElement.label : "", sp:/^__/.test(o.value), dis:o.disabled}));
+  const itemOf = (sel, v) => { const id = sel.name === "itemId" ? v : /^i:/.test(v) ? v.slice(2) : ""; return id && !/^__/.test(id) ? byId("items", id) : null; };
+  const opts = sel => [...sel.options].map(o => { const g = o.parentElement && o.parentElement.tagName === "OPTGROUP" ? o.parentElement.label : "", it = itemOf(sel, o.value); return {o, v:o.value, t:o.textContent.trim(), g:[g, it && it.sku && !o.textContent.includes(it.sku) ? "SKU " + it.sku : "", it && it.location ? it.location : ""].filter(Boolean).join(" · "), x:it ? itemHay(it) : "", sp:/^__/.test(o.value), dis:o.disabled}; });
   const curText = sel => { const o = sel.options[sel.selectedIndex]; return o && o.value !== "" ? o.textContent.trim() : ""; };
   const holder = sel => { const o = [...sel.options].find(x => x.value === ""); return o ? o.textContent.trim() : "Type to search"; };
   const mark = (t, words) => { let h = escH(t); for (const w of words) { const i = h.toLowerCase().indexOf(escH(w)); if (i >= 0) h = h.slice(0, i) + "<mark>" + h.slice(i, i + escH(w).length) + "</mark>" + h.slice(i + escH(w).length); } return h; };
@@ -4967,7 +5002,7 @@ document.addEventListener("change", async e => {
     L.style.maxHeight = Math.max(140, Math.min(320, up ? above : below)) + "px";
     if (up) { L.style.top = ""; L.style.bottom = (innerHeight - r.top + 4) + "px"; } else { L.style.bottom = ""; L.style.top = (r.bottom + 4) + "px"; } }
   function draw(w){ const q = w.typed ? w.inp.value.trim().toLowerCase() : "", words = q.split(/\s+/).filter(Boolean), all = opts(w.sel);
-    let hits = all.filter(x => !x.dis && x.v !== "" && !x.sp && words.every(k => (x.t + " " + x.g).toLowerCase().includes(k)));
+    let hits = all.filter(x => !x.dis && x.v !== "" && !x.sp && words.every(k => { const h = (x.t + " " + x.g + " " + x.x).toLowerCase(); return h.includes(k) || (squash(k) && squash(h).includes(squash(k))); }));
     if (words.length) { const st = x => x.t.toLowerCase().startsWith(words[0]) ? 0 : 1; hits.sort((a, b) => st(a) - st(b)); }
     const sp = all.filter(x => x.sp && !x.dis), none = !words.length ? all.filter(x => x.v === "" && !x.dis) : [];
     w.rows = words.length ? [...hits.slice(0, 80), ...sp] : [...none, ...sp, ...hits.slice(0, 80)];
@@ -5135,6 +5170,42 @@ function leadMailForm(kind, id, key){ const co = S.company, biz = co.name || "Aw
   document.addEventListener("contextmenu", e => { if (e.target.closest && e.target.closest(".bcard[data-inv]")) e.preventDefault(); });
   document.addEventListener("click", e => { if (eatClick && e.target.closest && e.target.closest(".bcard")) { e.preventDefault(); e.stopPropagation(); eatClick = false; } }, true);
 })();
+/* ---------- inventory: boxes, storage spots, quick stock changes ---------- */
+NO_DRAFT.add("stock");
+const BOX_RX = /(?:std\.?\s*pack|standard pack|pack of|box of|case of|per box|per case|bx of|pk of)\s*(\d+)|(\d+)\s*(?:per box|per case|\/box|\/bx|\/case|\/pk|pk\b|pack\b|ct\b)/i;
+function boxQty(it){ if (!it) return 0; if (+it.boxQty > 0) return +it.boxQty; const m = BOX_RX.exec([it.desc, it.notes].join(" ")); const n = m ? +(m[1] || m[2]) : 0; return n > 1 && n < 10000 ? n : 0; }
+const boxGuess = it => !(+it.boxQty > 0) && boxQty(it) > 0;
+const boxesText = (oh, bq) => { const b = Math.floor(Math.max(0, oh) / bq), r = r2(Math.max(0, oh) - b * bq); return `${b} full box${b === 1 ? "" : "es"} of ${bq}${r ? ` + ${r} loose` : ""}`; };
+const boxesShort = (oh, bq) => { const b = Math.floor(Math.max(0, oh) / bq), r = r2(Math.max(0, oh) - b * bq); return `${b} bx${r ? " + " + r : ""}`; };
+const itemLocs = () => [...new Set(S.items.map(i => (i.location || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, {numeric:true}));
+const squash = s => String(s || "").toLowerCase().replace(/[\s\-_.\/#]/g, "");
+function itemHay(it){ return [it.name, it.sku, it.desc, it.category, it.location, it.notes, vendName(it.vendorId), ...(it.aliases || []).map(a => (a.sku || "") + " " + (a.desc || ""))].join(" ").toLowerCase(); }
+function itemMatch(it, q){ const words = String(q || "").toLowerCase().split(/\s+/).filter(Boolean); if (!words.length) return true; const h = itemHay(it), hs = squash(h); if (h.includes(String(q).toLowerCase().trim())) return true; return words.every(w => w.length <= 2 ? new RegExp("(^|[^a-z0-9])" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(h) : h.includes(w) || (squash(w) && hs.includes(squash(w)))); }
+function ohCell(it, oh){ const bq = boxQty(it), st = bq || 1;
+  return `<div class="ohc" data-act="none"><button type="button" class="qbtn" data-act="stkQuick" data-id="${it.id}" data-q="${-st}" title="Take out ${bq ? "1 box (" + bq + ")" : "1"}" aria-label="Take out ${st}">−${st}</button><button type="button" class="ohnum ${oh < 0 ? "neg" : ""}" data-act="stockSheet" data-id="${it.id}" title="Update stock">${oh}${bq ? `<small>${boxesShort(oh, bq)}</small>` : ""}</button><button type="button" class="qbtn" data-act="stkQuick" data-id="${it.id}" data-q="${st}" title="Put in ${bq ? "1 box (" + bq + ")" : "1"}" aria-label="Put in ${st}">+${st}</button></div>`; }
+function stockSheet(id){ const it = byId("items", id); if (!it) return; if (it.type !== "inventory") { itemForm(clone(it)); return; }
+  const oh = onHand(it), bq = boxQty(it), hist = S.adjustments.filter(a => a.itemId === id).sort((a, b) => ((b.at || b.date || "") > (a.at || a.date || "") ? 1 : -1)).slice(0, 8);
+  openSheet(it.name, `<form data-form="stock" data-id="${id}">
+  <div class="stk-top"><div><div class="small muted">On hand now</div><div class="stk-num ${oh < 0 ? "neg" : ""}">${oh}</div>${bq ? `<div class="small muted">${boxesText(oh, bq)}</div>` : ""}</div>
+    <div class="stk-meta">${it.sku ? `<div><span class="muted">SKU</span> <b>${esc(it.sku)}</b></div>` : ""}${it.location ? `<div><span class="muted">Stored</span> <b>${esc(it.location)}</b></div>` : ""}${it.desc && it.desc !== it.name ? `<div class="muted small">${esc(it.desc)}</div>` : ""}</div></div>
+  <div class="stk-quick">
+    <button type="button" class="btn" data-act="stkQuick" data-id="${id}" data-q="-1">− 1</button><button type="button" class="btn" data-act="stkQuick" data-id="${id}" data-q="1">+ 1</button>
+    ${bq ? `<button type="button" class="btn" data-act="stkQuick" data-id="${id}" data-q="${-bq}">− 1 box (${bq})</button><button type="button" class="btn" data-act="stkQuick" data-id="${id}" data-q="${bq}">+ 1 box (${bq})</button>` : ""}
+  </div>
+  <div class="fields">
+    <label class="f">Change<select name="mode"><option value="remove">Take out</option><option value="add">Put in</option><option value="set">Set the count to</option></select></label>
+    <label class="f">How many<span style="display:flex;gap:6px"><input name="n" type="number" step="any" min="0" inputmode="decimal" style="flex:1;min-width:0"><select name="unit" style="width:auto;flex:none" aria-label="Pieces or boxes"><option value="pc">pieces</option>${bq ? `<option value="box">boxes of ${bq}</option>` : ""}</select></span></label>
+    <label class="f full">Why <span class="small muted">(optional)</span><input name="memo" list="adjWhy" placeholder="e.g. Moved to the floor, damaged, recount"><datalist id="adjWhy">${["Moved to the floor","Used for a sample","Damaged","Recount","Gave away","Received without a bill"].map(x => `<option value="${x}">`).join("")}</datalist></label>
+    <label class="f">Units in a box<input name="boxQty" type="number" min="0" step="1" inputmode="numeric" value="${esc(+it.boxQty > 0 ? it.boxQty : (bq || ""))}" placeholder="e.g. 24"></label>
+    <label class="f">Where it's stored<input name="location" list="locList" value="${esc(it.location || "")}" placeholder="e.g. Garage shelf B"><datalist id="locList">${itemLocs().map(l => `<option value="${esc(l)}">`).join("")}</datalist></label>
+    <label class="f">Reorder when at or below<input name="reorder" type="number" min="0" step="any" value="${esc(it.reorder ?? "")}"></label>
+  </div>
+  ${boxGuess(it) ? `<p class="small muted" style="margin:6px 0 0">Box size ${bq} was read from the description. Save to keep it.</p>` : ""}
+  ${hist.length ? `<div class="stk-hist"><div class="small muted" style="margin:14px 0 4px">Recent changes</div>${hist.map(a => `<div class="stk-h"><span>${fmtDate(a.date)}</span><b class="${a.qty < 0 ? "neg" : "pos"}">${a.qty > 0 ? "+" : ""}${a.qty}</b><span class="muted">${esc(a.memo || "")}</span><button type="button" class="linkbtn small" data-act="stkUndo" data-id="${a.id}">Undo</button></div>`).join("")}</div>` : ""}
+  <div class="formfoot"><div class="err" role="alert"></div><div class="right"><button type="button" class="btn" data-act="editItem" data-id="${id}">Edit item</button><button type="button" class="btn" data-act="closeSheet">Close</button><button class="btn primary">Save</button></div></div></form>`, true); }
+async function stkAdd(itemId, q, memo){ const it = byId("items", itemId); if (!it || !q) return null;
+  const aid = await put("adjustments", {itemId, qty:q, date:todayISO(), memo:memo || (Math.abs(q) > 1 && Math.abs(q) === boxQty(it) ? (q < 0 ? "Took out 1 box" : "Put in 1 box") : (q < 0 ? "Took out" : "Put in")), at:new Date().toISOString()});
+  UI.lastAdj = aid; UI.lastAdjAt = Date.now(); return aid; }
 $("#bankFile").addEventListener("change", async e => {
   const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
   try { await handleStatementFiles(files); } catch(err) { console.error(err); toast(err.message || "Couldn't read that file."); }
