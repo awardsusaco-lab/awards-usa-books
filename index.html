@@ -189,6 +189,17 @@ label.check{display:flex;gap:8px;align-items:center;font-size:14px}
 .grip:hover,.grip:focus-visible{color:var(--ink,inherit);background:color-mix(in srgb, var(--brass, #a07a2f) 14%, transparent)}
 .line.dragging{background:var(--surface);box-shadow:0 8px 26px rgba(0,0,0,.28);border-radius:10px;outline:2px solid var(--brass,#a07a2f);z-index:5}
 .line.dragging .grip{cursor:grabbing}
+.ss{position:relative;min-width:0;width:100%}
+.ss-in{width:100%;padding-right:30px !important;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;text-overflow:ellipsis}
+.ss-hidden{position:absolute !important;left:0;bottom:0;width:1px !important;height:1px !important;opacity:0;pointer-events:none;padding:0 !important;border:0 !important;min-height:0 !important}
+.ss-list{position:fixed;z-index:1000;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.22);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:4px}
+.ss-opt{padding:9px 10px;border-radius:7px;cursor:pointer;line-height:1.3;font-size:15px}
+.ss-opt small{display:block;color:var(--muted);font-size:12px}
+.ss-opt.on{background:color-mix(in srgb, var(--brass, #a07a2f) 16%, transparent)}
+.ss-opt.cur{font-weight:600}
+.ss-opt.sp{color:var(--brass, #a07a2f);font-weight:600}
+.ss-opt mark{background:color-mix(in srgb, var(--brass, #a07a2f) 30%, transparent);color:inherit;border-radius:3px;padding:0 1px}
+.ss-none{padding:10px;color:var(--muted);font-size:14px}
 .lines .hdr{display:grid;gap:8px;font-size:12.5px;color:var(--muted);font-weight:600;padding:8px 0 0}
 .lines .hdr.inv{grid-template-columns:1.4fr 1.8fr 70px 100px 100px 34px 32px}
 .lines .hdr.buy{grid-template-columns:1.6fr 1.6fr 70px 100px 100px 32px}
@@ -526,7 +537,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "361a047bd7";
+const APP_BUILD = "7f649e93bb";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -4017,6 +4028,7 @@ const FORMS = {
     await put("accounts", {...clone(old), id:id || undefined, number:val(f, "number"), name:val(f, "name"), type:SYSTEM_IDS.has(id) ? old.type : val(f, "type"), openBal:num(f, "openBal"), openDate:val(f, "openDate")}); toast("Account saved"); },
   async followup(f){ const id = f.dataset.id; await put("followups", {...clone(byId("followups", id) || {}), id:id || undefined, text:val(f, "text"), customerId:val(f, "customerId"), due:val(f, "due"), done:f.elements.done ? f.elements.done.checked : false}); toast("Follow-up saved"); },
   async invoice(f){ const id = f.dataset.id, lines = readLines(f).map(l => isShipLine(l) ? {...l, taxable:false} : l), payLink = f.elements.payLink ? val(f, "payLink") : undefined;
+    { const cv = f.elements.customerId ? f.elements.customerId.value : "x"; if (!cv || /^__/.test(cv) || !byId("customers", cv)) return formErr(f, "Pick the customer first."); }
     if (!lines.length) return formErr(f, "Add at least one line.");
     if (lines.some(l => !l.itemId && !l.desc)) return formErr(f, "Each line needs an item or a description.");
     let numv = val(f, "num"); if (S.invoices.some(i => i.id !== id && String(i.num) === numv)) { if (id) return formErr(f, "Invoice #" + numv + " already exists. Use a different number."); const nn = nextInvNum(); toast("#" + numv + " was already used, so this is #" + nn); numv = nn; f.elements.num.value = nn; }
@@ -4038,6 +4050,7 @@ const FORMS = {
     const fromEst = f.dataset.fromEstimate; if (fromEst && byId("estimates", fromEst)) await put("estimates", {...clone(byId("estimates", fromEst)), status:"invoiced", invoiceId:nid});
     toast(id ? "Invoice saved" : "Invoice #" + numv + " created"); go("invoice/" + nid); },
   async estimate(f){ const id = f.dataset.id, lines = readLines(f).map(l => isShipLine(l) ? {...l, taxable:false} : l);
+    { const cv = f.elements.customerId ? f.elements.customerId.value : "x"; if (!cv || /^__/.test(cv) || !byId("customers", cv)) return formErr(f, "Pick the customer first."); }
     if (!lines.length) return formErr(f, "Add at least one line.");
     const numv = val(f, "num"); if (S.estimates.some(e => e.id !== id && String(e.num) === numv)) return formErr(f, "Estimate #" + numv + " already exists.");
     const e = {...clone(byId("estimates", id) || {status:"open"}), id:id || undefined, customerId:val(f, "customerId"), num:numv, date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due"), po:val(f, "po"), neededBy:val(f, "neededBy"), taxRate:num(f, "taxRate"), memo:val(f, "memo"), privNote:(f.elements.privNote ? f.elements.privNote.value.trim() : ""), lines};
@@ -4820,6 +4833,67 @@ document.addEventListener("change", async e => {
   const sweep = n => { if (n.nodeType !== 1) return; fix(n); if (n.querySelectorAll) n.querySelectorAll("input, textarea").forEach(fix); };
   sweep(document.body);
   new MutationObserver(ms => { for (const m of ms) m.addedNodes.forEach(sweep); }).observe(document.body, {childList:true, subtree:true});
+})();
+/* ---------- type-to-search pickers: long drop-downs become search boxes ---------- */
+(function(){
+  const MIN = 9, SKIP = /month|terms|status|freq|period|year|entity|filing|kind|type|method|sort/i;
+  const want = s => s.tagName === "SELECT" && !s.multiple && !s.dataset.ss && !s.closest("[data-no-ss]") && s.options.length >= MIN && !SKIP.test(s.name || s.id || "");
+  const escH = x => String(x).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+  const opts = sel => [...sel.options].map(o => ({o, v:o.value, t:o.textContent.trim(), g:o.parentElement && o.parentElement.tagName === "OPTGROUP" ? o.parentElement.label : "", sp:/^__/.test(o.value), dis:o.disabled}));
+  const curText = sel => { const o = sel.options[sel.selectedIndex]; return o && o.value !== "" ? o.textContent.trim() : ""; };
+  const holder = sel => { const o = [...sel.options].find(x => x.value === ""); return o ? o.textContent.trim() : "Type to search"; };
+  const mark = (t, words) => { let h = escH(t); for (const w of words) { const i = h.toLowerCase().indexOf(escH(w)); if (i >= 0) h = h.slice(0, i) + "<mark>" + h.slice(i, i + escH(w).length) + "</mark>" + h.slice(i + escH(w).length); } return h; };
+  let open = null;
+  function place(w){ const vv = window.visualViewport, VH = vv ? vv.height + vv.offsetTop : innerHeight, r = w.inp.getBoundingClientRect(), below = VH - r.bottom - 10, above = r.top - 10, up = below < 220 && above > below;
+    const L = w.list; L.style.left = Math.max(8, r.left) + "px"; L.style.width = Math.min(Math.max(r.width, 260), innerWidth - 16) + "px";
+    if (L.getBoundingClientRect && r.left + Math.max(r.width, 260) > innerWidth - 8) L.style.left = Math.max(8, innerWidth - 8 - Math.min(Math.max(r.width, 260), innerWidth - 16)) + "px";
+    L.style.maxHeight = Math.max(140, Math.min(320, up ? above : below)) + "px";
+    if (up) { L.style.top = ""; L.style.bottom = (innerHeight - r.top + 4) + "px"; } else { L.style.bottom = ""; L.style.top = (r.bottom + 4) + "px"; } }
+  function draw(w){ const q = w.typed ? w.inp.value.trim().toLowerCase() : "", words = q.split(/\s+/).filter(Boolean), all = opts(w.sel);
+    let hits = all.filter(x => !x.dis && x.v !== "" && !x.sp && words.every(k => (x.t + " " + x.g).toLowerCase().includes(k)));
+    if (words.length) { const st = x => x.t.toLowerCase().startsWith(words[0]) ? 0 : 1; hits.sort((a, b) => st(a) - st(b)); }
+    const sp = all.filter(x => x.sp && !x.dis), none = !words.length ? all.filter(x => x.v === "" && !x.dis) : [];
+    w.rows = words.length ? [...hits.slice(0, 80), ...sp] : [...none, ...sp, ...hits.slice(0, 80)];
+    if (w.act >= w.rows.length) w.act = w.rows.length - 1; if (w.act < 0 && w.rows.length) w.act = 0;
+    const cur = w.sel.value;
+    w.list.innerHTML = w.rows.map((x, i) => `<div class="ss-opt${x.sp ? " sp" : ""}${x.v === cur && x.v !== "" ? " cur" : ""}${i === w.act ? " on" : ""}" role="option" data-i="${i}" aria-selected="${i === w.act}">${x.v === "" ? `<span style="color:var(--muted)">${escH(x.t)}</span>` : mark(x.t, words)}${x.g ? `<small>${escH(x.g)}</small>` : ""}</div>`).join("") + (hits.length > 80 ? `<div class="ss-none">${hits.length - 80} more… keep typing to narrow it down</div>` : "") + (!hits.length && words.length ? `<div class="ss-none">Nothing matches "${escH(w.inp.value.trim())}"</div>` : "");
+    const on = w.list.querySelector(".ss-opt.on"); if (on) on.scrollIntoView({block:"nearest"}); }
+  function show(w){ if (open && open !== w) hide(open); open = w; w.list.hidden = false; w.inp.setAttribute("aria-expanded", "true"); place(w); draw(w); }
+  function hide(w, keep){ w.list.hidden = true; w.inp.setAttribute("aria-expanded", "false"); if (open === w) open = null; if (!keep) { w.typed = false; w.inp.value = curText(w.sel); } }
+  function pick(w, x){ if (!x) return; const changed = w.sel.value !== x.v; w.sel.value = x.v; w.typed = false; hide(w); w.inp.value = curText(w.sel);
+    if (changed || x.sp) w.sel.dispatchEvent(new Event("change", {bubbles:true})); }
+  function build(sel){ sel.dataset.ss = "1";
+    const wrap = document.createElement("div"); wrap.className = "ss"; if (sel.style.cssText) wrap.style.cssText = sel.style.cssText;
+    const inp = document.createElement("input"); inp.type = "text"; inp.className = "ss-in"; inp.autocomplete = "off"; inp.spellcheck = false; inp.setAttribute("spellcheck", "false"); inp.setAttribute("autocorrect", "off"); inp.setAttribute("autocapitalize", "off"); inp.setAttribute("enterkeyhint", "done");
+    inp.setAttribute("role", "combobox"); inp.setAttribute("aria-autocomplete", "list"); inp.setAttribute("aria-expanded", "false"); inp.setAttribute("aria-label", sel.getAttribute("aria-label") || "Type to search");
+    inp.placeholder = holder(sel); inp.value = curText(sel); if (sel.disabled) inp.disabled = true;
+    const list = document.createElement("div"); list.className = "ss-list"; list.setAttribute("role", "listbox"); list.hidden = true;
+    sel.parentNode.insertBefore(wrap, sel); wrap.append(inp, sel); document.body.appendChild(list); sel.classList.add("ss-hidden"); sel.tabIndex = -1; sel.setAttribute("aria-hidden", "true");
+    const w = {sel, inp, list, wrap, act:0, typed:false, rows:[]}; inp._ss = w; sel._ss = w;
+    inp.addEventListener("focus", () => { w.act = Math.max(0, opts(sel).findIndex(x => x.v === sel.value && x.v !== "")); w.typed = false; show(w); w.act = Math.max(0, w.rows.findIndex(x => x.v === sel.value && x.v !== "")); draw(w); setTimeout(() => { try { inp.select(); } catch (_) {} }, 0); });
+    inp.addEventListener("click", () => { if (list.hidden) show(w); });
+    inp.addEventListener("input", () => { w.typed = true; w.act = 0; if (list.hidden) show(w); else draw(w); });
+    inp.addEventListener("keydown", e => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (list.hidden) show(w); w.act = Math.max(0, Math.min(w.rows.length - 1, w.act + (e.key === "ArrowDown" ? 1 : -1))); draw(w); return; }
+      if (e.key === "Enter") { if (!list.hidden) { e.preventDefault(); pick(w, w.rows[w.act]); } return; }
+      if (e.key === "Escape") { if (!list.hidden) { e.preventDefault(); e.stopPropagation(); hide(w); } return; }
+      if (e.key === "Tab" && !list.hidden) { if (w.typed && w.rows[w.act]) pick(w, w.rows[w.act]); else hide(w); } });
+    inp.addEventListener("blur", () => setTimeout(() => { if (document.activeElement !== inp && open === w) hide(w); }, 120));
+    list.addEventListener("pointerdown", e => e.preventDefault());
+    list.addEventListener("mousedown", e => e.preventDefault());
+    list.addEventListener("click", e => { const r = e.target.closest(".ss-opt"); if (r) pick(w, w.rows[+r.dataset.i]); });
+    sel.addEventListener("change", () => { if (document.activeElement !== inp) inp.value = curText(sel); });
+    sel.addEventListener("invalid", () => { inp.focus(); });
+  }
+  const sweep = n => { if (n.nodeType !== 1) return; if (want(n)) build(n); if (n.querySelectorAll) n.querySelectorAll("select").forEach(s => { if (want(s)) build(s); }); };
+  const sync = () => { for (const l of [...document.querySelectorAll("body > .ss-list")]) { /* drop lists whose picker is gone */ }
+    document.querySelectorAll(".ss-in").forEach(inp => { const w = inp._ss; if (!w) return; if (!document.body.contains(w.sel)) return; if (document.activeElement !== inp) { const t = curText(w.sel); if (inp.value !== t) inp.value = t; inp.placeholder = holder(w.sel); inp.disabled = w.sel.disabled; } }); };
+  const gc = () => { document.querySelectorAll("body > .ss-list").forEach(l => { if (![...document.querySelectorAll(".ss-in")].some(i => i._ss && i._ss.list === l)) l.remove(); }); };
+  sweep(document.body);
+  new MutationObserver(ms => { for (const m of ms) m.addedNodes.forEach(sweep); if (open && !document.body.contains(open.inp)) { open.list.hidden = true; open = null; } gc(); sync(); }).observe(document.body, {childList:true, subtree:true});
+  setInterval(sync, 600);
+  addEventListener("scroll", () => { if (open) place(open); }, true);
+  addEventListener("resize", () => { if (open) place(open); });
+  if (window.visualViewport) visualViewport.addEventListener("resize", () => { if (open) { place(open); const on = open.list.querySelector(".ss-opt.on"); if (on) on.scrollIntoView({block:"nearest"}); } });
 })();
 $("#bankFile").addEventListener("change", async e => {
   const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
