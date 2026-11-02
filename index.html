@@ -167,8 +167,10 @@ td.ind{padding-left:26px}
 .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
 .fields .full{grid-column:1/-1}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:13.5px;color:var(--muted);font-weight:500}
-label.f input,label.f select,label.f textarea,.lines input,.lines select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);width:100%;min-width:0}
+label.f input,label.f select,label.f textarea,.lines input,.lines select,.lines textarea.descbox{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);width:100%;min-width:0}
 label.f textarea{min-height:70px;resize:vertical}
+.lines textarea.descbox{display:block;padding-top:9px;padding-bottom:9px;resize:none;overflow:hidden;min-height:0;line-height:1.35;height:auto;white-space:pre-wrap;word-break:break-word}
+.line.inv{align-items:start}.line.inv > .amt,.line.inv > .taxcell,.line.inv > .x,.line.inv .pcttag,.line.inv .pctof{align-self:center}
 label.check{display:flex;gap:8px;align-items:center;font-size:14px}
 .formfoot{display:flex;justify-content:space-between;gap:10px;margin-top:18px;flex-wrap:wrap;align-items:center}
 .formfoot .right{display:flex;gap:8px;margin-left:auto}
@@ -176,7 +178,7 @@ label.check{display:flex;gap:8px;align-items:center;font-size:14px}
 
 .lines{margin-top:14px;border-top:1px solid var(--line)}
 .line{display:grid;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
-.line.inv{grid-template-columns:1.4fr 1.8fr 70px 100px 100px 34px 32px}
+.line.inv{grid-template-columns:1.35fr 2.5fr 62px 90px 96px 34px 32px}
 .line.buy{grid-template-columns:1.6fr 1.6fr 70px 100px 100px 32px}
 .line.je{grid-template-columns:1.8fr 1.6fr 110px 110px 32px}
 .line .amt{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
@@ -201,7 +203,7 @@ label.check{display:flex;gap:8px;align-items:center;font-size:14px}
 .ss-opt mark{background:color-mix(in srgb, var(--brass, #a07a2f) 30%, transparent);color:inherit;border-radius:3px;padding:0 1px}
 .ss-none{padding:10px;color:var(--muted);font-size:14px}
 .lines .hdr{display:grid;gap:8px;font-size:12.5px;color:var(--muted);font-weight:600;padding:8px 0 0}
-.lines .hdr.inv{grid-template-columns:1.4fr 1.8fr 70px 100px 100px 34px 32px}
+.lines .hdr.inv{grid-template-columns:1.35fr 2.5fr 62px 90px 96px 34px 32px}
 .lines .hdr.buy{grid-template-columns:1.6fr 1.6fr 70px 100px 100px 32px}
 .lines .hdr.je{grid-template-columns:1.8fr 1.6fr 110px 110px 32px}
 .line.tax,.lines .hdr.tax{grid-template-columns:2fr 100px 1.3fr 32px}
@@ -246,6 +248,20 @@ body.ubon #toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .stamp small{display:block;font-size:13px;letter-spacing:.5px;font-weight:600;margin-top:3px}
 .stamp.paid{color:#2C7649}.stamp.sent{color:#1D5FA8}
 @media (max-width:860px){.stamp{top:auto;bottom:40%;left:auto;right:8%;font-size:32px}}
+.estlines{width:100%;border-collapse:collapse;margin:4px 0 6px}
+.estlines th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:2px solid var(--ink,#1c2430)}
+.estlines th.num,.estlines td.num{text-align:right;white-space:nowrap}
+.estlines td{padding:11px 10px;vertical-align:top;border-bottom:1px solid var(--line)}
+.estlines tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--brass, #a07a2f) 5%, transparent)}
+.estlines .n{width:28px;color:var(--muted);font-variant-numeric:tabular-nums}
+.estlines .nm{font-weight:600;font-size:15px}
+.estlines .sub{color:var(--muted);font-size:13px;margin-top:2px;white-space:pre-line}
+.estlines td.tot{font-weight:600}
+.esttotals{margin-left:auto;max-width:330px;margin-top:10px}
+.esttotals > div{display:flex;justify-content:space-between;padding:5px 2px;font-variant-numeric:tabular-nums}
+.esttotals .big{margin-top:6px;padding:11px 14px;border-radius:10px;background:color-mix(in srgb, var(--brass, #a07a2f) 13%, transparent);font-size:19px;font-weight:700}
+.estnote{margin-top:12px;color:var(--muted);font-size:13.5px;text-align:right}
+@media (max-width:600px){.estlines .n{display:none}.estlines th,.estlines td{padding:9px 6px}}
 .doc-head{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:22px}
 .doc-head .co{display:flex;gap:16px;align-items:center}.doc-head .co .logo{height:92px;width:auto;flex:none}
 .doc-head .co b{font-family:'Barlow Condensed',system-ui,sans-serif;font-size:24px}
@@ -284,6 +300,7 @@ body.ubon #toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
   .lines .hdr{display:none}
   .line.inv,.line.buy{grid-template-columns:1fr 1fr 1fr}
   .line.inv > :nth-child(1),.line.inv > :nth-child(2),.line.buy > :nth-child(1),.line.buy > :nth-child(2){grid-column:1/-1}
+  .line.inv > .descbox{grid-column:1/-1}
   .line.je{grid-template-columns:1fr 1fr}
   .line.je > :nth-child(1),.line.je > :nth-child(2){grid-column:1/-1}
   .line .amt{text-align:left}
@@ -537,7 +554,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "7f649e93bb";
+const APP_BUILD = "eeb148f47f";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -1229,16 +1246,29 @@ function invStamp(inv){ if (!inv || !inv.id || !byId("invoices", inv.id)) return
   if (st === "paid" && invTotals(inv).total > 0) { const p = paidInfo(inv); return {kind:"paid", text:"PAID", sub:p ? fmtDate(p.date) + (p.method ? " · " + p.method + (p.ref ? " #" + p.ref : "") : "") : ""}; }
   if (inv.emailedAt || inv.sentAt) return {kind:"sent", text:"SENT", sub:fmtDate((inv.emailedAt || inv.sentAt).slice(0, 10))};
   return null; }
+/* ---------- estimates: a simple, easy-to-read line list ---------- */
+function estParts(l){ const iname = (byId("items", l.itemId)?.name || "").trim(), d = String(l.desc || "").trim(), pct = l.pct !== undefined && l.pct !== null && l.pct !== "";
+  let name, sub;
+  if (iname) { name = iname; sub = d && d.toLowerCase() !== iname.toLowerCase() ? d : ""; }
+  else { const k = d.indexOf("\n"); name = k >= 0 ? d.slice(0, k) : d; sub = k >= 0 ? d.slice(k + 1).trim() : ""; }
+  if (!name) name = "Item";
+  return {name, sub, pct, qty:pct ? "" : String(+l.qty || 0), each:pct ? (+l.pct) + "%" : money(+l.rate || 0), total:money((+l.qty || 0) * (+l.rate || 0))}; }
+function estTableHTML(inv, t){ const lines = (inv.lines || []), n = lines.filter(l => !(l.pct !== undefined && l.pct !== null && l.pct !== "")).length;
+  return `<table class="estlines"><thead><tr><th class="n">#</th><th>Item</th><th class="num">Qty</th><th class="num">Each</th><th class="num">Total</th></tr></thead><tbody>
+  ${lines.map((l, i) => { const p = estParts(l); return `<tr><td class="n">${i + 1}</td><td><div class="nm">${esc(p.name)}</div>${p.sub ? `<div class="sub">${esc(p.sub)}</div>` : ""}</td><td class="num">${esc(p.qty)}</td><td class="num">${esc(p.each)}</td><td class="num tot">${p.total}</td></tr>`; }).join("")}
+  </tbody></table>
+  <div class="esttotals"><div><span>Subtotal (${n} item${n === 1 ? "" : "s"})</span><span>${money(t.sub)}</span></div>${t.tax ? `<div><span>Sales tax (${esc(inv.taxRate)}%)</span><span>${money(t.tax)}</span></div>` : ""}<div class="big"><span>Estimate total</span><span>${money(t.total)}</span></div></div>
+  ${inv.due ? `<div class="estnote">Prices good through ${fmtDate(inv.due)}.</div>` : ""}`; }
 function invoiceDoc(inv, standalone, kind){
   const est = kind === "estimate";
   const c = byId("customers", inv.customerId) || {}, co = S.company, t = invTotals(inv), paid = est ? 0 : invPaid(inv.id), stp = est ? null : invStamp(inv);
   return `<div class="doc">${stp ? `<div class="stamp ${stp.kind}" aria-label="${stp.text}">${stp.text}${stp.sub ? `<small>${esc(stp.sub)}</small>` : ""}</div>` : ""}<div class="doc-head"><div class="co">${co.showLogo !== false ? `<img class="logo" src="${LOGO_PNG}" alt="">` : ""}<div><b>${esc(co.name)}</b><div class="pre small muted">${esc(shownAddr())}${co.phone ? "\n" + esc(co.phone) : ""}${co.email ? "\n" + esc(co.email) : ""}</div></div></div>
     <div class="meta"><h2>${est ? "Estimate" : "Invoice"}</h2><div class="kv"><span>${est ? "Estimate" : "Invoice"} no.</span><b>${esc(inv.num)}</b><span>Date</span><div>${fmtDate(inv.date)}</div><span>${est ? "Valid until" : "Due"}</span><div>${fmtDate(inv.due)}</div><span>Terms</span><div>${esc(inv.terms || "")}</div>${inv.po ? `<span>P.O. no.</span><div>${esc(inv.po)}</div>` : ""}</div></div></div>
     ${(bt => `<div style="margin-bottom:18px"><div class="small muted">${est ? "Prepared for" : "Bill to"}</div><b>${esc(bt.name)}</b>${bt.contact ? `<div>Attn: ${esc(bt.contact)}</div>` : ""}<div class="pre">${esc(bt.address)}</div></div>`)(billToOf(inv))}
-    <div class="tbl"><table><thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>
+    ${est ? estTableHTML(inv, t) : `<div class="tbl"><table><thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>
     ${(inv.lines || []).map(l => `<tr><td>${esc(byId("items", l.itemId)?.name || "")}</td><td class="pre">${esc(l.desc || "")}</td><td class="num">${esc(l.qty)}</td><td class="num">${money(l.rate)}</td><td class="num">${money((+l.qty||0) * (+l.rate||0))}${l.taxable ? "" : standalone ? "" : ' <span class="small muted">N</span>'}</td></tr>`).join("")}
     </tbody></table></div>
-    <div class="totals"><div><span>Subtotal</span><span>${money(t.sub)}</span></div>${t.tax ? `<div><span>Sales tax (${esc(inv.taxRate)}%)</span><span>${money(t.tax)}</span></div>` : ""}<div class="grand"><span>Total</span><span>${money(t.total)}</span></div>${paid ? `<div><span>Payments</span><span>-${money(paid)}</span></div><div class="grand"><span>Balance due</span><span>${money(t.total - paid)}</span></div>` : ""}</div>
+    <div class="totals"><div><span>Subtotal</span><span>${money(t.sub)}</span></div>${t.tax ? `<div><span>Sales tax (${esc(inv.taxRate)}%)</span><span>${money(t.tax)}</span></div>` : ""}<div class="grand"><span>Total</span><span>${money(t.total)}</span></div>${paid ? `<div><span>Payments</span><span>-${money(paid)}</span></div><div class="grand"><span>Balance due</span><span>${money(t.total - paid)}</span></div>` : ""}</div>`}
     ${kind !== "estimate" && invBalance(inv) > 0.004 && payLinksFor([inv]).length ? `<div style="margin-top:18px;padding:10px 12px;border:1px solid var(--line);border-radius:8px"><b>Pay online</b><div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:4px">${payLinksFor([inv]).map(x => x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.label)}</a>${x.note ? ` <span class="small muted">${esc(x.note)}</span>` : ""}` : `<span>${esc(x.label)}: ${esc(x.text)}</span>`).join("")}</div></div>` : ""}
     ${inv.memo ? `<p class="pre" style="margin-top:18px">${esc(inv.memo)}</p>` : ""}${co.footer && co.footer.trim() !== (inv.memo || "").trim() ? `<p class="muted" style="margin-top:18px">${esc(co.footer)}</p>` : ""}</div>`;
 }
@@ -2828,6 +2858,25 @@ function docPDF(inv, kind){
   P.text(L, y, bt.name, {size:11, bold:true}); y += 13.5;
   [bt.contact ? "Attn: " + bt.contact : ""].concat((bt.address || "").split("\n")).filter(Boolean).forEach(l => { P.text(L, y, l, {size:9.5}); y += 12.5; });
   y += 16;
+  if (est) { const cx = {n:L + 8, item:L + 30, qty:404, each:484, tot:R - 8}, W = 346;
+    const head = () => { P.text(cx.n, y, "#", {size:8.5, bold:true, color:gray}); P.text(cx.item, y, "ITEM", {size:8.5, bold:true, color:gray}); P.text(cx.qty, y, "QTY", {size:8.5, bold:true, color:gray, align:"right"}); P.text(cx.each, y, "EACH", {size:8.5, bold:true, color:gray, align:"right"}); P.text(cx.tot, y, "TOTAL", {size:8.5, bold:true, color:gray, align:"right"}); y += 6; P.line(L, y, R, y, 1.2, [0.1, 0.1, 0.1]); y += 16; };
+    head();
+    (inv.lines || []).forEach((l, i) => { const p = estParts(l), nl = wrapText(p.name, W, 10, true), sl = p.sub ? wrapText(p.sub, W, 9, false) : [], h = nl.length * 12.5 + sl.length * 11.5 + 12;
+      if (y + h > 700) { P.add(); y = 60; head(); }
+      if (i % 2) P.rect(L, y - 13, R - L, h, [0.985, 0.972, 0.945]);
+      P.text(cx.n, y, String(i + 1), {size:9, color:gray});
+      nl.forEach((s, k) => P.text(cx.item, y + k * 12.5, s, {size:10, bold:true}));
+      sl.forEach((s, k) => P.text(cx.item, y + nl.length * 12.5 + k * 11.5, s, {size:9, color:gray}));
+      P.text(cx.qty, y, p.qty, {size:10, align:"right"}); P.text(cx.each, y, p.each, {size:10, align:"right"}); P.text(cx.tot, y, p.total, {size:10, bold:true, align:"right"});
+      y += h - 13; P.line(L, y, R, y, 0.5, [0.85, 0.86, 0.88]); y += 13; });
+    if (y > 640) { P.add(); y = 60; }
+    y += 8; const tl = 360, nItems = (inv.lines || []).filter(l => !(l.pct !== undefined && l.pct !== null && l.pct !== "")).length;
+    const tr = (k, v) => { P.text(tl, y, k, {size:10}); P.text(R - 8, y, v, {size:10, align:"right"}); y += 15; };
+    tr(`Subtotal (${nItems} item${nItems === 1 ? "" : "s"})`, money(t.sub)); if (t.tax) tr(`Sales tax (${inv.taxRate}%)`, money(t.tax));
+    y += 4; P.rect(tl - 10, y - 16, R - tl + 10, 26, [0.95, 0.91, 0.82]); P.text(tl, y + 1, "Estimate total", {size:12.5, bold:true}); P.text(R - 8, y + 1, money(t.total), {size:12.5, bold:true, align:"right"}); y += 28;
+    if (inv.due) { P.text(R - 8, y, "Prices good through " + fmtDate(inv.due) + ".", {size:9, color:gray, align:"right"}); y += 14; }
+    y += 10;
+  } else {
   const cols = {item:L + 6, desc:148, qty:402, rate:482, amt:R - 6};
   const header = () => { P.rect(L, y - 13, R - L, 20, [0.94, 0.95, 0.96]); P.text(cols.item, y, "Item", {size:8.5, bold:true, color:gray}); P.text(cols.desc, y, "Description", {size:8.5, bold:true, color:gray}); P.text(cols.qty, y, "Qty", {size:8.5, bold:true, color:gray, align:"right"}); P.text(cols.rate, y, "Rate", {size:8.5, bold:true, color:gray, align:"right"}); P.text(cols.amt, y, "Amount", {size:8.5, bold:true, color:gray, align:"right"}); y += 20; };
   header();
@@ -2846,6 +2895,7 @@ function docPDF(inv, kind){
   P.line(tl, y - 9, R, y - 9, 0.9, [0.1, 0.1, 0.1]); y += 3; trow("Total", money(t.total), true, true);
   if (paid) { trow("Payments", "-" + money(paid)); P.line(tl, y - 9, R, y - 9, 0.9, [0.1, 0.1, 0.1]); y += 3; trow("Balance due", money(t.total - paid), true, true); }
   y += 14;
+  }
   { const pl = !est && (t.total - paid) > 0.004 ? payLinksFor([inv]) : []; if (pl.length) { if (y > 690) { P.add(); y = 60; } P.text(L, y, "PAY ONLINE", {size:8, bold:true, color:gray}); y += 13;
     pl.forEach(x => { const s2 = x.label + ": " + (x.url || x.text) + (x.note ? "  (" + x.note + ")" : ""); wrapText(s2, R - L, 9, false).forEach(l => { if (y > 740) { P.add(); y = 60; } P.text(L, y, l, {size:9, color:[0.11, 0.37, 0.66]}); y += 12; }); }); y += 8; } }
   if (inv.memo) wrapText(inv.memo, R - L, 9.5, false).forEach(l => { if (y > 740) { P.add(); y = 60; } P.text(L, y, l, {size:9.5}); y += 12.5; });
@@ -3783,7 +3833,7 @@ function followupForm(fu, customerId){ fu = fu || {customerId, due:addDays(today
 /* line editors */
 function itemSelect(sel){ return `<select name="itemId" aria-label="Item" data-prev="${esc(sel || "")}"><option value="">Choose item</option><option value="__new">+ New product or service…</option><option value="__edit">✎ Change this item (name, price…)</option>${opts(S.items.filter(i => !i.inactive || i.id === sel).slice().sort(byName).map(i => [i.id, i.name + (i.desc && i.desc !== i.name ? " — " + (i.desc.length > 48 ? i.desc.slice(0, 46) + "…" : i.desc) : "")]), sel)}</select>`; }
 function invLine(l){ l = l || {qty:1, taxable:true};
-  return `<div class="line inv"><input type="hidden" name="acct" value="${esc(l.acct || "")}">${itemSelect(l.itemId)}<input name="desc" placeholder="Description" value="${esc(l.desc)}" aria-label="Description"><input name="qty" type="number" step="any" value="${esc(l.qty)}" aria-label="Quantity"><input name="rate" type="number" step="0.01" value="${esc(l.rate)}" placeholder="Rate" aria-label="Rate"><div class="amt">${money((+l.qty||0) * (+l.rate||0))}</div><label title="Taxable" class="taxcell"><input type="checkbox" name="taxable" ${l.taxable ? "checked" : ""}><span class="mlabel">Taxable</span></label><button type="button" class="x" data-act="rmLine" aria-label="Remove line">×</button><button type="button" class="grip" aria-label="Drag to change the order of this line" title="Drag to reorder"><svg width="14" height="18" viewBox="0 0 14 18" aria-hidden="true" fill="currentColor"><circle cx="4" cy="4" r="1.6"/><circle cx="10" cy="4" r="1.6"/><circle cx="4" cy="9" r="1.6"/><circle cx="10" cy="9" r="1.6"/><circle cx="4" cy="14" r="1.6"/><circle cx="10" cy="14" r="1.6"/></svg></button></div>`; }
+  return `<div class="line inv"><input type="hidden" name="acct" value="${esc(l.acct || "")}">${itemSelect(l.itemId)}<textarea name="desc" class="descbox" rows="1" placeholder="Description" aria-label="Description">${esc(l.desc)}</textarea><input name="qty" type="number" step="any" value="${esc(l.qty)}" aria-label="Quantity"><input name="rate" type="number" step="0.01" value="${esc(l.rate)}" placeholder="Rate" aria-label="Rate"><div class="amt">${money((+l.qty||0) * (+l.rate||0))}</div><label title="Taxable" class="taxcell"><input type="checkbox" name="taxable" ${l.taxable ? "checked" : ""}><span class="mlabel">Taxable</span></label><button type="button" class="x" data-act="rmLine" aria-label="Remove line">×</button><button type="button" class="grip" aria-label="Drag to change the order of this line" title="Drag to reorder"><svg width="14" height="18" viewBox="0 0 14 18" aria-hidden="true" fill="currentColor"><circle cx="4" cy="4" r="1.6"/><circle cx="10" cy="4" r="1.6"/><circle cx="4" cy="9" r="1.6"/><circle cx="10" cy="9" r="1.6"/><circle cx="4" cy="14" r="1.6"/><circle cx="10" cy="14" r="1.6"/></svg></button></div>`; }
 function buyRefOpts(sel){ const items = S.items.filter(i => i.type !== "service" && i.type !== "kit").sort(byName);
   return `<option value="">Choose account or item</option><optgroup label="Accounts">${sortedAccts(a => ["expense","cogs","ocasset","fixed","oexpense","equity","ocliab","ltliab","ccard"].includes(a.type) && a.id !== SYS.AR && a.id !== SYS.OBE).map(a => `<option value="a:${a.id}" ${sel === "a:" + a.id ? "selected" : ""}>${esc((a.number ? a.number + " · " : "") + a.name)}</option>`).join("")}</optgroup>${items.length ? `<optgroup label="Items">${items.map(i => `<option value="i:${i.id}" ${sel === "i:" + i.id ? "selected" : ""}>${esc(i.name)}</option>`).join("")}</optgroup>` : ""}`; }
 function buyLine(l){ l = l || {qty:1};
@@ -4894,6 +4944,16 @@ document.addEventListener("change", async e => {
   addEventListener("scroll", () => { if (open) place(open); }, true);
   addEventListener("resize", () => { if (open) place(open); });
   if (window.visualViewport) visualViewport.addEventListener("resize", () => { if (open) { place(open); const on = open.list.querySelector(".ss-opt.on"); if (on) on.scrollIntoView({block:"nearest"}); } });
+})();
+/* ---------- invoice description boxes grow to fit what you type ---------- */
+(function(){
+  const fit = t => { if (!t || !t.isConnected || !t.offsetParent) return; t.style.height = "auto"; const b = t.offsetHeight - t.clientHeight; t.style.height = (t.scrollHeight + b) + "px"; };
+  const all = () => document.querySelectorAll("textarea.descbox").forEach(fit);
+  document.addEventListener("input", e => { if (e.target.classList && e.target.classList.contains("descbox")) fit(e.target); }, true);
+  document.addEventListener("change", () => { setTimeout(all, 0); setTimeout(all, 300); }, true);
+  document.addEventListener("click", e => { if (e.target.closest && e.target.closest(".lines, #sheetBody")) setTimeout(all, 50); }, true);
+  new MutationObserver(() => { requestAnimationFrame(all); setTimeout(all, 400); }).observe(document.body, {childList:true, subtree:true});
+  addEventListener("resize", () => requestAnimationFrame(all));
 })();
 $("#bankFile").addEventListener("change", async e => {
   const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
