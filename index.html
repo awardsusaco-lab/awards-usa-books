@@ -125,6 +125,34 @@ body.dragging::after{content:"Drop statement to import";position:fixed;inset:12p
 .bc-s{margin-top:4px;font-size:12.5px}.bc-a{margin-top:7px}
 @media (max-width:1100px){.board{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .bpanel .panel-head{margin-bottom:8px}
+.etiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:18px}
+.etile{display:flex;gap:12px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;font:inherit;color:inherit;transition:border-color .12s,box-shadow .12s}
+.etile:hover,.etile:focus-visible{border-color:var(--brass,#a07a2f);box-shadow:0 4px 14px rgba(0,0,0,.07)}
+.etile .ei{font-size:26px;line-height:1.1}
+.etile b{display:block;font-size:16px;margin-bottom:3px}
+.etile small{display:block;color:var(--muted);font-size:13px;line-height:1.35}
+.etile.main{border-color:var(--brass,#a07a2f);background:color-mix(in srgb, var(--brass,#a07a2f) 8%, var(--surface))}
+.mb-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 14px;align-items:center;padding:10px 2px;border-top:1px solid var(--line)}
+.mb-main b{display:block}.mb-act{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.mb-row.paid .mb-main b{color:var(--muted)}
+.mb-sug{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ebar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;align-items:center;padding:6px 0}
+.ebar .bar{grid-column:1/-1;height:7px;border-radius:99px;background:var(--line);overflow:hidden}.ebar .bar i{display:block;height:100%;background:var(--brass,#a07a2f);border-radius:99px}
+.spend .sp-step{margin-bottom:18px}
+.sp-q{font-weight:700;font-size:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.sp-q span{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--ink,#1c2430);color:var(--surface,#fff);font-size:13px;flex:none}
+.sp-pay{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.sp-opt{display:flex;gap:10px;align-items:center;border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;background:var(--surface)}
+.sp-opt:has(input:checked){border-color:var(--brass,#a07a2f);background:color-mix(in srgb, var(--brass,#a07a2f) 10%, var(--surface))}
+.sp-opt input{accent-color:var(--brass,#a07a2f);width:18px;height:18px;flex:none;margin:0}
+.sp-opt b{display:block}.sp-opt small{display:block;color:var(--muted);font-size:12px}
+.sp-amt{display:flex;align-items:center;gap:6px;font-size:22px;font-weight:700}
+.sp-amt input{font-size:22px !important;font-weight:700;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);width:180px}
+.sp-amt.sm{font-size:15px}.sp-amt.sm input{font-size:15px !important;width:120px;padding:7px 9px}
+.sp-split-row{display:grid;grid-template-columns:minmax(0,1fr) auto 32px;gap:8px;align-items:center;margin:8px 0}
+.sp-split-row select,.sp-split-row .ss-in{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
+.sp-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:640px){.sp-row2{grid-template-columns:1fr}.etiles{grid-template-columns:1fr 1fr;gap:10px}.etile{flex-direction:column;gap:6px;padding:12px}.etile b{font-size:15px}.mb-row{grid-template-columns:minmax(0,1fr) auto}.mb-act{grid-column:1/-1;justify-content:flex-start}.sp-split-row{grid-template-columns:1fr auto 32px}}
 .ohc{display:inline-flex;align-items:center;gap:4px;justify-content:flex-end}
 .qbtn{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:7px;min-width:34px;height:30px;padding:0 6px;font-size:12.5px;cursor:pointer;font-variant-numeric:tabular-nums}
 .qbtn:hover{color:var(--ink,inherit);border-color:var(--brass,#a07a2f)}
@@ -604,7 +632,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "af3fe1fddd";
+const APP_BUILD = "6b804b77e5";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -1133,6 +1161,7 @@ VIEWS.home = () => {
   fu.forEach(f => T({k:"fu:" + f.id, fu:f.id, t:esc(f.text), s:`${f.customerId ? esc(custName(f.customerId)) + " · " : ""}${f.due < t ? `<span class="neg">was due ${fmtDate(f.due)}</span>` : f.due === t ? "due today" : "due " + fmtDate(f.due)}`, act:"openFollowup", attrs:`data-id="${f.id}"`}));
   overdue.forEach(i => T({k:"od:" + i.id, t:`Collect invoice #${esc(i.num)} from ${esc(custName(i.customerId))}`, s:`<span class="neg">${daysBetween(i.due, t)} days overdue</span>`, r:amt(invBalance(i)), href:"#/invoice/" + i.id}));
   billsDue.forEach(b => T({k:"bill:" + b.id, t:`Pay ${esc(vendName(b.vendorId) || "bill")}${b.ref ? " · " + esc(b.ref) : ""}`, s:b.due < t ? `<span class="neg">was due ${fmtDate(b.due)}</span>` : "due " + fmtDate(b.due), r:amt(billBalance(b)), act:"payBills", attrs:`data-vendor="${b.vendorId}"`}));
+  monthly().forEach(m => { if (monthlyPaid(m)) return; const due = monthlyDue(m); if (due > addDays(t, 3)) return; T({k:"mb:" + m.id + ":" + t.slice(0, 7), t:`Pay ${esc(m.name)}`, s:due < t ? `<span class="neg">was due ${fmtDate(due)}</span>` : due === t ? "due today" : "due " + fmtDate(due), r:m.amount !== "" && m.amount != null ? amt(m.amount) : "", act:"monthlyPay", attrs:`data-id="${m.id}"`}); });
   openJobs().filter(i => i.neededBy && i.neededBy <= addDays(t, 7) && i.jobStatus !== "ready").sort((a, b) => a.neededBy < b.neededBy ? -1 : 1).forEach(i => T({k:"job:" + i.id, t:`Finish order for ${esc(custName(i.customerId))} (#${esc(i.num)})`, s:`${dueText(i.neededBy)} · ${jobLabel(i.jobStatus)}`, href:"#/invoice/" + i.id}));
   S.invoices.filter(i => i.jobStatus === "ready" && daysBetween(i.readyOn || i.dueFrom || i.date, t) >= 2).forEach(i => T({k:"pick:" + i.id, t:`Has ${esc(custName(i.customerId))} picked up #${esc(i.num)}?`, s:`Ready since ${fmtDate(i.readyOn || i.dueFrom || i.date)} · remind them, or drag it to Delivered`, href:"#/invoice/" + i.id}));
   S.invoices.filter(i => invBalance(i) > 0.004 && !i.emailedAt && !i.sentAt && !IN_PROGRESS.has(i.jobStatus || "") && invStatus(i) !== "overdue").sort((a, b) => a.date < b.date ? -1 : 1).slice(0, 5).forEach(i => T({k:"send:" + i.id, t:`Send invoice #${esc(i.num)} to ${esc(custName(i.customerId))}`, s:"Not sent yet", r:amt(invBalance(i)), act:"emailInvoice", attrs:`data-id="${i.id}"`}));
@@ -1362,7 +1391,33 @@ VIEWS.invoice = id => {
   `;
 };
 
-VIEWS.expenses = () => {
+VIEWS.expenses = () => { const t = todayISO(), ym = t.slice(0, 7), owe = S.bills.filter(b => billBalance(b) > 0.004), oweAmt = owe.reduce((s, b) => s + billBalance(b), 0), card = cardAccts()[0], bal = balances(null, t), cardOwed = card ? shown(card, bal[card.id]) : 0;
+  const tiles = [["spend","🧾","I paid for something","Gas, supplies, software… paid with a debit card, check, cash or credit card", true],
+    ["cardEntry","💳","Type in credit card charges","Go down your card statement and enter each charge"],
+    ["scrollMonthly","🏠","Pay a monthly bill","Rent, phone, internet, insurance: one tap each month"],
+    ["newBill","📬","I got a bill to pay later","A supplier sent a bill with a due date"],
+    ["payBills","💵","Pay a bill I owe", owe.length ? `${owe.length} unpaid · ${money(oweAmt)}` : "Nothing owed right now"],
+    ["cardPay","🏦","Pay off the credit card", card ? `The card balance is ${money(cardOwed)}` : "Move money from checking to your card"],
+    ["newTrip","🚗","Log a business trip","Miles you drove for work (a tax write-off)"]];
+  const ms = monthly(), sug = monthlySuggest(), paidN = ms.filter(m => monthlyPaid(m)).length;
+  const mrow = m => { const p = monthlyPaid(m), due = monthlyDue(m), late = !p && due < t, soon = !p && !late && daysBetween(t, due) <= 5, sd = d => fmtDate(d).replace(/, \d{4}$/, "");
+    return `<div class="mb-row ${p ? "paid" : ""}"><div class="mb-main"><b>${esc(m.name)}</b><span class="small muted">${esc(catName(m.cat))} · due the ${dayTh(m.day)}</span></div><div class="mb-amt num">${p ? money(linesTotal(p.lines)) : m.amount !== "" && m.amount != null ? money(m.amount) : '<span class="muted small">varies</span>'}</div><div class="mb-act">${p ? `<span class="badge good">✓ Paid ${sd(p.date)}</span><button class="linkbtn small" data-act="editExpense" data-id="${p.id}">View</button>` : `${late ? '<span class="badge bad">Past due</span>' : soon ? `<span class="badge warn">Due ${sd(due)}</span>` : ""}<button class="btn small ${late || soon ? "primary" : ""}" data-act="monthlyPay" data-id="${m.id}">Mark paid</button>`}<button class="linkbtn small" data-act="monthlyEdit" data-id="${m.id}" aria-label="Edit ${esc(m.name)}">Edit</button></div></div>`; };
+  const cats = new Map(); journal().forEach(l => { if (l.date < ym + "-01" || l.date > t || !(l.amt > 0)) return; const a = byId("accounts", l.acct); if (!a || (a.type !== "expense" && a.type !== "cogs")) return; cats.set(a.id, (cats.get(a.id) || 0) + l.amt); });
+  const top = [...cats.entries()].sort((a, b) => b[1] - a[1]), tot = top.reduce((s, x) => s + x[1], 0), mx = top.length ? top[0][1] : 1;
+  const recent = S.expenses.slice().sort((a, b) => (b.date || "") > (a.date || "") ? 1 : -1).slice(0, 6);
+  return expHead("home") + `<p class="muted" style="margin:-6px 0 14px">Money going out of the business. Pick what you need to do:</p>
+  <div class="etiles">${tiles.map(([a, ic, tt, s, main]) => `<button type="button" class="etile${main ? " main" : ""}" data-act="${a}"><span class="ei" aria-hidden="true">${ic}</span><span><b>${tt}</b><small>${s}</small></span></button>`).join("")}</div>
+  <div class="grid2">
+    <section class="panel" id="monthlyPanel"><div class="panel-head"><h2>Monthly bills · ${MONTH_NAMES[+ym.slice(5) - 1]}</h2><button class="btn small" data-act="monthlyNew">+ Add a monthly bill</button></div>
+      ${ms.length ? `<p class="small muted" style="margin:0 0 4px">${paidN} of ${ms.length} paid this month</p>${ms.map(mrow).join("")}` : empty("Add the bills you pay every month, like rent, phone, internet, insurance and software. Then each month you just tap Mark paid.", '<button class="btn primary" data-act="monthlyNew">Add your first monthly bill</button>')}
+      ${sug.length ? `<div class="mb-sug"><span class="small muted">Looks like you pay these every month:</span>${sug.map((x, i) => `<button class="chip" data-act="monthlySug" data-i="${i}">+ ${esc(x.name)} (${money(x.amount)})</button>`).join("")}</div>` : ""}</section>
+    <section class="panel"><div class="panel-head"><h2>Spent this month</h2><a href="#/checks">See everything</a></div>
+      ${top.length ? `<div style="font-size:26px;font-weight:800;margin:0 0 6px">${money(tot)}</div>${top.slice(0, 7).map(([id, v]) => `<div class="ebar"><span>${esc(catName(id))}</span><b class="num">${money(v)}</b><div class="bar"><i style="width:${Math.max(3, Math.round(v / mx * 100))}%"></i></div></div>`).join("")}` : empty("Nothing spent yet this month.")}</section>
+  </div>
+  <section class="panel" style="margin-top:18px"><div class="panel-head"><h2>Recently spent</h2><a href="#/checks">See everything</a></div>
+    <div class="list">${recent.map(e => { const l = (e.lines || []).find(x => /^a:/.test(x.ref || "")); return `<div class="item" data-act="editExpense" data-id="${e.id}"><div><div class="t">${esc(e.vendorId ? vendName(e.vendorId) : e.payee || "Expense")}</div><div class="s">${fmtDate(e.date)} · ${esc(l ? catName(l.ref.slice(2)) : "Items")} · ${esc(payWord(byId("accounts", e.fromAcct) || {type:"bank", name:""}))}</div></div><div class="r num">${money(linesTotal(e.lines))}</div></div>`; }).join("") || empty("Nothing yet. Tap “I paid for something” to add your first expense.")}</div></section>`;
+};
+VIEWS.bills = () => {
   const f = UI.filter.bill || "open";
   const rows = S.bills.filter(b => f === "all" || (f === "open" ? billBalance(b) > 0.004 : billBalance(b) <= 0.004)).sort((a, b) => (a.due || a.date) < (b.due || b.date) ? -1 : 1);
   return expHead("bills") + `<div class="panel"><div class="toolbar"><div class="chips">${[["open","Unpaid"],["paid","Paid"],["all","All"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="bill" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
@@ -1371,8 +1426,8 @@ VIEWS.expenses = () => {
   </tbody></table></div></div>`;
 };
 function expHead(active){
-  return `<div class="pagehead"><div><h1>Expenses</h1></div><div class="actions"><button class="btn primary" data-act="newBill">Enter bill</button><button class="btn" data-act="payBills">Pay bills</button><button class="btn" data-act="newExpense">Write check / card charge</button><button class="btn" data-act="cardPay">Pay credit card</button></div></div>
-  <nav class="seg" aria-label="Expense sections"><a href="#/expenses" ${active === "bills" ? 'aria-current="page"' : ""}>Bills</a><a href="#/checks" ${active === "checks" ? 'aria-current="page"' : ""}>Checks &amp; charges</a><a href="#/card" ${active === "card" ? 'aria-current="page"' : ""}>Credit card</a><a href="#/vendors" ${active === "vendors" ? 'aria-current="page"' : ""}>Vendors</a><a href="#/inventory/onorder" ${active === "pos" ? 'aria-current="page"' : ""}>Supplier orders</a><a href="#/mileage" ${active === "mileage" ? 'aria-current="page"' : ""}>Mileage</a></nav>`;
+  return `<div class="pagehead"><div><h1>Expenses</h1></div><div class="actions">${active === "home" ? "" : `<button class="btn primary" data-act="spend">I paid for something</button><button class="btn" data-act="newBill">Enter a bill</button><button class="btn" data-act="payBills">Pay bills</button><button class="btn" data-act="cardPay">Pay credit card</button>`}</div></div>
+  <nav class="seg" aria-label="Expense sections"><a href="#/expenses" ${active === "home" ? 'aria-current="page"' : ""}>Start here</a><a href="#/bills" ${active === "bills" ? 'aria-current="page"' : ""}>Bills to pay</a><a href="#/checks" ${active === "checks" ? 'aria-current="page"' : ""}>Everything spent</a><a href="#/card" ${active === "card" ? 'aria-current="page"' : ""}>Credit card</a><a href="#/vendors" ${active === "vendors" ? 'aria-current="page"' : ""}>Suppliers</a><a href="#/inventory/onorder" ${active === "pos" ? 'aria-current="page"' : ""}>Supplier orders</a><a href="#/mileage" ${active === "mileage" ? 'aria-current="page"' : ""}>Mileage</a></nav>`;
 }
 VIEWS.checks = () => {
   const rows = [
@@ -4191,6 +4246,23 @@ const FORMS = {
     const b = {...clone(byId("bills", id) || {}), id:id || undefined, vendorId:val(f, "vendorId"), ref:val(f, "ref"), date:val(f, "date"), terms:val(f, "terms"), due:val(f, "due") || addDays(val(f, "date"), termDays(val(f, "terms"))), lines};
     if (id && billPaid(id) - linesTotal(lines) > 0.004) return formErr(f, "Payments on this bill are more than the new total.");
     await put("bills", b); toast("Bill saved"); },
+  async spend(f){ const fromAcct = (f.querySelector("[name=fromAcct]:checked") || {}).value, payee = val(f, "payee"), cat = f.elements.cat.value, total = r2(+f.elements.amount.value || 0);
+    if (!fromAcct) return formErr(f, "Pick how you paid (step 1)."); if (!payee) return formErr(f, "Type who you paid (step 2)."); if (!cat) return formErr(f, "Pick what it was for (step 3)."); if (!(total > 0)) return formErr(f, "Type how much it was (step 4).");
+    const extra = $$(".sp-split-row", f).map(r => ({cat:r.querySelector("[name=scat]").value, amt:r2(+r.querySelector("[name=samt]").value || 0)})).filter(x => x.amt > 0);
+    if (extra.some(x => !x.cat)) return formErr(f, "Pick a category for each split part.");
+    const main = r2(total - extra.reduce((s2, x) => s2 + x.amt, 0)); if (main < -0.004) return formErr(f, "The split parts add up to more than the total.");
+    const note = val(f, "note"), v = S.vendors.find(x => x.name.toLowerCase() === payee.toLowerCase());
+    const lines = (main > 0.004 ? [{ref:"a:" + cat, qty:1, rate:main, memo:note}] : []).concat(extra.map(x => ({ref:"a:" + x.cat, qty:1, rate:x.amt, memo:note})));
+    const eid = await put("expenses", {fromAcct, date:val(f, "date") || todayISO(), vendorId:v ? v.id : "", payee:v ? "" : payee, ref:f.elements.ref ? val(f, "ref") : "", lines});
+    if (note) await setCardNote(eid, {note}); UI.lastPayFrom = fromAcct; toast(`Saved: ${money(total)} to ${payee}`); },
+  async monthly(f){ const id = f.dataset.id || "m" + Date.now().toString(36), list = (S.company.monthly || []).filter(x => x.id !== id), amt = f.elements.amount.value === "" ? "" : r2(+f.elements.amount.value);
+    if (!val(f, "name")) return formErr(f, "Type what the bill is."); if (!f.elements.cat.value) return formErr(f, "Pick a category.");
+    list.push({id, name:val(f, "name"), amount:amt, day:+f.elements.day.value || 1, cat:f.elements.cat.value, fromAcct:f.elements.fromAcct.value}); await saveCompany({monthly:list}); toast("Monthly bill saved"); },
+  async monthlyPay(f){ const m = (S.company.monthly || []).find(x => x.id === f.dataset.id); if (!m) return; const amt = r2(+f.elements.amount.value || 0), date = val(f, "date") || todayISO(); if (!(amt > 0)) return formErr(f, "Type how much you paid.");
+    if (monthlyPaid(m, date.slice(0, 7))) return formErr(f, m.name + " is already marked paid for that month. Change the date if this is for another month.");
+    const v = S.vendors.find(x => x.name.toLowerCase() === m.name.toLowerCase());
+    await put("expenses", {fromAcct:f.elements.fromAcct.value, date, vendorId:v ? v.id : "", payee:v ? "" : m.name, ref:val(f, "ref"), monthlyId:m.id, lines:[{ref:"a:" + m.cat, qty:1, rate:amt, memo:m.name}]});
+    toast(`${m.name} marked paid · ${money(amt)}`); },
   async expense(f){ const lines = readLines(f); if (!lines.length) return formErr(f, "Add at least one line."); if (lines.some(l => !l.ref)) return formErr(f, "Choose an account or item on each line.");
     if (!val(f, "vendorId") && !val(f, "payee")) return formErr(f, "Choose a vendor or type a payee.");
     const id = f.dataset.id; await put("expenses", {...clone(byId("expenses", id) || {}), id:id || undefined, fromAcct:val(f, "fromAcct"), date:val(f, "date"), vendorId:val(f, "vendorId"), payee:val(f, "payee"), ref:val(f, "ref"), lines}).then(async eid => { if (f.elements.note && val(f, "note") !== (cardNote(eid).note || "")) await setCardNote(eid, {note:val(f, "note")}); const tk = f.dataset.taxKey; if (tk) { await put("taxfilings", {id:tk, filedAt:new Date().toISOString(), expenseId:eid, amount:linesTotal(lines)}); toast("Payment recorded and marked filed"); } else toast("Saved"); }); },
@@ -4616,7 +4688,12 @@ const ACT = {
   receivePayment: el => paymentForm(null, el.dataset.customer, el.dataset.invoice), editPayment: el => paymentForm(clone(byId("payments", el.dataset.id))),
   newBill: () => { if (!S.vendors.length) { toast("Add a vendor first."); vendorForm(); return; } billForm(); }, editBill: el => billForm(clone(byId("bills", el.dataset.id))),
   payBills: el => payBillsForm(el.dataset.vendor), viewBillpay: el => billpayView(byId("billpays", el.dataset.id)),
-  newExpense: () => expenseForm(), editExpense: el => expenseForm(clone(byId("expenses", el.dataset.id))),
+  newExpense: () => spendForm(), newExpenseAdv: () => expenseForm(), spend: () => spendForm(),
+  spendSplit(el){ const f = el.closest("form"), box = f.querySelector("[data-split]"); box.insertAdjacentHTML("beforeend", `<div class="sp-split-row"><select name="scat" aria-label="Category for this part">${catOptions("")}</select><span class="sp-amt sm"><span>$</span><input name="samt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" data-act-input="spendLeft" aria-label="Amount for this part"></span><button type="button" class="x" data-act="spendSplitDel" aria-label="Remove this part">×</button></div>`); spendLeft(f); },
+  spendSplitDel(el){ const f = el.closest("form"); el.closest(".sp-split-row").remove(); spendLeft(f); },
+  scrollMonthly(){ const p = document.getElementById("monthlyPanel"); if (p) p.scrollIntoView({behavior:"smooth", block:"start"}); },
+  monthlyNew: () => monthlyForm(), monthlyEdit: el => monthlyForm(clone((S.company.monthly || []).find(x => x.id === el.dataset.id))), monthlyPay: el => monthlyPayForm(el.dataset.id), monthlySug: el => monthlyForm(monthlySuggest()[+el.dataset.i]),
+  monthlyDel(el){ confirmBox("Remove this monthly bill? Payments you already recorded stay in your books.", "Remove", async () => { await saveCompany({monthly:(S.company.monthly || []).filter(x => x.id !== el.dataset.id)}); closeSheet(); toast("Removed"); }); }, editExpense: el => expenseForm(clone(byId("expenses", el.dataset.id))),
   newJournal: () => journalForm(), editJournal: el => journalForm(clone(byId("journals", el.dataset.id))),
   adjustStock: el => adjustForm(el.dataset.id),
   newItemLine(el){ const box = el.closest(".lines"); let row = $$(".line", box).find(r => r.dataset.pct === undefined && ["", "__new"].includes(r.querySelector("[name=itemId]").value) && !r.querySelector("[name=desc]").value); if (!row) { box.querySelector(".rows").insertAdjacentHTML("beforeend", LINE.inv()); row = $$(".line", box).pop(); } openInlineItem(row); },
@@ -4865,6 +4942,8 @@ document.addEventListener("change", e => { const t = e.target; if (!t.dataset) r
   if (t.dataset.pick) { UI.pick = UI.pick || new Set(); if (t.checked) UI.pick.add(t.dataset.pick); else UI.pick.delete(t.dataset.pick); render(); return; }
   if (t.dataset.kitItem !== undefined) { kitSum(t.closest("form")); return; }
   if (t.dataset.actChange === "ordTo") { const row = t.closest(".ordrow"), it = byId("items", t.value), nm = row.querySelector("[name=name]"), pr = row.querySelector("[name=price]"), note = row.querySelector(".or-note"); nm.value = it ? it.name : t.value === "exp" ? "" : row.dataset.sug; nm.disabled = t.value === "exp"; pr.disabled = t.value === "exp"; if (it && it.price && !pr.value) pr.value = it.price; if (note) note.textContent = it ? onHand(it) + " on hand now" + (it.cost ? " · last cost " + money(it.cost) : "") : t.value === "exp" ? "Recorded as shop supplies, not counted in stock." : "A new stocked item will be created."; const b = row.querySelector(".or-top .badge"); if (b) { b.className = "badge"; b.textContent = it ? "Your pick" : t.value === "exp" ? "Supplies" : "New item"; } return; }
+  if (t.dataset.actChange === "spendFrom") { const f = t.closest("form"), a = byId("accounts", t.value), c = f.querySelector("[data-chk]"); if (c) c.hidden = !(a && a.type === "bank"); return; }
+  if (t.dataset.actChange === "spendLeftC") { spendLeft(t.closest("form")); return; }
   if (t.dataset.actChange === "todoTick") { todoTick(t.dataset.key, t.checked); return; }
   if (t.dataset.actChange === "estPickCust") { estPastRender(); return; }
   if (t.dataset.actChange === "minvPick") { const f = t.closest("form"), list = multiPicked(f);
@@ -4893,6 +4972,8 @@ document.addEventListener("input", e => {
   if (t.dataset && t.dataset.retin !== undefined) { retEditSum(t.closest("form")); return; }
   if (t.dataset && t.dataset.ce && CE) { const row = t.closest(".ce-row"), r = CE.buckets[+row.dataset.b]?.rows[+row.dataset.r]; if (r) { r[t.dataset.ce] = t.value; ceTotals(); ceSave(); } return; }
   if (t.dataset && t.dataset.ceStmt !== undefined && CE) { CE.stmt = t.value; ceTotals(); ceSave(); return; }
+  if (t.dataset && t.dataset.actInput === "spendPayee") { spendLast(); return; }
+  if (t.dataset && t.dataset.actInput === "spendLeft") { spendLeft(t.closest("form")); return; }
   if (t.dataset && t.dataset.actInput === "taxPaidAmt") { taxPaidLeft(t.closest("form")); return; }
   if (t.dataset && (t.dataset.actInput === "payFee" || t.dataset.actInput === "payNet")) { const f = t.closest("form"), gross = $$("#applyList [data-inv]", f).reduce((s2, i) => s2 + (+i.value || 0), 0);
     if (t.dataset.actInput === "payFee") f.elements.net.value = t.value !== "" ? r2(gross - (+t.value || 0)).toFixed(2) : "";
@@ -5206,6 +5287,61 @@ function stockSheet(id){ const it = byId("items", id); if (!it) return; if (it.t
 async function stkAdd(itemId, q, memo){ const it = byId("items", itemId); if (!it || !q) return null;
   const aid = await put("adjustments", {itemId, qty:q, date:todayISO(), memo:memo || (Math.abs(q) > 1 && Math.abs(q) === boxQty(it) ? (q < 0 ? "Took out 1 box" : "Put in 1 box") : (q < 0 ? "Took out" : "Put in")), at:new Date().toISOString()});
   UI.lastAdj = aid; UI.lastAdjAt = Date.now(); return aid; }
+/* ---------- Expenses made simple ---------- */
+const CAT_HINTS = [[/fuel|vehicle|auto\b|car\b/i,"gas, oil changes, car repairs"],[/rent/i,"shop or office rent"],[/utilit/i,"electric, gas, water, internet"],[/phone|internet/i,"phone and internet"],[/software|subscri/i,"apps, website, Adobe, LightBurn…"],[/office/i,"paper, ink, pens, printer"],[/shop supplies|materials/i,"engraving stock, glue, tape, shop items"],[/cost of goods|cogs/i,"plaques, trophies and parts you resell"],[/shipping|postage/i,"UPS, USPS, FedEx, boxes"],[/advertis|marketing/i,"ads, business cards, website, flyers"],[/bank|card fee|processing/i,"Square, bank and card fees"],[/repair|maintenance/i,"fixing equipment"],[/insurance/i,"business insurance"],[/meal/i,"business meals"],[/^tools$/i,"tools and small equipment"],[/contract labor/i,"paying someone to help"],[/professional|cpa|legal/i,"CPA, lawyer"],[/trade show/i,"booth fees, show costs"],[/misc/i,"anything that doesn't fit"]];
+const catHint = a => { const n = (a && a.name) || ""; const h = CAT_HINTS.find(([rx]) => rx.test(n)); return h ? h[1] : ""; };
+const catName = id => (byId("accounts", id) || {}).name || "";
+const spendCats = () => S.accounts.filter(a => (a.type === "expense" || a.type === "cogs") && !a.inactive);
+function catUse(){ const m = new Map(); S.expenses.concat(S.bills).forEach(e => (e.lines || []).forEach(l => { if (/^a:/.test(l.ref || "")) m.set(l.ref.slice(2), (m.get(l.ref.slice(2)) || 0) + 1); })); return m; }
+function catOptions(sel){ const use = catUse(), all = spendCats(), top = all.filter(a => use.get(a.id)).sort((a, b) => use.get(b.id) - use.get(a.id)).slice(0, 6), topIds = new Set(top.map(a => a.id)), rest = all.filter(a => !topIds.has(a.id)).sort((a, b) => a.name.localeCompare(b.name));
+  const o = a => `<option value="${a.id}" ${a.id === sel ? "selected" : ""}>${esc(a.name)}${catHint(a) ? " (" + esc(catHint(a)) + ")" : ""}</option>`;
+  return `<option value="">Pick a category</option>${top.length ? `<optgroup label="You use these most">${top.map(o).join("")}</optgroup>` : ""}<optgroup label="${top.length ? "All categories" : "Categories"}">${rest.map(o).join("")}</optgroup>`; }
+const payAccts = () => S.accounts.filter(a => (a.type === "bank" || a.type === "ccard") && !a.inactive).sort((a, b) => (a.type === "ccard") - (b.type === "ccard"));
+const payWord = a => a.type === "ccard" ? "Credit card" : /cash/i.test(a.name) ? "Cash" : "Debit card or check";
+function payeeNames(){ const s = new Set(S.vendors.map(v => v.name)); S.expenses.forEach(e => { if (e.payee) s.add(e.payee); }); (S.company.monthly || []).forEach(m => s.add(m.name)); return [...s].filter(Boolean).sort((a, b) => a.localeCompare(b)); }
+function lastForPayee(name){ const n = String(name || "").trim().toLowerCase(); if (!n) return null; const v = S.vendors.find(x => x.name.toLowerCase() === n);
+  return S.expenses.filter(e => (v && e.vendorId === v.id) || (e.payee || "").toLowerCase() === n).sort((a, b) => a.date < b.date ? 1 : -1)[0] || null; }
+function spendForm(pre){ pre = pre || {}; const accts = payAccts(); if (!accts.length) { toast("Add your bank account under Chart of accounts first."); return; }
+  const from = pre.fromAcct || UI.lastPayFrom || SYS.CHK, fa = byId("accounts", from);
+  openSheet("I paid for something", `<form data-form="spend"><div class="spend">
+   <div class="sp-step"><div class="sp-q"><span>1</span> How did you pay?</div><div class="sp-pay">${accts.map(a => `<label class="sp-opt"><input type="radio" name="fromAcct" value="${a.id}" ${a.id === from ? "checked" : ""} data-act-change="spendFrom"><span><b>${esc(payWord(a))}</b><small>${esc(a.name)}</small></span></label>`).join("")}</div></div>
+   <div class="sp-step"><div class="sp-q"><span>2</span> Who did you pay?</div><label class="f full"><input name="payee" list="payeeList" required placeholder="e.g. Shell, Amazon, Home Depot" value="${esc(pre.payee || "")}" data-act-input="spendPayee" autocomplete="off"><datalist id="payeeList">${payeeNames().map(n => `<option value="${esc(n)}">`).join("")}</datalist></label></div>
+   <div class="sp-step"><div class="sp-q"><span>3</span> What was it for?</div><label class="f full"><select name="cat" required aria-label="Category" data-act-change="spendLeftC">${catOptions(pre.cat || "")}</select></label><div class="small muted" data-sp-last style="margin-top:4px"></div></div>
+   <div class="sp-step"><div class="sp-q"><span>4</span> How much was it?</div><div class="sp-amt"><span>$</span><input name="amount" type="number" step="0.01" min="0.01" inputmode="decimal" required placeholder="0.00" value="${esc(pre.amount || "")}" data-act-input="spendLeft" aria-label="Total amount"></div></div>
+   <div class="sp-more"><div data-split></div><div class="small" data-split-left></div><button type="button" class="linkbtn" data-act="spendSplit">+ Part of it was for something else (split it)</button></div>
+   <div class="sp-row2" style="margin-top:14px"><label class="f">Date<input name="date" type="date" required value="${esc(pre.date || todayISO())}"></label><label class="f" data-chk ${fa && fa.type === "bank" ? "" : "hidden"}>Check number <span class="small muted">(only if you wrote a check)</span><input name="ref" inputmode="numeric"></label></div>
+   <label class="f full" style="margin-top:12px">Note <span class="small muted">(optional)</span><input name="note" placeholder="What was it? e.g. Gas for a delivery"></label>
+  </div><p class="small muted" style="margin:10px 0 0">Bought inventory items to track, or need lots of lines? <button type="button" class="linkbtn small" data-act="newExpenseAdv">Use the detailed form</button></p>${foot(null, "Save")}</form>`, true);
+  spendLast(); }
+function spendLast(){ const f = $("#sheetBody form[data-form=spend]"); if (!f) return; const box = f.querySelector("[data-sp-last]"), e = lastForPayee(f.elements.payee.value); if (!box) return; if (!e) { box.innerHTML = ""; return; }
+  const l = (e.lines || []).find(x => /^a:/.test(x.ref || "")), a = l && byId("accounts", l.ref.slice(2));
+  if (a && !f.elements.cat.value) { f.elements.cat.value = a.id; f.elements.cat.dispatchEvent(new Event("change", {bubbles:true})); }
+  box.innerHTML = a ? `Last time you paid them: ${esc(a.name)}, ${money(linesTotal(e.lines))} on ${fmtDate(e.date)}` : ""; }
+function spendLeft(f){ if (!f) return; const box = f.querySelector("[data-split-left]"), rows = $$(".sp-split-row", f); if (!box) return; if (!rows.length) { box.innerHTML = ""; return; }
+  const total = +f.elements.amount.value || 0, extra = rows.reduce((s, r) => s + (+r.querySelector("[name=samt]").value || 0), 0), left = r2(total - extra), cat = byId("accounts", f.elements.cat.value);
+  box.innerHTML = left < -0.004 ? `<span class="neg">The split parts add up to ${money(extra)}, more than the ${money(total)} total.</span>` : `<b>${money(left)}</b> goes to ${esc(cat ? cat.name : "the first category")}, the rest as split above.`; }
+const monthly = () => (S.company.monthly || []).slice().sort((a, b) => (+a.day || 1) - (+b.day || 1) || a.name.localeCompare(b.name));
+function monthlyPaid(m, ym){ ym = ym || todayISO().slice(0, 7); return S.expenses.find(e => e.monthlyId === m.id && (e.date || "").slice(0, 7) === ym) || null; }
+const dayTh = d => { d = +d || 1; const s = d % 10 === 1 && d !== 11 ? "st" : d % 10 === 2 && d !== 12 ? "nd" : d % 10 === 3 && d !== 13 ? "rd" : "th"; return d + s; };
+function monthlyDue(m){ const t = todayISO(), y = +t.slice(0, 4), mo = +t.slice(5, 7), last = new Date(y, mo, 0).getDate(); return t.slice(0, 8) + String(Math.min(+m.day || 1, last)).padStart(2, "0"); }
+function monthlyForm(m){ m = m || {day:1, fromAcct:SYS.CHK}; const isNew = !m.id;
+  openSheet(isNew ? "Add a monthly bill" : "Edit monthly bill", `<form data-form="monthly" data-id="${esc(m.id || "")}"><div class="fields">
+   <label class="f full">What is it?<input name="name" required value="${esc(m.name || "")}" placeholder="e.g. Rent, Phone, Internet, Adobe" list="payeeList2"><datalist id="payeeList2">${payeeNames().map(n => `<option value="${esc(n)}">`).join("")}</datalist></label>
+   <label class="f">How much each month?<input name="amount" type="number" step="0.01" min="0" inputmode="decimal" value="${esc(m.amount ?? "")}" placeholder="Leave blank if it changes"></label>
+   <label class="f" data-no-ss>Due on<select name="day">${Array.from({length:31}, (_, i) => `<option value="${i + 1}" ${(+m.day || 1) === i + 1 ? "selected" : ""}>the ${dayTh(i + 1)} of the month</option>`).join("")}</select></label>
+   <label class="f full">What category?<select name="cat" required>${catOptions(m.cat || "")}</select></label>
+   <label class="f full">Usually paid with<select name="fromAcct">${payAccts().map(a => `<option value="${a.id}" ${a.id === (m.fromAcct || SYS.CHK) ? "selected" : ""}>${esc(payWord(a))} · ${esc(a.name)}</option>`).join("")}</select></label>
+   </div><p class="small muted">Each month this shows on your Expenses page and your Today list. When you pay it, tap Mark paid.</p>${foot(isNew ? null : {act:"monthlyDel", id:m.id}, isNew ? "Add it" : "Save")}</form>`, true); }
+function monthlyPayForm(id){ const m = (S.company.monthly || []).find(x => x.id === id); if (!m) return;
+  openSheet("Pay " + m.name, `<form data-form="monthlyPay" data-id="${esc(m.id)}"><div class="fields">
+   <label class="f">How much did you pay?<input name="amount" type="number" step="0.01" min="0.01" inputmode="decimal" required value="${esc(m.amount ?? "")}" placeholder="0.00"></label>
+   <label class="f">Date paid<input name="date" type="date" required value="${todayISO()}"></label>
+   <label class="f">Paid with<select name="fromAcct">${payAccts().map(a => `<option value="${a.id}" ${a.id === (m.fromAcct || SYS.CHK) ? "selected" : ""}>${esc(payWord(a))} · ${esc(a.name)}</option>`).join("")}</select></label>
+   <label class="f">Check number <span class="small muted">(optional)</span><input name="ref" inputmode="numeric"></label>
+   </div><p class="small muted">This records the payment in your books under ${esc(catName(m.cat))}. Pay the bill itself the way you normally do.</p>${foot(null, "Mark paid")}</form>`, true); }
+function monthlySuggest(){ const t = todayISO(), since = addDays(t, -130), have = new Set((S.company.monthly || []).map(m => m.name.toLowerCase())), g = new Map();
+  S.expenses.filter(e => e.date >= since && !e.monthlyId).forEach(e => { const n = (e.vendorId ? vendName(e.vendorId) : e.payee || "").trim(); if (!n || have.has(n.toLowerCase())) return; const k = n.toLowerCase(); if (!g.has(k)) g.set(k, {name:n, months:new Set(), last:e}); const x = g.get(k); x.months.add(e.date.slice(0, 7)); if (e.date > x.last.date) x.last = e; });
+  return [...g.values()].filter(x => x.months.size >= 3).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 6).map(x => { const l = (x.last.lines || []).find(z => /^a:/.test(z.ref || "")); return {name:x.name, amount:linesTotal(x.last.lines), day:+x.last.date.slice(8) || 1, cat:l ? l.ref.slice(2) : "", fromAcct:x.last.fromAcct}; }); }
 $("#bankFile").addEventListener("change", async e => {
   const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
   try { await handleStatementFiles(files); } catch(err) { console.error(err); toast(err.message || "Couldn't read that file."); }
