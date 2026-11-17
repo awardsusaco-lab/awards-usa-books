@@ -125,6 +125,41 @@ body.dragging::after{content:"Drop statement to import";position:fixed;inset:12p
 .bc-s{margin-top:4px;font-size:12.5px}.bc-a{margin-top:7px}
 @media (max-width:1100px){.board{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .bpanel .panel-head{margin-bottom:8px}
+.doc{--da:var(--brass);print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.doc .doc-head .meta h2{color:var(--da)}
+.doc.look-classic thead th{background:color-mix(in srgb, var(--da) 11%, transparent);color:var(--ink)}
+.doc.look-classic .estlines th{border-bottom-color:var(--da)}
+.doc .estlines tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--da) 6%, transparent)}
+.doc .esttotals .big{background:color-mix(in srgb, var(--da) 14%, transparent)}
+.doc.look-bold{border-top:10px solid var(--da)}
+.doc.look-bold thead th,.doc.look-bold .estlines th{background:var(--da);color:#fff;border-bottom:0}
+.doc.look-bold .totals div.grand{background:var(--da);color:#fff;border:0;border-radius:6px;padding:7px 10px;margin-top:6px}
+.doc.look-bold .esttotals .big{background:var(--da);color:#fff}
+.doc.look-minimal td{border-bottom-color:color-mix(in srgb, var(--line) 60%, transparent)}.doc.look-minimal thead th,.doc.look-minimal .estlines th{background:none;border-bottom:1.5px solid var(--ink);color:var(--ink)}
+.doc.look-minimal .estlines tbody tr td{background:none}.doc.look-minimal .esttotals .big{background:none;border-top:2px solid var(--ink);border-radius:0}.doc.look-minimal .doc-head .meta h2{color:var(--ink)}
+.doc.font-serif,.doc.font-serif .doc-head .co b,.doc.font-serif h2,.doc.font-serif th{font-family:Georgia,'Times New Roman',serif}
+.doc.font-condensed,.doc.font-condensed h2,.doc.font-condensed th{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:1.04em}
+.doc.logo-s .doc-head .co .logo{height:60px}.doc.logo-l .doc-head .co .logo{height:124px}
+.lk-wide{max-width:min(1180px,96vw) !important;width:min(1180px,96vw) !important}
+.lk-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:22px;align-items:start}
+.lk-ctl .sp-q{margin:14px 0 8px}.lk-ctl .sp-q:first-child{margin-top:0}
+.lk-sws{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lk-sw{width:34px;height:34px;border-radius:50%;background:var(--c);border:3px solid var(--surface);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.lk-sw[aria-pressed=true]{box-shadow:0 0 0 3px var(--ink)}
+.lk-custom{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}.lk-custom input{width:38px;height:34px;border:1px solid var(--line);border-radius:8px;padding:2px;background:var(--surface)}
+.lk-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.lk-card{display:flex;gap:8px;align-items:flex-start;border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;cursor:pointer;background:var(--surface)}
+.lk-card:has(input:checked){border-color:var(--brass);background:color-mix(in srgb, var(--brass) 9%, var(--surface))}
+.lk-card input{accent-color:var(--brass);margin:3px 0 0}.lk-card b{display:block;font-size:14.5px}.lk-card small{display:block;font-size:12px;color:var(--muted);line-height:1.3}
+.lk-prevwrap{position:sticky;top:0}.lk-tabs{display:flex;gap:6px;align-items:center;margin-bottom:8px}.lk-tabs .small{margin-left:auto}
+.lk-prev{border:1px dashed var(--line);border-radius:12px;padding:8px;background:var(--bg);max-height:72vh;overflow:auto}
+.lk-prev .doc{zoom:.8}
+.th-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.th-card{display:flex;flex-direction:column;gap:8px;border:2px solid var(--line);border-radius:12px;padding:10px;background:var(--surface);cursor:pointer;font:inherit;color:inherit;text-align:left}
+.th-card[aria-pressed=true]{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink) inset}
+.th-mini{display:flex;height:58px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}.th-mini i{width:32%}.th-mini em{flex:1;display:flex;flex-direction:column;gap:5px;padding:8px;background:#F2F3F5}
+.th-mini u{display:block;height:8px;border-radius:3px;background:#DADFE6}.th-mini u:first-child{width:60%}
+@media (max-width:860px){.lk-grid{grid-template-columns:1fr}.lk-prevwrap{position:static}.lk-cards{grid-template-columns:1fr}.lk-prev .doc{zoom:.62}}
 .pi-pay{display:grid;grid-template-columns:auto repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end}
 .pi-head{display:grid;grid-template-columns:140px minmax(0,1.1fr) minmax(0,1.2fr) 120px 32px;gap:8px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:6px 0 4px}
 .pi-row{display:grid;grid-template-columns:140px minmax(0,1.1fr) minmax(0,1.2fr) 120px 32px;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
@@ -695,7 +730,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "2107f660ab";
+const APP_BUILD = "ad7dbc6c2d";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -1020,7 +1055,7 @@ const statusBadge = s => s === "paid" ? '<span class="badge good">Paid</span>' :
 
 function openSheet(title, html, narrow){
   $("#sheetTitle").textContent = title; $("#sheetBody").innerHTML = html;
-  $("#sheetCard").classList.toggle("narrow", !!narrow);
+  $("#sheetCard").classList.toggle("narrow", !!narrow); $("#sheetCard").classList.remove("lk-wide");
   $("#sheet").hidden = false; document.body.style.overflow = "hidden"; lockScroll(true); $("#sheet").scrollTop = 0; setTimeout(sheetDraftSave, 500);
   const f = $("#sheetBody input:not([type=hidden]):not([type=checkbox]), #sheetBody select, #sheetBody textarea");
   if (f && window.matchMedia("(min-width:861px)").matches) f.focus();
@@ -1428,11 +1463,12 @@ function estTableHTML(inv, t){ const lines = (inv.lines || []), n = lines.filter
 function invoiceDoc(inv, standalone, kind){
   const est = kind === "estimate";
   const c = byId("customers", inv.customerId) || {}, co = S.company, t = invTotals(inv), paid = est ? 0 : invPaid(inv.id), stp = est ? null : invStamp(inv);
-  return `<div class="doc">${stp ? `<div class="stamp ${stp.kind}" aria-label="${stp.text}">${stp.text}${stp.sub ? `<small>${esc(stp.sub)}</small>` : ""}</div>` : ""}<div class="doc-head"><div class="co">${co.showLogo !== false ? `<img class="logo" src="${LOGO_PNG}" alt="">` : ""}<div><b>${esc(co.name)}</b><div class="pre small muted">${esc(shownAddr())}${co.phone ? "\n" + esc(co.phone) : ""}${co.email ? "\n" + esc(co.email) : ""}</div></div></div>
-    <div class="meta"><h2>${est ? "Estimate" : "Invoice"}</h2><div class="kv"><span>${est ? "Estimate" : "Invoice"} no.</span><b>${esc(inv.num)}</b><span>Date</span><div>${fmtDate(inv.date)}</div><span>${est ? "Valid until" : "Due"}</span><div>${dueStr(inv)}</div><span>Terms</span><div>${esc(inv.terms || "")}</div>${inv.po ? `<span>P.O. no.</span><div>${esc(inv.po)}</div>` : ""}</div></div></div>
+  const lk = docLook();
+  return `<div ${docAttrs()}>${stp ? `<div class="stamp ${stp.kind}" aria-label="${stp.text}">${stp.text}${stp.sub ? `<small>${esc(stp.sub)}</small>` : ""}</div>` : ""}<div class="doc-head"><div class="co">${lk.logo !== "off" ? `<img class="logo" src="${LOGO_PNG}" alt="">` : ""}<div><b>${esc(co.name)}</b><div class="pre small muted">${esc(shownAddr())}${co.phone ? "\n" + esc(co.phone) : ""}${co.email ? "\n" + esc(co.email) : ""}</div></div></div>
+    <div class="meta"><h2>${esc(est ? lk.titleEst : lk.titleInv)}</h2><div class="kv"><span>${esc(est ? lk.titleEst : lk.titleInv)} no.</span><b>${esc(inv.num)}</b><span>Date</span><div>${fmtDate(inv.date)}</div><span>${est ? "Valid until" : "Due"}</span><div>${dueStr(inv)}</div><span>Terms</span><div>${esc(inv.terms || "")}</div>${inv.po ? `<span>P.O. no.</span><div>${esc(inv.po)}</div>` : ""}</div></div></div>
     ${(bt => `<div style="margin-bottom:18px"><div class="small muted">${est ? "Prepared for" : "Bill to"}</div><b>${esc(bt.name)}</b>${bt.contact ? `<div>Attn: ${esc(bt.contact)}</div>` : ""}<div class="pre">${esc(bt.address)}</div></div>`)(billToOf(inv))}
-    ${est ? estTableHTML(inv, t) : `<div class="tbl"><table><thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>
-    ${(inv.lines || []).map(l => `<tr><td>${esc(byId("items", l.itemId)?.name || "")}</td><td class="pre">${esc(l.desc || "")}</td><td class="num">${esc(l.qty)}</td><td class="num">${money(l.rate)}</td><td class="num">${money((+l.qty||0) * (+l.rate||0))}${l.taxable ? "" : standalone ? "" : ' <span class="small muted">N</span>'}</td></tr>`).join("")}
+    ${est ? estTableHTML(inv, t) : `<div class="tbl"><table><thead><tr>${lk.itemCol ? "<th>Item</th>" : ""}<th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>
+    ${(inv.lines || []).map(l => `<tr>${lk.itemCol ? `<td>${esc(byId("items", l.itemId)?.name || "")}</td>` : ""}<td class="pre">${esc(l.desc || (lk.itemCol ? "" : byId("items", l.itemId)?.name || ""))}</td><td class="num">${esc(l.qty)}</td><td class="num">${money(l.rate)}</td><td class="num">${money((+l.qty||0) * (+l.rate||0))}${l.taxable ? "" : standalone ? "" : ' <span class="small muted">N</span>'}</td></tr>`).join("")}
     </tbody></table></div>
     <div class="totals"><div><span>Subtotal</span><span>${money(t.sub)}</span></div>${t.tax ? `<div><span>Sales tax (${esc(inv.taxRate)}%)</span><span>${money(t.tax)}</span></div>` : ""}<div class="grand"><span>Total</span><span>${money(t.total)}</span></div>${paid ? `<div><span>Payments</span><span>-${money(paid)}</span></div><div class="grand"><span>Balance due</span><span>${money(t.total - paid)}</span></div>` : ""}</div>`}
     ${kind !== "estimate" && invBalance(inv) > 0.004 && payLinksFor([inv]).length ? `<div style="margin-top:18px;padding:10px 12px;border:1px solid var(--line);border-radius:8px"><b>Pay online</b><div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:4px">${payLinksFor([inv]).map(x => x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.label)}</a>${x.note ? ` <span class="small muted">${esc(x.note)}</span>` : ""}` : `<span>${esc(x.label)}: ${esc(x.text)}</span>`).join("")}</div></div>` : ""}
@@ -1448,6 +1484,7 @@ VIEWS.invoice = id => {
   <div class="actions">${st !== "paid" ? `<button class="btn primary" data-act="receivePayment" data-customer="${inv.customerId}" data-invoice="${id}">Receive payment</button>` : ""}<button class="btn" data-act="editInvoice" data-id="${id}">Edit</button><button class="btn" data-act="emailInvoice" data-id="${id}">Email invoice</button><button class="btn" data-act="pdfInvoice" data-id="${id}">Save PDF</button><button class="btn" data-act="printDoc" data-id="${id}" data-kind="invoice">Print</button>${st !== "paid" && !inv.emailedAt && !inv.sentAt ? `<button class="btn" data-act="markSent" data-id="${id}">Mark as sent</button>` : ""}${inv.emailedAt || inv.sentAt ? `<button class="btn" data-act="unstamp" data-id="${id}">Remove SENT stamp</button><button class="btn" data-act="wrongSend" data-id="${id}">Email a correction</button>` : ""}<button class="btn" data-act="copyInvoice" data-id="${id}">Duplicate</button><button class="btn" data-act="askReview" data-id="${id}">Ask for review</button></div></div>
   ${jobBar(inv)}
   ${privNoteBox(inv, "editInvoice")}
+  ${!(S.company.billingAddress || "").trim() ? `<p class="small muted noprint" style="margin:0 0 10px">Want your billing address on invoices? <button class="linkbtn small" data-act="docLookOpen">Add it here</button>.</p>` : ""}
   ${invPays(id).length ? `<section class="panel noprint" style="margin-bottom:14px;padding:12px 16px"><div class="panel-head" style="margin-bottom:6px"><h2 style="font-size:17px">Payments</h2></div>${invPays(id).map(p => `<div class="minv" style="flex-wrap:wrap"><span>${fmtDate(p.date)}</span><select aria-label="Paid by" data-act-change="quickPayMethod" data-id="${p.id}" style="width:auto;min-width:150px">${payMethodOpts(p.method)}</select>${p.ref ? `<span class="small muted">#${esc(p.ref)}</span>` : ""}${+p.fee ? `<span class="small muted">fee ${money(p.fee)}</span>` : ""}<b class="num">${money(payOn(p, id))}</b><button class="btn small" data-act="editPayment" data-id="${p.id}">Edit payment</button></div>`).join("")}</section>` : ""}
   ${inv.reviewAskedAt ? `<p class="small muted">Review requested ${fmtDate(inv.reviewAskedAt.slice(0, 10))}.</p>` : ""}
   ${(inv.sendLog || []).length ? `<p class="small muted noprint">${inv.sendLog.map(x => esc(fmtDate(x.at.slice(0, 10)) + ": " + x.what)).join(" · ")}</p>` : ""}${inv.emailedAt ? `<p class="small muted">Emailed to ${esc(inv.emailedTo)}${inv.emailedCc ? " (CC " + esc(inv.emailedCc) + ")" : ""} on ${fmtDate(inv.emailedAt.slice(0, 10))}.</p>` : ""}${(inv.emails || []).length ? `<p class="small noprint" style="margin:0 0 10px"><b>Related emails:</b> ${(inv.emails || []).map(x => `<a href="${esc(x.url || "#")}" target="_blank" rel="noopener noreferrer">${esc(x.subject || "email")} (${fmtDate((x.date || "").slice(0, 10))})</a>`).join(" · ")}</p>` : ""}${invoiceDoc(inv)}
@@ -1865,7 +1902,7 @@ VIEWS.prices = () => {
       </tbody></table></div>${x.rows.length > 150 ? `<p class="small muted">Showing the newest 150 of ${x.rows.length}.</p>` : ""}<p class="small muted" style="margin:4px 0 0">Red prices are 20% or more away from the middle price.</p></div>`}</details>`; }).join("") : empty(q ? "Nothing you've sold matches that. Try fewer words." : "No sales yet.")}
   </div>`; };
 /* ----- search everything ----- */
-const GS_PAGES = [["home","Home","home dashboard today"],["report/monthly","Monthly sales report","monthly month sales report reports revenue"],["inbox","Inbox","email mail inbox sort"],["customers","Customers","customer clients people contacts"],["sales","Invoices & sales","invoice invoices sales billing"],["orders","Orders","orders order jobs"],["jobs","Jobs in progress","jobs engraving ready pickup"],["estimates","Estimates","estimate quote quotes"],["payments","Payments received","payment payments paid received deposit"],["prices","Prices I've charged","price prices charged cost pricing"],["expenses","Bills","bills vendor suppliers owe"],["checks","Checks & charges","checks expenses receipts spent"],["card","Credit card","credit card navy federal charges"],["vendors","Vendors / suppliers","vendors suppliers marco jds"],["pos","Supplier orders","purchase orders po supplier ordered"],["banking","Banking","bank banking statement deposit checking"],["balance","Balance the books","balance reconcile reconciliation"],["taxes","Taxes","tax taxes sales tax irs colorado lakewood periodic report filing"],["pay","Pay yourself & tax estimate","pay owner draw estimate payroll"],["inventory","Inventory","inventory stock items products reorder"],["mileage","Mileage","mileage miles trips driving"],["reports","Reports","reports profit loss p&l balance sheet"],["email","Email customers","email marketing campaign outreach"],["accounts","Chart of accounts","accounts chart categories"],["settings","Settings","settings company logo payment links backup records"],["help","Help","help how"]];
+const GS_PAGES = [["home","Home","home dashboard today"],["settings","Customize invoice look","invoice look design color colors layout font logo theme custom customize style"],["settings","App theme & colors","theme themes color colors dark mode light mode appearance"],["report/monthly","Monthly sales report","monthly month sales report reports revenue"],["inbox","Inbox","email mail inbox sort"],["customers","Customers","customer clients people contacts"],["sales","Invoices & sales","invoice invoices sales billing"],["orders","Orders","orders order jobs"],["jobs","Jobs in progress","jobs engraving ready pickup"],["estimates","Estimates","estimate quote quotes"],["payments","Payments received","payment payments paid received deposit"],["prices","Prices I've charged","price prices charged cost pricing"],["expenses","Bills","bills vendor suppliers owe"],["checks","Checks & charges","checks expenses receipts spent"],["card","Credit card","credit card navy federal charges"],["vendors","Vendors / suppliers","vendors suppliers marco jds"],["pos","Supplier orders","purchase orders po supplier ordered"],["banking","Banking","bank banking statement deposit checking"],["balance","Balance the books","balance reconcile reconciliation"],["taxes","Taxes","tax taxes sales tax irs colorado lakewood periodic report filing"],["pay","Pay yourself & tax estimate","pay owner draw estimate payroll"],["inventory","Inventory","inventory stock items products reorder"],["mileage","Mileage","mileage miles trips driving"],["reports","Reports","reports profit loss p&l balance sheet"],["email","Email customers","email marketing campaign outreach"],["accounts","Chart of accounts","accounts chart categories"],["settings","Settings","settings company logo payment links backup records"],["help","Help","help how"]];
 function gsMatch(hay, words){ hay = String(hay || "").toLowerCase(); return words.every(w => hay.includes(w)); }
 function gsMark(text, words){ let t = esc(text || ""); words.filter(w => w.length > 1).forEach(w => { t = t.replace(new RegExp("(" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig"), "<mark>$1</mark>"); }); return t; }
 function globalSearch(q){ const words = String(q || "").toLowerCase().split(/\s+/).filter(Boolean); if (!words.length) return null; const R = {};
@@ -2006,16 +2043,18 @@ VIEWS.register = id => { const a = byId("accounts", id); if (!a) return `<a clas
 
 VIEWS.settings = () => { const c = S.company; const counts = COLS.reduce((s, k) => s + S[k].length, 0);
   return `<div class="pagehead"><div><h1>Settings</h1></div></div>
+  <section class="panel" style="margin-bottom:18px"><h2 style="margin-bottom:6px">Look &amp; colors</h2><p class="small muted" style="margin:0 0 12px">Make your invoices and the app look the way you want.</p><div class="etiles" style="margin:0"><button type="button" class="etile main" data-act="docLookOpen"><span class="ei">${icoTile("receipt")}</span><span><b>Customize invoice look</b><small>Color, layout, font, logo size, titles and billing address, with a live preview</small></span></button><button type="button" class="etile" data-act="themeOpen"><span class="ei">${icoTile("star")}</span><span><b>App theme &amp; colors</b><small>Pick a color theme and light or dark mode</small></span></button></div></section>
   <form class="panel" data-form="company"><h2 style="margin-bottom:14px">Company</h2><div class="fields">
     <label class="f">Business name<input name="bizName" value="${esc(c.name)}" required></label>
     <label class="f">Phone<input name="phone" value="${esc(c.phone)}" inputmode="tel"></label>
     <label class="f">Email<input name="email" type="email" value="${esc(c.email)}"></label>
-    <label class="f full">Address (shown on invoices)<textarea name="address">${esc(c.address)}</textarea></label>
+    <label class="f full">Billing address on invoices <span class="small muted">(where customers mail payments; shows in full on invoices, estimates, statements and PDFs)</span><textarea name="billingAddress" rows="3" placeholder="Street or PO Box&#10;City, State ZIP">${esc(c.billingAddress || "")}</textarea></label>
+    <label class="f full">Business location <span class="small muted">(used for sales tax and the city line when no billing address is set)</span><textarea name="address">${esc(c.address)}</textarea></label>
     <label class="f">Next invoice number<input name="nextInvoice" type="number" min="1" value="${esc(c.nextInvoice)}"></label>
     <label class="f">Default message on new invoices<input name="defaultMemo" value="${esc(c.defaultMemo ?? "Thank you for your business!")}"></label>
     <label class="f">Extra footer line (optional)<input name="footer" value="${esc(c.footer)}" placeholder="e.g. Checks payable to Awards USA LLC"></label>
     <label class="check full"><input type="checkbox" name="showLogo" ${c.showLogo !== false ? "checked" : ""}> Show the Awards USA logo on invoices, estimates and statements</label>
-    <label class="check full"><input type="checkbox" name="showStreet" ${c.showStreet ? "checked" : ""}> Show my street address on invoices (off = city only, for privacy)</label>
+    <label class="check full"><input type="checkbox" name="showStreet" ${c.showStreet ? "checked" : ""}> If no billing address is set, show my full business location on invoices (off = city only, for privacy)</label>
     <label class="check full"><input type="checkbox" name="netFromDone" ${c.netFromDone !== false ? "checked" : ""}> Start the payment terms (Net 30 etc.) when an order is ready for pickup, not when the invoice is made</label>
     <label class="f full">Mailing address for marketing emails (a PO box or mailbox service keeps your home private)<input name="mailingAddress" value="${esc(c.mailingAddress || "")}" placeholder="e.g. PO Box 123, Lakewood, CO 80215"></label>
     <label class="f full">Google review link (from your Google Business Profile → "Ask for reviews")<input name="reviewLink" type="text" inputmode="url" autocapitalize="off" value="${esc(c.reviewLink || "")}" placeholder="https://g.page/r/..."></label>
@@ -2863,7 +2902,7 @@ async function readBillTo(f, customerId){ const c = byId("customers", customerId
   return Object.keys(o).length ? o : undefined; }
 const firstName = c => { const n = (c.contact || "").trim().split(/\s+/)[0]; return n || "there"; };
 const cityLine = () => { const l = (S.company.address || "").split("\n").map(x => x.trim()).filter(Boolean); return l.length ? l[l.length - 1].replace(/\s+\d{5}(-\d{4})?$/, "") : ""; };
-const shownAddr = () => S.company.showStreet ? (S.company.address || "") : cityLine();
+const shownAddr = () => (S.company.billingAddress || "").trim() ? S.company.billingAddress.trim() : S.company.showStreet ? (S.company.address || "") : cityLine();
 const merge = (t, c) => String(t || "").replace(/\{contact\}/g, firstName(c)).replace(/\{name\}/g, c.name || "").replace(/\{company\}/g, S.company.name || "");
 const oneLineAddr = () => (S.company.mailingAddress || "").split("\n").map(x => x.trim()).filter(Boolean).join(", ");
 const emailFooter = () => `\n\n--\n${S.company.name}${S.company.tagline ? "\n" + S.company.tagline : ""}${oneLineAddr() ? "\n" + oneLineAddr() : ""}\n${S.company.phone ? "\n" + S.company.phone : ""}\nDon't want these emails? Reply "unsubscribe" and I'll take you off the list.`;
@@ -3003,7 +3042,7 @@ const HELV = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,55
 const HELVB = [278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
 const WINMAP = {"\u2013":"\x96","\u2014":"\x97","\u2018":"\x91","\u2019":"\x92","\u201C":"\x93","\u201D":"\x94","\u2022":"\x95","\u2026":"\x85","\u2033":"\"","\u2032":"'","\u00A0":" "};
 const winAnsi = s => Array.from(String(s ?? "")).map(ch => WINMAP[ch] || (ch.charCodeAt(0) < 256 ? ch : "?")).join("").replace(/[\r\t]/g, " ");
-const tw = (s, size, bold) => { const W = bold ? HELVB : HELV; let w = 0; for (const ch of s) { const c = ch.charCodeAt(0); w += c >= 32 && c <= 126 ? W[c - 32] : 556; } return w * size / 1000; };
+const tw = (s, size, bold) => { const W = PDF_FONT === "T" ? (bold ? TIMESB : TIMES) : bold ? HELVB : HELV; let w = 0; for (const ch of s) { const c = ch.charCodeAt(0); w += c >= 32 && c <= 126 ? W[c - 32] : 556; } return w * size / 1000; };
 const pdfEsc = s => s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 function wrapText(s, maxW, size, bold){ const out = []; for (const para of winAnsi(s).split("\n")) { let line = ""; for (const word of para.split(/ +/)) { const t = line ? line + " " + word : word; if (tw(t, size, bold) <= maxW) line = t; else { if (line) out.push(line); line = word; while (tw(line, size, bold) > maxW && line.length > 1) { let k = line.length; while (k > 1 && tw(line.slice(0, k), size, bold) > maxW) k--; out.push(line.slice(0, k)); line = line.slice(k); } } } out.push(line); } return out; }
 class MiniPDF {
@@ -3020,8 +3059,9 @@ class MiniPDF {
   bytes(){
     const objs = []; const n = this.pages.length;
     objs[1] = "<< /Type /Catalog /Pages 2 0 R >>";
-    objs[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
-    objs[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
+    const ser = PDF_FONT === "T"; PDF_FONT = "H";
+    objs[3] = `<< /Type /Font /Subtype /Type1 /BaseFont /${ser ? "Times-Roman" : "Helvetica"} /Encoding /WinAnsiEncoding >>`;
+    objs[4] = `<< /Type /Font /Subtype /Type1 /BaseFont /${ser ? "Times-Bold" : "Helvetica-Bold"} /Encoding /WinAnsiEncoding >>`;
     const kids = [], imgBase = 5 + n * 2;
     const xo = this.imgs.length ? ` /XObject << ${this.imgs.map((m, k) => `/Im${k + 1} ${imgBase + k} 0 R`).join(" ")} >>` : "";
     this.imgs.forEach((m, k) => { const bin = atob(m.b64); objs[imgBase + k] = `<< /Type /XObject /Subtype /Image /Width ${m.pw} /Height ${m.ph} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bin.length} >>\nstream\n${bin}\nendstream`; });
@@ -3038,14 +3078,16 @@ class MiniPDF {
 }
 function docPDF(inv, kind){
   const est = kind === "estimate", c = byId("customers", inv.customerId) || {}, co = S.company, t = invTotals(inv), paid = est ? 0 : invPaid(inv.id);
-  const P = new MiniPDF(), L = 50, R = 562, gray = [0.35, 0.39, 0.45], brass = [0.62, 0.48, 0.19];
+  const lk = docLook(); PDF_FONT = lk.font === "serif" ? "T" : "H";
+  const P = new MiniPDF(), L = 50, R = 562, gray = [0.35, 0.39, 0.45], brass = lk.style === "minimal" ? [0.09, 0.13, 0.17] : hexRgb(lk.accent), acc = hexRgb(lk.accent), bold = lk.style === "bold", mini = lk.style === "minimal";
+  if (bold) P.rect(0, 0, 612, 10, acc);
   let y = 64, lx = L, logoBottom = 0;
-  if (co.showLogo !== false) { const lh = 78, lw = lh * LOGO_W / LOGO_H; P.image(LOGO_JPG, LOGO_W, LOGO_H, L, 40, lw, lh); lx = L + lw + 14; logoBottom = 40 + lh; y = 62; }
+  if (lk.logo !== "off") { const lh = ({s:56, m:78, l:104})[lk.logo] || 78, lw = lh * LOGO_W / LOGO_H; P.image(LOGO_JPG, LOGO_W, LOGO_H, L, 40, lw, lh); lx = L + lw + 14; logoBottom = 40 + lh; y = 62; }
   P.text(lx, y, co.name || "", {size:18, bold:true}); y += 16;
   shownAddr().split("\n").concat([co.phone, co.email]).filter(Boolean).forEach(l => { P.text(lx, y, l, {size:9.5, color:gray}); y += 12.5; });
   y = Math.max(y, logoBottom);
-  let ry = 66; P.text(R, ry, est ? "ESTIMATE" : "INVOICE", {size:22, bold:true, color:brass, align:"right"}); ry += 20;
-  [[est ? "Estimate no." : "Invoice no.", inv.num, true], ["Date", fmtDate(inv.date)], [est ? "Valid until" : "Due", dueStr(inv)], ["Terms", est ? "" : inv.terms], ["P.O. no.", inv.po]].filter(r => r[1]).forEach(([k, v, b]) => { P.text(470, ry, k, {size:9.5, color:gray, align:"right"}); P.text(R, ry, String(v), {size:9.5, bold:!!b, align:"right"}); ry += 13; });
+  let ry = 66; P.text(R, ry, (est ? lk.titleEst : lk.titleInv).toUpperCase(), {size:22, bold:true, color:brass, align:"right"}); ry += 20;
+  [[(est ? lk.titleEst : lk.titleInv) + " no.", inv.num, true], ["Date", fmtDate(inv.date)], [est ? "Valid until" : "Due", dueStr(inv)], ["Terms", est ? "" : inv.terms], ["P.O. no.", inv.po]].filter(r => r[1]).forEach(([k, v, b]) => { P.text(470, ry, k, {size:9.5, color:gray, align:"right"}); P.text(R, ry, String(v), {size:9.5, bold:!!b, align:"right"}); ry += 13; });
   y = Math.max(y, ry) + 18;
   P.text(L, y, est ? "PREPARED FOR" : "BILL TO", {size:8, bold:true, color:gray});
   { const sp = est ? null : invStamp(inv); if (sp) P.stamp(360, y + 20, sp.text, sp.sub, sp.kind === "paid" ? [0.17, 0.46, 0.29] : [0.11, 0.37, 0.66]); }
@@ -3055,11 +3097,11 @@ function docPDF(inv, kind){
   [bt.contact ? "Attn: " + bt.contact : ""].concat((bt.address || "").split("\n")).filter(Boolean).forEach(l => { P.text(L, y, l, {size:9.5}); y += 12.5; });
   y += 16;
   if (est) { const cx = {n:L + 8, item:L + 30, qty:404, each:484, tot:R - 8}, W = 346;
-    const head = () => { P.text(cx.n, y, "#", {size:8.5, bold:true, color:gray}); P.text(cx.item, y, "ITEM", {size:8.5, bold:true, color:gray}); P.text(cx.qty, y, "QTY", {size:8.5, bold:true, color:gray, align:"right"}); P.text(cx.each, y, "EACH", {size:8.5, bold:true, color:gray, align:"right"}); P.text(cx.tot, y, "TOTAL", {size:8.5, bold:true, color:gray, align:"right"}); y += 6; P.line(L, y, R, y, 1.2, [0.1, 0.1, 0.1]); y += 16; };
+    const head = () => { const hc = bold ? [1, 1, 1] : gray; if (bold) P.rect(L, y - 13, R - L, 20, acc); P.text(cx.n, y, "#", {size:8.5, bold:true, color:hc}); P.text(cx.item, y, "ITEM", {size:8.5, bold:true, color:hc}); P.text(cx.qty, y, "QTY", {size:8.5, bold:true, color:hc, align:"right"}); P.text(cx.each, y, "EACH", {size:8.5, bold:true, color:hc, align:"right"}); P.text(cx.tot, y, "TOTAL", {size:8.5, bold:true, color:hc, align:"right"}); y += 6; if (!bold) P.line(L, y, R, y, 1.2, mini ? [0.1, 0.1, 0.1] : acc); y += 16; };
     head();
     (inv.lines || []).forEach((l, i) => { const p = estParts(l), nl = wrapText(p.name, W, 10, true), sl = p.sub ? wrapText(p.sub, W, 9, false) : [], h = nl.length * 12.5 + sl.length * 11.5 + 12;
       if (y + h > 700) { P.add(); y = 60; head(); }
-      if (i % 2) P.rect(L, y - 13, R - L, h, [0.985, 0.972, 0.945]);
+      if (i % 2 && !mini) P.rect(L, y - 13, R - L, h, tintRgb(acc, 0.93));
       P.text(cx.n, y, String(i + 1), {size:9, color:gray});
       nl.forEach((s, k) => P.text(cx.item, y + k * 12.5, s, {size:10, bold:true}));
       sl.forEach((s, k) => P.text(cx.item, y + nl.length * 12.5 + k * 11.5, s, {size:9, color:gray}));
@@ -3069,15 +3111,15 @@ function docPDF(inv, kind){
     y += 8; const tl = 360, nItems = (inv.lines || []).filter(l => !(l.pct !== undefined && l.pct !== null && l.pct !== "")).length;
     const tr = (k, v) => { P.text(tl, y, k, {size:10}); P.text(R - 8, y, v, {size:10, align:"right"}); y += 15; };
     tr(`Subtotal (${nItems} item${nItems === 1 ? "" : "s"})`, money(t.sub)); if (t.tax) tr(`Sales tax (${inv.taxRate}%)`, money(t.tax));
-    y += 4; P.rect(tl - 10, y - 16, R - tl + 10, 26, [0.95, 0.91, 0.82]); P.text(tl, y + 1, "Estimate total", {size:12.5, bold:true}); P.text(R - 8, y + 1, money(t.total), {size:12.5, bold:true, align:"right"}); y += 28;
+    y += 4; const tc = bold ? [1, 1, 1] : undefined; if (mini) P.line(tl - 10, y - 16, R, y - 16, 1.2, [0.1, 0.1, 0.1]); else P.rect(tl - 10, y - 16, R - tl + 10, 26, bold ? acc : tintRgb(acc, 0.85)); P.text(tl, y + 1, lk.titleEst + " total", {size:12.5, bold:true, color:tc}); P.text(R - 8, y + 1, money(t.total), {size:12.5, bold:true, align:"right", color:tc}); y += 28;
     if (inv.due) { P.text(R - 8, y, "Prices good through " + dueStr(inv) + ".", {size:9, color:gray, align:"right"}); y += 14; }
     y += 10;
   } else {
-  const cols = {item:L + 6, desc:148, qty:402, rate:482, amt:R - 6};
-  const header = () => { P.rect(L, y - 13, R - L, 20, [0.94, 0.95, 0.96]); P.text(cols.item, y, "Item", {size:8.5, bold:true, color:gray}); P.text(cols.desc, y, "Description", {size:8.5, bold:true, color:gray}); P.text(cols.qty, y, "Qty", {size:8.5, bold:true, color:gray, align:"right"}); P.text(cols.rate, y, "Rate", {size:8.5, bold:true, color:gray, align:"right"}); P.text(cols.amt, y, "Amount", {size:8.5, bold:true, color:gray, align:"right"}); y += 20; };
+  const cols = {item:L + 6, desc:lk.itemCol ? 148 : L + 6, qty:402, rate:482, amt:R - 6}, dW = lk.itemCol ? 210 : 302;
+  const header = () => { const hc = bold ? [1, 1, 1] : mini ? [0.09, 0.13, 0.17] : gray; if (mini) P.line(L, y + 7, R, y + 7, 1.2, [0.1, 0.1, 0.1]); else P.rect(L, y - 13, R - L, 20, bold ? acc : tintRgb(acc, 0.88)); if (lk.itemCol) P.text(cols.item, y, "Item", {size:8.5, bold:true, color:hc}); P.text(cols.desc, y, "Description", {size:8.5, bold:true, color:hc}); P.text(cols.qty, y, "Qty", {size:8.5, bold:true, color:hc, align:"right"}); P.text(cols.rate, y, "Rate", {size:8.5, bold:true, color:hc, align:"right"}); P.text(cols.amt, y, "Amount", {size:8.5, bold:true, color:hc, align:"right"}); y += 20; };
   header();
   (inv.lines || []).forEach(l => {
-    const itemName = wrapText(byId("items", l.itemId)?.name || "", 90, 9, false), desc = wrapText(l.desc || "", 210, 9, false), h = Math.max(itemName.length, desc.length, 1) * 11.5 + 7;
+    const itemName = lk.itemCol ? wrapText(byId("items", l.itemId)?.name || "", 90, 9, false) : [], desc = wrapText(l.desc || (lk.itemCol ? "" : byId("items", l.itemId)?.name || ""), dW, 9, false), h = Math.max(itemName.length, desc.length, 1) * 11.5 + 7;
     if (y + h > 700) { P.add(); y = 60; header(); }
     itemName.forEach((s, i) => P.text(cols.item, y + i * 11.5, s, {size:9}));
     desc.forEach((s, i) => P.text(cols.desc, y + i * 11.5, s, {size:9}));
@@ -3086,7 +3128,7 @@ function docPDF(inv, kind){
   });
   if (y > 640) { P.add(); y = 60; }
   y += 6; const tl = 392;
-  const trow = (k, v, bold, big) => { P.text(tl, y, k, {size:big ? 11 : 9.5, bold}); P.text(R - 6, y, v, {size:big ? 11 : 9.5, bold, align:"right"}); y += big ? 17 : 14; };
+  const trow = (k, v, bd, big) => { const tc = big && bold ? [1, 1, 1] : undefined; if (big && bold) P.rect(tl - 8, y - 14, R - tl + 8, 21, acc); P.text(tl, y, k, {size:big ? 11 : 9.5, bold:bd, color:tc}); P.text(R - 6, y, v, {size:big ? 11 : 9.5, bold:bd, align:"right", color:tc}); y += big ? (bold ? 21 : 17) : 14; };
   trow("Subtotal", money(t.sub)); if (t.tax) trow(`Sales tax (${inv.taxRate}%)`, money(t.tax));
   P.line(tl, y - 9, R, y - 9, 0.9, [0.1, 0.1, 0.1]); y += 3; trow("Total", money(t.total), true, true);
   if (paid) { trow("Payments", "-" + money(paid)); P.line(tl, y - 9, R, y - 9, 0.9, [0.1, 0.1, 0.1]); y += 3; trow("Balance due", money(t.total - paid), true, true); }
@@ -4437,6 +4479,7 @@ const FORMS = {
   async reconcile(f){ const a = byId("accounts", f.dataset.id); await put("accounts", {...clone(a), recon:{date:val(f, "date"), balance:num(f, "balance")}}); return "keep"; },
   leadMail(f){ const to = val(f, "to"), subject = val(f, "subject"), body = f.elements.body.value; window.open(gmailCompose(to, subject, body, []), "_blank", "noopener");
     const c = f.dataset.cust && byId("customers", f.dataset.cust); if (c) put("customers", {...clone(c), leadTouched:todayISO()}); toast("Opened in Gmail. Press Send there when it looks right."); },
+  async docLook(f){ const lk = lookRead(f), logo = lk.logo; await saveCompany({docLook:{...lk, logo:logo === "off" ? "m" : logo}, showLogo:logo !== "off", billingAddress:f.elements.billingAddress.value.trim(), footer:val(f, "footer")}); toast("Invoice look saved"); },
   async sendEstimate(f){ const e = byId("estimates", f.dataset.id); if (!e) return false; const to = val(f, "to"), cc = ccList(f.elements.cc ? f.elements.cc.value : "");
     if (!validEmail(to)) return formErr(f, "Enter a valid email address.");
     if (cc.some(x => !validEmail(x))) return formErr(f, "Check the CC email address.");
@@ -4606,7 +4649,7 @@ Answer with JSON only: {"subject": "...", "body": "..."}`;
     const wh = d.fedWH + d.coWH + d.ssEE + d.medEE + d.famliEE; if (wh > g) return formErr(f, "Withholding is more than gross pay.");
     await put("payruns", d); toast("Paycheck recorded"); },
   async company(f){ const taxParts = readLines(f).filter(p => p.name || p.rate); if (taxParts.some(p => !p.name)) return formErr(f, "Give each tax rate a name.");
-    await saveCompany({name:val(f, "bizName") || S.company.name || "Awards USA LLC", phone:val(f, "phone"), email:val(f, "email"), taxParts, taxRate:partsRate(taxParts), address:val(f, "address"), nextInvoice:num(f, "nextInvoice") || 1001, footer:val(f, "footer"), defaultMemo:f.elements.defaultMemo.value, ownerName:val(f, "ownerName"), tagline:val(f, "tagline"), showStreet:f.elements.showStreet.checked, showLogo:f.elements.showLogo.checked, netFromDone:f.elements.netFromDone ? f.elements.netFromDone.checked : true, autoCal:f.elements.autoCal.checked, mailingAddress:val(f, "mailingAddress"), accountantEmail:val(f, "accountantEmail"), reviewLink:val(f, "reviewLink"), hasEmployees:f.elements.hasEmployees.checked,
+    await saveCompany({name:val(f, "bizName") || S.company.name || "Awards USA LLC", phone:val(f, "phone"), email:val(f, "email"), taxParts, taxRate:partsRate(taxParts), address:val(f, "address"), billingAddress:f.elements.billingAddress ? f.elements.billingAddress.value.trim() : (S.company.billingAddress || ""), nextInvoice:num(f, "nextInvoice") || 1001, footer:val(f, "footer"), defaultMemo:f.elements.defaultMemo.value, ownerName:val(f, "ownerName"), tagline:val(f, "tagline"), showStreet:f.elements.showStreet.checked, showLogo:f.elements.showLogo.checked, netFromDone:f.elements.netFromDone ? f.elements.netFromDone.checked : true, autoCal:f.elements.autoCal.checked, mailingAddress:val(f, "mailingAddress"), accountantEmail:val(f, "accountantEmail"), reviewLink:val(f, "reviewLink"), hasEmployees:f.elements.hasEmployees.checked,
       salesTaxFreq:val(f, "salesTaxFreq") || "monthly", taxStart:val(f, "taxStart") || "2026-09-01", estTaxOn:f.elements.estTaxOn.checked, estFed:num(f, "estFed"), estCO:num(f, "estCO"),
       entity:val(f, "entity") || "llc", coUIRate:num(f, "coUIRate"), famliEE:num(f, "famliEE"), famliER:num(f, "famliER")});
     if (S.company.entity === "scorp") await ensurePayrollAccounts();
@@ -4754,6 +4797,12 @@ const ACT = {
   newCustomer: () => customerForm(), editCustomer: el => customerForm(clone(byId("customers", el.dataset.id))),
   newVendor: () => vendorForm(), editVendor: el => vendorForm(clone(byId("vendors", el.dataset.id))),
   repMonth(el){ UI.repMonth = el.dataset.val; render(); scrollTo(0, 0); }, repMonthBack(){ UI.repMonth = null; render(); }, repYear(el){ UI.repYear = el.dataset.val; UI.repMonth = null; render(); }, printPage(){ window.print(); },
+  docLookOpen: () => docLookForm(), themeOpen: () => themeForm(),
+  lookColor(el){ const f = el.closest("form"); f.elements.accent.value = el.dataset.c; lookPreview(f); },
+  lookKind(el){ const f = el.closest("form"); f.dataset.kind = el.dataset.val; f.querySelectorAll("[data-act=lookKind]").forEach(b => b.setAttribute("aria-pressed", b === el)); lookPreview(f); },
+  lookReset(el){ const f = el.closest("form"); f.elements.accent.value = LOOK_DEF.accent; f.querySelector('[name=lkStyle][value=classic]').checked = true; f.querySelector('[name=lkFont][value=sans]').checked = true; f.elements.logo.value = "m"; f.elements.titleInv.value = "Invoice"; f.elements.titleEst.value = "Estimate"; f.elements.itemCol.checked = true; lookPreview(f); },
+  async themePick(el){ document.querySelectorAll("[data-act=themePick]").forEach(b => b.setAttribute("aria-pressed", b === el)); await saveCompany({appTheme:el.dataset.val}); applyTheme(); toast(THEMES[el.dataset.val].name + " theme"); },
+  themeMode(el){ try { localStorage.setItem("aub-mode", el.dataset.val); } catch (e) {} document.querySelectorAll("[data-act=themeMode]").forEach(b => b.setAttribute("aria-pressed", b === el)); applyTheme(); },
   newItem: () => itemForm(), editItem: el => itemForm(clone(byId("items", el.dataset.id))),
   stockSheet: el => stockSheet(el.dataset.id),
   async stkQuick(el){ const it = byId("items", el.dataset.id), q = +el.dataset.q; if (!it || !q) return; const inSheet = !!el.closest("#sheetBody"), f = el.closest("form"), memo = f && f.elements.memo ? f.elements.memo.value.trim() : "";
@@ -4829,7 +4878,7 @@ const ACT = {
     const open = S.invoices.filter(i => i.customerId === c.id && invBalance(i) > 0.004).sort((a, b) => a.date < b.date ? -1 : 1);
     const b = [0,0,0,0,0]; open.forEach(i => { const d = daysBetween(i.due || i.date, t); b[d <= 0 ? 0 : d <= 30 ? 1 : d <= 60 ? 2 : d <= 90 ? 3 : 4] += invBalance(i); });
     const total = b.reduce((s, x) => s + x, 0);
-    const body = `<div class="doc"><div class="doc-head"><div class="co">${co.showLogo !== false ? `<img class="logo" src="${LOGO_PNG}" alt="">` : ""}<div><b>${esc(co.name)}</b><div class="pre small muted">${esc(shownAddr())}${co.phone ? "\n" + esc(co.phone) : ""}${co.email ? "\n" + esc(co.email) : ""}</div></div></div><div class="meta"><h2>Statement</h2><div class="kv"><span>Date</span><div>${fmtDate(t)}</div><span>Amount due</span><b>${money(total)}</b></div></div></div>
+    const body = `<div ${docAttrs()}><div class="doc-head"><div class="co">${docLook().logo !== "off" ? `<img class="logo" src="${LOGO_PNG}" alt="">` : ""}<div><b>${esc(co.name)}</b><div class="pre small muted">${esc(shownAddr())}${co.phone ? "\n" + esc(co.phone) : ""}${co.email ? "\n" + esc(co.email) : ""}</div></div></div><div class="meta"><h2>Statement</h2><div class="kv"><span>Date</span><div>${fmtDate(t)}</div><span>Amount due</span><b>${money(total)}</b></div></div></div>
       <div style="margin-bottom:18px"><div class="small muted">To</div><b>${esc(c.name)}</b>${c.contact ? `<div>${esc(c.contact)}</div>` : ""}<div class="pre">${esc(c.address || "")}</div></div>
       <div class="tbl"><table><thead><tr><th>Invoice</th><th>Date</th><th>Due</th><th class="num">Amount</th><th class="num">Balance</th></tr></thead><tbody>${open.map(i => `<tr><td>#${esc(i.num)}</td><td>${fmtDate(i.date)}</td><td>${dueStr(i)}</td><td class="num">${money(invTotals(i).total)}</td><td class="num">${money(invBalance(i))}</td></tr>`).join("") || '<tr><td colspan="5">No open invoices. Thank you!</td></tr>'}</tbody></table></div>
       <div class="tbl" style="margin-top:16px"><table><thead><tr><th class="num">Current</th><th class="num">1–30 days</th><th class="num">31–60</th><th class="num">61–90</th><th class="num">Over 90</th><th class="num">Total due</th></tr></thead><tbody><tr>${b.map(x => `<td class="num">${money(x)}</td>`).join("")}<td class="num"><b>${money(total)}</b></td></tr></tbody></table></div>
@@ -5618,6 +5667,77 @@ function cardPIForm(card){ const cards = cardAccts(); if (!cards.length) { toast
     if (t.dataset.piTop === "amt") { const w = $("#sheetBody .pi-row [data-pi=where]"); if (w) w.focus(); return; }
     const all = [...t.closest("form").querySelectorAll("[data-pi-top], .pi-row [data-pi=date], .pi-row [data-pi=where], .pi-row .ss-in, .pi-row select[data-pi=cat]:not(.ss-hidden), .pi-row [data-pi=amt]")].filter(x => x.offsetParent), i = all.indexOf(t); if (i >= 0 && all[i + 1]) all[i + 1].focus(); }, true);
 }
+/* ---------- custom invoice look ---------- */
+const LOOK_DEF = {accent:"#9E7B31", style:"classic", font:"sans", logo:"m", titleInv:"Invoice", titleEst:"Estimate", itemCol:true};
+const LOOK_COLORS = [["#9E7B31","Gold"],["#1D3A5E","Navy"],["#1D5FA8","Blue"],["#0F766E","Teal"],["#2C7649","Green"],["#AE3828","Red"],["#7A1F3D","Maroon"],["#C2410C","Orange"],["#5B3A99","Purple"],["#222222","Black"]];
+let LOOK_OV = null;
+NO_DRAFT.add("docLook");
+const docLook = () => ({...LOOK_DEF, ...(S.company.docLook || {}), ...(S.company.showLogo === false ? {logo:"off"} : {}), ...(LOOK_OV || {})});
+const lookHex = h => /^#[0-9a-f]{6}$/i.test(h || "") ? h : LOOK_DEF.accent;
+const docCls = lk => `doc look-${lk.style} font-${lk.font} logo-${lk.logo}`;
+const docAttrs = () => { const lk = docLook(); return `class="${docCls(lk)}" style="--da:${lookHex(lk.accent)}"`; };
+const hexRgb = h => { h = lookHex(h); return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255); };
+const tintRgb = (c, f) => c.map(v => +(v + (1 - v) * f).toFixed(3));
+const TIMES = [250,333,408,500,500,833,778,180,333,333,500,564,250,333,250,278,500,500,500,500,500,500,500,500,500,500,278,278,564,564,564,444,921,722,667,667,722,611,556,722,722,333,389,722,611,889,722,722,556,722,667,556,611,722,722,944,722,722,611,333,278,333,469,500,333,444,500,444,500,444,333,500,500,278,278,500,278,778,500,500,500,500,333,389,278,500,500,722,500,500,444,480,200,480,541];
+const TIMESB = [250,333,555,500,500,1000,833,278,333,333,500,570,250,333,250,278,500,500,500,500,500,500,500,500,500,500,333,333,570,570,570,500,930,722,667,722,722,667,611,778,778,389,500,778,667,944,722,778,611,778,722,556,667,722,722,1000,722,722,667,333,278,333,581,500,333,500,556,444,556,444,333,500,556,278,333,556,278,833,556,500,556,556,444,389,333,556,500,722,500,500,444,394,220,394,520];
+let PDF_FONT = "H";
+function lookSample(){ const inv = S.invoices.slice().sort((a, b) => (b.date || "") > (a.date || "") ? 1 : -1).find(i => (i.lines || []).length && !(i.lines || []).some(l => l.acct === SYS.OBE));
+  return inv ? clone(inv) : {id:"__sample", num:"1001", date:todayISO(), due:addDays(todayISO(), 30), terms:"Net 30", taxRate:7.5, customerId:"", billTo:{name:"Sample Customer", contact:"Jane Smith", address:"123 Main St\nDenver, CO 80202"}, memo:S.company.defaultMemo || "Thank you for your business!", lines:[{itemId:"", desc:"Walnut plaque 9x12 with engraved plate", qty:6, rate:45, taxable:true}, {itemId:"", desc:"Name badges, gold with black letters", qty:12, rate:9, taxable:true}]}; }
+function lookRead(f){ return {accent:lookHex(f.elements.accent.value), style:(f.querySelector("[name=lkStyle]:checked") || {}).value || "classic", font:(f.querySelector("[name=lkFont]:checked") || {}).value || "sans", logo:f.elements.logo.value, titleInv:f.elements.titleInv.value.trim() || "Invoice", titleEst:f.elements.titleEst.value.trim() || "Estimate", itemCol:f.elements.itemCol.checked}; }
+function lookPreview(f){ const box = f.querySelector("[data-look-prev]"); if (!box) return; const lk = lookRead(f), sav = {billingAddress:S.company.billingAddress, footer:S.company.footer};
+  S.company.billingAddress = f.elements.billingAddress.value; S.company.footer = f.elements.footer.value; LOOK_OV = lk;
+  try { const kind = f.dataset.kind || "invoice", d = lookSample(); box.innerHTML = invoiceDoc(d, true, kind); } finally { LOOK_OV = null; Object.assign(S.company, sav); }
+  f.querySelectorAll(".lk-sw").forEach(b => b.setAttribute("aria-pressed", b.dataset.c.toLowerCase() === lk.accent.toLowerCase())); }
+function docLookForm(){ const lk = docLook(), c = S.company, card = (name, val, cur, t, s) => `<label class="lk-card"><input type="radio" name="${name}" value="${val}" ${val === cur ? "checked" : ""}><span><b>${t}</b><small>${s}</small></span></label>`;
+  openSheet("Customize invoice look", `<form data-form="docLook" data-kind="invoice" class="lk"><div class="lk-grid"><div class="lk-ctl">
+   <div class="sp-q"><span>1</span> Color</div>
+   <div class="lk-sws">${LOOK_COLORS.map(([h, n]) => `<button type="button" class="lk-sw" data-act="lookColor" data-c="${h}" style="--c:${h}" title="${n}" aria-label="${n}"></button>`).join("")}<label class="lk-custom" title="Pick any color"><input type="color" name="accent" value="${lookHex(lk.accent)}" aria-label="Pick any color"><span>Any color</span></label></div>
+   <div class="sp-q"><span>2</span> Layout style</div>
+   <div class="lk-cards">${card("lkStyle", "classic", lk.style, "Classic", "Light color in the table header")}${card("lkStyle", "bold", lk.style, "Bold", "Color stripe on top, colored header and total")}${card("lkStyle", "minimal", lk.style, "Simple", "Clean black and white with thin lines")}</div>
+   <div class="sp-q"><span>3</span> Font</div>
+   <div class="lk-cards">${card("lkFont", "sans", lk.font, "Modern", "Clean and easy to read")}${card("lkFont", "serif", lk.font, '<span style="font-family:Georgia,serif">Classic</span>', "Traditional, like a printed letter")}${card("lkFont", "condensed", lk.font, '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:17px">Tall &amp; narrow</span>', "Matches the Awards USA name (screen and print)")}</div>
+   <div class="sp-q"><span>4</span> Logo, titles and details</div>
+   <div class="fields">
+    <label class="f" data-no-ss>Logo<select name="logo"><option value="off" ${lk.logo === "off" ? "selected" : ""}>No logo</option><option value="s" ${lk.logo === "s" ? "selected" : ""}>Small</option><option value="m" ${lk.logo === "m" ? "selected" : ""}>Medium</option><option value="l" ${lk.logo === "l" ? "selected" : ""}>Large</option></select></label>
+    <label class="f">Invoice title<input name="titleInv" value="${esc(lk.titleInv)}" maxlength="24"></label>
+    <label class="f">Estimate title<input name="titleEst" value="${esc(lk.titleEst)}" maxlength="24" placeholder="e.g. Quote"></label>
+    <label class="check full"><input type="checkbox" name="itemCol" ${lk.itemCol ? "checked" : ""}> Show the Item column (off = just the description)</label>
+    <label class="f full">Billing address<textarea name="billingAddress" rows="2" placeholder="Street or PO Box&#10;City, State ZIP">${esc(c.billingAddress || "")}</textarea></label>
+    <label class="f full">Bottom line<input name="footer" value="${esc(c.footer || "")}" placeholder="e.g. Checks payable to Awards USA LLC"></label>
+   </div></div>
+   <div class="lk-prevwrap"><div class="lk-tabs"><button type="button" class="chip" data-act="lookKind" data-val="invoice" aria-pressed="true">Invoice</button><button type="button" class="chip" data-act="lookKind" data-val="estimate" aria-pressed="false">Estimate</button><span class="small muted">Live preview</span></div><div class="lk-prev" data-look-prev></div></div></div>
+   <div class="formfoot"><div class="err" role="alert"></div><button type="button" class="linkbtn" data-act="lookReset">Back to the original look</button><div class="right"><button type="button" class="btn" data-act="closeSheet">Cancel</button><button class="btn primary">Save look</button></div></div></form>`);
+  $("#sheetCard").classList.add("lk-wide");
+  lookPreview($("#sheetBody form[data-form=docLook]")); }
+document.addEventListener("input", e => { const f = e.target.closest && e.target.closest("form[data-form=docLook]"); if (f) lookPreview(f); });
+document.addEventListener("change", e => { const f = e.target.closest && e.target.closest("form[data-form=docLook]"); if (f) lookPreview(f); });
+/* ---------- app themes ---------- */
+const THEMES = {
+  navy:{name:"Navy & gold", l:{}, d:{}, sw:["#1D3A5E","#9E7B31"]},
+  forest:{name:"Forest green", l:{primary:"#23553B", side:"#1F4A34", "side-muted":"#A9C4B3", brass:"#9A7B2E", "brass-soft":"#F1EBD8"}, d:{primary:"#79C29A", side:"#0C1511", brass:"#D2B064"}, sw:["#1F4A34","#9A7B2E"]},
+  ocean:{name:"Ocean blue", l:{primary:"#0F5C78", side:"#0D4E66", "side-muted":"#9CC4D3", brass:"#C27C2C", "brass-soft":"#F7EADB"}, d:{primary:"#6CC3E0", side:"#08141A", brass:"#E0A25A"}, sw:["#0D4E66","#C27C2C"]},
+  maroon:{name:"Maroon", l:{primary:"#6E2333", side:"#5E1D2B", "side-muted":"#D2A9B2", brass:"#A8792E", "brass-soft":"#F4EBDD"}, d:{primary:"#E08A9A", side:"#160B0E", brass:"#D9AE62"}, sw:["#5E1D2B","#A8792E"]},
+  purple:{name:"Royal purple", l:{primary:"#4B2E83", side:"#3F2670", "side-muted":"#BFAEDD", brass:"#B08A2E", "brass-soft":"#F3ECDA"}, d:{primary:"#B39CE6", side:"#120C1C", brass:"#D8B765"}, sw:["#3F2670","#B08A2E"]},
+  charcoal:{name:"Charcoal", l:{primary:"#2F3640", side:"#23282F", "side-muted":"#A3ABB6", brass:"#B5822E", "brass-soft":"#F4EBDA"}, d:{primary:"#A9B4C2", side:"#0D0F12", brass:"#D9AA5E"}, sw:["#23282F","#B5822E"]},
+  sunset:{name:"Sunset orange", l:{primary:"#9A3F12", side:"#7F3410", "side-muted":"#E3B79E", brass:"#2F6B7A", "brass-soft":"#E3EFF2"}, d:{primary:"#F0A070", side:"#1A0D07", brass:"#6FB3C4"}, sw:["#7F3410","#2F6B7A"]}
+};
+const getMode = () => { try { return localStorage.getItem("aub-mode") || "auto"; } catch (e) { return "auto"; } };
+let THEME_KEY = "";
+function applyTheme(){ const t = (S && S.company && S.company.appTheme) || "navy", m = getMode(), k = t + "|" + m; if (k === THEME_KEY) return; THEME_KEY = k;
+  if (m === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = m;
+  const th = THEMES[t] || THEMES.navy, vars = o => Object.entries(o).map(([a, b]) => `--${a}:${b}`).join(";");
+  let el = document.getElementById("userTheme"); if (!el) { el = document.createElement("style"); el.id = "userTheme"; document.head.appendChild(el); }
+  el.textContent = `:root{${vars(th.l)}}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){${vars(th.d)}}}:root[data-theme="dark"]{${vars(th.d)}}`;
+  const mc = document.querySelector('meta[name="theme-color"]'); if (mc) mc.setAttribute("content", m === "dark" ? "#10141A" : (th.l.side || "#1D3A5E")); }
+function themeForm(){ const cur = S.company.appTheme || "navy", m = getMode();
+  openSheet("App theme & colors", `<div class="th">
+   <div class="sp-q"><span>1</span> Color theme</div>
+   <div class="th-grid">${Object.entries(THEMES).map(([k, t]) => `<button type="button" class="th-card" data-act="themePick" data-val="${k}" aria-pressed="${k === cur}"><span class="th-mini"><i style="background:${t.sw[0]}"></i><em><u style="background:${t.sw[1]}"></u><u></u><u></u></em></span><b>${esc(t.name)}</b></button>`).join("")}</div>
+   <div class="sp-q" style="margin-top:18px"><span>2</span> Light or dark</div>
+   <div class="chips">${[["auto","Match my phone/computer"],["light","Always light"],["dark","Always dark"]].map(([k, l]) => `<button type="button" class="chip" data-act="themeMode" data-val="${k}" aria-pressed="${k === m}">${l}</button>`).join("")}</div>
+   <p class="small muted" style="margin-top:14px">Changes show right away. The color theme syncs to all your devices; light or dark is set separately on each device. Your invoices keep their own look (Settings → Customize invoice look).</p>
+   <div class="formfoot"><div class="right"><button type="button" class="btn primary" data-act="closeSheet">Done</button></div></div></div>`, true); }
+{ let tq = 0; new MutationObserver(() => { if (tq) return; tq = requestAnimationFrame(() => { tq = 0; try { applyTheme(); } catch (e) {} }); }).observe(document.body, {childList:true}); try { applyTheme(); } catch (e) {} }
 $("#bankFile").addEventListener("change", async e => {
   const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
   try { await handleStatementFiles(files); } catch(err) { console.error(err); toast(err.message || "Couldn't read that file."); }
