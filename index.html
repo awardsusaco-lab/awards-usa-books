@@ -732,7 +732,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "74fc2f6bfd";
+const APP_BUILD = "0fdbb8c1a3";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -802,9 +802,29 @@ const SYSTEM_IDS = new Set(Object.values(SYS));
 /* ---------- storage: cloud (db capability) with on-device fallback ---------- */
 let DB = null, DL = null, MCP = null, SAMPLE = null, mode = "starting", writeBlocked = false;
 const LS_KEY = "awards-usa-books-v1";
-function localSaveRaw(){ try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch(e) { toast("This device is out of storage space. Download a backup from Settings."); } }
+/* the books live in the phone's app database (IndexedDB: hundreds of MB), not the 5 MB quick-storage */
+const IDBS = { p:null,
+  open(){ if (this.p) return this.p; this.p = new Promise(res => { try { const r = indexedDB.open("aub-books", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => res(r.result); r.onerror = r.onblocked = () => res(null); } catch(e) { res(null); } }); return this.p; },
+  async get(k){ const db = await this.open(); if (!db) return undefined; return new Promise(res => { try { const q = db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); } catch(e) { res(undefined); } }); },
+  async set(k, v){ const db = await this.open(); if (!db) throw new Error("no idb"); return new Promise((res, rej) => { try { const tx = db.transaction("kv", "readwrite"); tx.objectStore("kv").put(v, k); tx.oncomplete = () => res(); tx.onerror = tx.onabort = () => rej(tx.error || new Error("idb")); } catch(e) { rej(e); } }); } };
+let idbOK = typeof indexedDB !== "undefined", idbBusy = false, idbAgain = false, storeWarned = false;
+function lsWrite(){ try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch(e) { if (!storeWarned) { storeWarned = true; toast("Couldn't save on this phone. Your Google Drive copy is still up to date."); } } }
+async function idbWrite(){ if (idbBusy) { idbAgain = true; return; } idbBusy = true;
+  try { do { idbAgain = false; await IDBS.set(LS_KEY, JSON.stringify(S)); } while (idbAgain);
+    try { if (localStorage.getItem(LS_KEY) !== null) localStorage.removeItem(LS_KEY); localStorage.setItem("aub-store", "idb"); } catch(e) {} }
+  catch(e) { idbOK = false; lsWrite(); }
+  finally { idbBusy = false; } }
+function localSaveRaw(){ if (idbOK) idbWrite(); else lsWrite(); }
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e) {}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && mode === "local" && S.accounts.length) localSaveRaw(); });
 function localSave(){ localSaveRaw(); GSync.touch(); }
-function localLoad(){ try { const j = JSON.parse(localStorage.getItem(LS_KEY) || "null"); if (j) { COLS.forEach(c => { if (Array.isArray(j[c])) S[c] = j[c]; }); if (j.company) S.company = {...COMPANY_DEFAULTS, ...j.company}; if (j._del) S._del = j._del; } } catch(e) {} }
+function applyLocal(j){ if (!j) return; COLS.forEach(c => { if (Array.isArray(j[c])) S[c] = j[c]; }); if (j.company) S.company = {...COMPANY_DEFAULTS, ...j.company}; if (j._del) S._del = j._del; }
+async function localLoad(){ let fromIdb = null, fromLs = null;
+  if (idbOK) { try { const t = await IDBS.get(LS_KEY); if (t) fromIdb = JSON.parse(t); } catch(e) {} }
+  try { fromLs = JSON.parse(localStorage.getItem(LS_KEY) || "null"); } catch(e) {}
+  if (fromIdb) { applyLocal(fromIdb); if (fromLs) { try { GSync.merge(fromLs); } catch(e) {} } }
+  else applyLocal(fromLs);
+  if (fromLs && idbOK) idbWrite(); }
 
 let version = 0;
 function bump(){ version++; scheduleRender(); }
@@ -888,7 +908,7 @@ async function start(){
     });
   } else {
     mode = "local";
-    localLoad();
+    await localLoad();
     if (GAuth.valid()) { try { await GSync.run(); } catch(e) {} }
     if (!S.accounts.length) await seedIfEmpty(); else await migrate();
   }
