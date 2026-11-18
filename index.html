@@ -584,7 +584,7 @@ main,#main{min-width:0}
 <script>
 /* ===== Awards USA Books — Google connection (standalone app) ===== */
 const GCONF = {clientId:"716584089626-andmrvj5903n6otjbu41gn1qtronpivn.apps.googleusercontent.com"};
-const GSCOPES = ["openid","email","https://www.googleapis.com/auth/drive.appdata","https://www.googleapis.com/auth/gmail.compose","https://www.googleapis.com/auth/gmail.readonly","https://www.googleapis.com/auth/calendar.events"].join(" ");
+const GSCOPES = ["openid","email","https://www.googleapis.com/auth/drive.appdata","https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/gmail.compose","https://www.googleapis.com/auth/gmail.readonly","https://www.googleapis.com/auth/calendar.events"].join(" ");
 const IS_IOS_APP = (window.navigator.standalone === true) || (/iPhone|iPad|iPod/.test(navigator.userAgent) && window.matchMedia("(display-mode: standalone)").matches);
 const GAuth = {
   tok:null, email:"", listeners:[],
@@ -692,7 +692,7 @@ const GSync = {
         else r = await gfetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id,version`, {method:"PATCH", headers:{"Content-Type":"application/json"}, body});
         const j = await r.json(); this.fileId = j.id; this.ver = String(j.version); this.dirty = false; }
       this.last = Date.now();
-      this.dailyCopy().catch(() => {});
+      this.dailyCopy().catch(() => {}); BK.run().catch(() => {});
     } catch(e) { this.err = e && e.code === "needs_reauth" ? "" : ((e && (e.message || e.code)) || "sync failed"); }
     this.busy = false; this.keep(); this.status(); },
   // dated safety copies: one per day (kept 45 days) and the last one of every month (kept for good)
@@ -716,11 +716,53 @@ const GSync = {
   async getSnap(id){ return await (await gfetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`)).json(); },
   status(){ const el = document.getElementById("storageNote"); if (el) el.textContent = syncText(); const b = document.getElementById("gbar"); if (b) b.innerHTML = gbarHTML(); }
 };
+/* ----- visible backups: a dated file every day in "Awards USA Backups" in your Google Drive ----- */
+const bkDay = t => new Date((t || Date.now()) - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+const BK = { FOLDER:"Awards USA Backups", KEEP:4, busy:false, t:null,
+  get(k){ try { return localStorage.getItem(k) || ""; } catch(e) { return ""; } }, set(k, v){ try { localStorage.setItem(k, v); } catch(e) {} },
+  last(){ return +this.get("aub-bklast") || 0; }, need(){ return this.get("aub-bkneed") === "1"; }, folderId(){ return this.get("aub-bkfolder"); },
+  async folder(){ let id = this.folderId();
+    if (id) { try { const m = await (await gfetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=id,trashed`)).json(); if (m && m.id && !m.trashed) return id; } catch(e) { if (e && (e.code === "forbidden" || e.code === "needs_reauth")) throw e; } }
+    const j = await (await gfetch("https://www.googleapis.com/drive/v3/files?" + new URLSearchParams({q:`name='${this.FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`, fields:"files(id)", spaces:"drive"}))).json();
+    id = j.files && j.files[0] && j.files[0].id;
+    if (!id) id = (await (await gfetch("https://www.googleapis.com/drive/v3/files?fields=id", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({name:this.FOLDER, mimeType:"application/vnd.google-apps.folder"})})).json()).id;
+    this.set("aub-bkfolder", id); return id; },
+  soon(){ this.set("aub-bkpend", "1"); clearTimeout(this.t); this.t = setTimeout(() => this.run(true), 15000); },
+  async run(force){ if (!GAuth.valid()) return false; if (this.busy) { this.again = true; return false; } const day = bkDay();
+    if (!force && this.get("aub-bkday") === day && this.get("aub-bkpend") !== "1") return true;
+    if (!this.get("aub-bkfirst")) this.set("aub-bkfirst", String(Date.now()));
+    this.busy = true;
+    try { clearTimeout(this.t); this.set("aub-bkpend", ""); const fid = await this.folder(), now = new Date(), name = `Awards USA backup ${day} ${now.toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit", second:"2-digit"}).replace(/:/g, "-")}.json`;
+      const body = JSON.stringify({...GSync.snapshot(), app:"awards-usa-books", exported:new Date().toISOString()});
+      const files = []; let tok = "";
+      do { const j = await (await gfetch("https://www.googleapis.com/drive/v3/files?" + new URLSearchParams({q:`'${fid}' in parents and trashed=false`, fields:"nextPageToken,files(id,name,createdTime)", pageSize:"500", ...(tok ? {pageToken:tok} : {})}))).json(); (j.files || []).forEach(f => files.push(f)); tok = j.nextPageToken || ""; } while (tok);
+      const same = files.find(f => f.name === name);
+      if (same) await gfetch(`https://www.googleapis.com/upload/drive/v3/files/${same.id}?uploadType=media`, {method:"PATCH", headers:{"Content-Type":"application/json"}, body});
+      else { const B = "aubbk" + Date.now(), meta = JSON.stringify({name, parents:[fid], mimeType:"application/json"});
+        await gfetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", {method:"POST", headers:{"Content-Type":`multipart/related; boundary=${B}`}, body:`--${B}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${B}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${B}--`}); }
+      this.set("aub-bkday", day); this.set("aub-bklast", String(Date.now())); this.set("aub-bkneed", "");
+      // tidy: keep only the newest 4 backups
+      const olds = files.filter(f => f.name !== name && /^Awards USA backup /.test(f.name || "")).sort((a, b) => (a.createdTime || a.name) < (b.createdTime || b.name) ? 1 : -1);
+      for (const f of olds.slice(this.KEEP - 1)) { try { await gfetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {method:"DELETE"}); } catch(e) {} }
+      return true; }
+    catch(e) { this.set("aub-bkpend", "1"); if (e && e.code === "forbidden") this.set("aub-bkneed", "1"); return false; }
+    finally { this.busy = false; if (this.again) { this.again = false; this.soon(); } GSync.status(); if ($("#main [data-bkpanel]")) render(); } },
+  stale(){ if (!S.invoices.length && !S.customers.length) return 0; const l = this.last() || +this.get("aub-bkfirst") || 0; if (!l) return 0; const d = Math.floor((Date.now() - l) / 864e5); return d >= 3 ? d : 0; } };
+function bkWhen(t){ const d = bkDay(t); return (d === bkDay() ? "Today" : d === bkDay(Date.now() - 864e5) ? "Yesterday" : fmtDate(d)) + " at " + new Date(t).toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"}); }
+function bkPanel(){ if (!GAuth.configured()) return ""; const l = BK.last(), fid = BK.folderId(), on = GAuth.valid();
+  return `<section class="panel" data-bkpanel style="margin-bottom:18px"><h2 style="margin-bottom:8px">Automatic backups</h2>
+  <p style="margin-top:0">Every time you save an invoice, payment, estimate, expense, customer or anything else, the app saves a full backup of your books to a folder called <b>Awards USA Backups</b> in your Google Drive (about 15 seconds later). You can open it in the Google Drive app. It keeps the <b>newest 4 backups</b>.</p>
+  <p style="font-size:1.05em"><b>${l ? "✅ Last backup: " + bkWhen(l) : "⏳ No backup in your Drive folder yet"}</b>${!on ? ` <span class="muted">· Backups are paused until you connect Google.</span>` : ""}</p>
+  ${BK.need() ? `<div class="notice">Google needs your OK to make the backup folder. <button class="btn small primary" data-act="bkAllow">Allow backups</button></div>` : ""}
+  <div class="actions"><button class="btn primary" data-act="bkNow">Back up now</button>${fid ? `<a class="btn" href="https://drive.google.com/drive/folders/${esc(fid)}" target="_blank" rel="noopener">Open backup folder</a>` : ""}<button class="btn" data-act="restore">Restore from a backup file</button></div>
+  <p class="small muted">To bring a backup back: download one of the files from the folder, tap <b>Restore from a backup file</b>, and pick it. Records that match are replaced and nothing else is removed.</p></section>`; }
 function syncText(){ if (!GAuth.configured()) return "Saved on this device"; if (!GAuth.valid()) return GSync.dirty ? "Changes waiting to sync" : "Saved on this device";
   if (GSync.busy) return "Syncing to Google Drive…"; if (GSync.err) return "Sync problem: " + GSync.err;
   return "Synced to Google Drive" + (GSync.last ? " · " + new Date(GSync.last).toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"}) : ""); }
-function gbarHTML(){ if (!GAuth.configured()) return ""; if (GAuth.valid()) return "";
-  return `<div class="notice gnote"><b>${GAuth.email ? "Reconnect Google" : "Connect your Google account"}</b> to sync your books with Google Drive and send email from ${GAuth.email ? esc(GAuth.email) : "Gmail"}. Your work is saved on this device in the meantime. <button class="btn small primary" data-gsignin>${GAuth.email ? "Reconnect" : "Connect Google"}</button></div>`; }
+function gbarHTML(){ if (!GAuth.configured()) return "";
+  if (GAuth.valid()) { if (BK.need()) return `<div class="notice gnote"><b>Turn on Drive backups.</b> Google needs your OK to save backups to an "Awards USA Backups" folder. <button class="btn small primary" data-act="bkAllow">Allow backups</button></div>`;
+    const st = BK.stale(); if (st) return `<div class="notice gnote"><b>⚠️ Your books haven't been backed up in ${st} days.</b> <button class="btn small primary" data-act="bkNow">Back up now</button></div>`; return ""; }
+  return `<div class="notice gnote"><b>${GAuth.email ? "Reconnect Google" : "Connect your Google account"}</b> to back up and sync your books to Google Drive and send email from ${GAuth.email ? esc(GAuth.email) : "Gmail"}. Your work is saved on this device in the meantime. <button class="btn small primary" data-gsignin>${GAuth.email ? "Reconnect" : "Connect Google"}</button></div>`; }
 window.claude = { use(name){ if (name === "mcp") return Promise.resolve(GMCP); return Promise.reject({code:"unavailable"}); } };
 GAuth.load(); GAuth.fromRedirect(); GSync.init();
 GAuth.listeners.push(() => { GSync.status(); if (GAuth.valid()) GSync.run(); if (typeof bump === "function") bump(); });
@@ -732,7 +774,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "0fdbb8c1a3";
+const APP_BUILD = "f08466fbb0";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -816,7 +858,7 @@ async function idbWrite(){ if (idbBusy) { idbAgain = true; return; } idbBusy = t
   finally { idbBusy = false; } }
 function localSaveRaw(){ if (idbOK) idbWrite(); else lsWrite(); }
 try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e) {}
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && mode === "local" && S.accounts.length) localSaveRaw(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && mode === "local" && S.accounts.length) { localSaveRaw(); try { if (BK.get("aub-bkpend") === "1") BK.run(true); } catch(e) {} } });
 function localSave(){ localSaveRaw(); GSync.touch(); }
 function applyLocal(j){ if (!j) return; COLS.forEach(c => { if (Array.isArray(j[c])) S[c] = j[c]; }); if (j.company) S.company = {...COMPANY_DEFAULTS, ...j.company}; if (j._del) S._del = j._del; }
 async function localLoad(){ let fromIdb = null, fromLs = null;
@@ -830,6 +872,7 @@ let version = 0;
 function bump(){ version++; scheduleRender(); }
 
 async function put(col, obj){
+  try { BK.soon(); } catch(e) {}
   const id = obj.id || uid();
   const body = clone(obj); delete body.id; body.updatedAt = obj._seed ? 1 : Date.now(); delete body._seed;
   const i = S[col].findIndex(x => x.id === id);
@@ -843,6 +886,7 @@ async function put(col, obj){
   return id;
 }
 async function remove(col, id){
+  try { BK.soon(); } catch(e) {}
   S[col] = S[col].filter(x => x.id !== id); (S._del = S._del || {})[col + "/" + id] = Date.now(); bump();
   if (DB) { try { await DB.collection(col).doc(id).delete(); } catch(e) { handleDbError(e); throw e; } }
   else localSave();
@@ -2126,7 +2170,7 @@ VIEWS.settings = () => { const c = S.company; const counts = COLS.reduce((s, k) 
     <label class="f full">Subject<input name="subject" value="${esc((mailTpl() || {}).subject || "Invoice {invoice} from {company}")}"></label>
     <label class="f full">Message<textarea name="body" style="min-height:200px">${esc((mailTpl() || {}).body || "Hi {first},\n\nAttached is invoice {invoice} for {amount}, due {due}.\n\nThank you for your business!\n\nParker\n{company}\n{phone}")}</textarea></label>
   </div><div class="formfoot"><span class="small muted">${mailTpl() ? "Using your own wording" + (mailTpl().savedAt ? " (saved " + fmtDate(mailTpl().savedAt.slice(0, 10)) + ")" : "") : "Using the standard wording"}</span><div class="right">${mailTpl() ? '<button type="button" class="btn" data-act="mailTplReset">Back to standard</button>' : ""}<button class="btn primary">Save message</button></div></div></form></section>
-  <section class="panel" style="margin-bottom:18px"><h2 style="margin-bottom:8px">Records for taxes or an IRS audit</h2>
+  ${bkPanel()}<section class="panel" style="margin-bottom:18px"><h2 style="margin-bottom:8px">Records for taxes or an IRS audit</h2>
   <p style="margin-top:0">${typeof GSync !== "undefined" && GAuth.configured() ? (GAuth.valid() ? `Your books save to your Google Drive every time you make a change. On top of that, the app keeps a <b>dated copy every day</b> (the last 45 days) and <b>one for every month, kept for good</b>, so nothing can be lost by a mistake or a bad sync.` : `Connect Google (top of the page) so your books and the automatic daily copies save to your Google Drive.`) : "Your books are saved on this device. Download your records below and keep them somewhere safe."}</p>
   <div data-snaps class="small muted" style="margin-bottom:10px"></div>
   <div class="actions" style="align-items:center"><label class="small" style="display:flex;gap:8px;align-items:center">Year <select data-rec-year style="width:auto;padding:5px 8px">${recordYears().map(y => `<option>${y}</option>`).join("")}</select></label><button class="btn primary" data-act="recordsPack">Download my records</button></div>
@@ -5058,6 +5102,8 @@ ${text}`, {modelTier:"default"});
     saveFile(("Invoice-" + inv.num + "-" + custName(inv.customerId)).replace(/[^\w-]+/g, "-") + ".html", html); },
   backup(){ const data = {app:"awards-usa-books", version:1, exported:new Date().toISOString(), company:S.company}; COLS.forEach(c => data[c] = S[c]); saveFile("awards-usa-books-backup-" + todayISO() + ".json", JSON.stringify(data, null, 1)); },
   restore(){ $("#restoreFile").click(); },
+  async bkNow(){ if (!GAuth.valid()) { toast("Connect Google first, then tap Back up now."); return; } toast("Backing up to Google Drive…"); const ok = await BK.run(true); toast(ok ? "✅ Backed up to your Google Drive" : BK.need() ? "Google needs your OK first. Tap Allow backups." : "The backup didn't finish. Check your connection and try again."); render(); },
+  bkAllow(){ GAuth.redirect(); },
   recordsPack(){ const y = ($("#main [data-rec-year]") || {}).value || todayISO().slice(0, 4); toast("Putting your " + y + " records together…");
     setTimeout(() => { try { const r = recordsPack(y); saveFile((S.company.name || "Awards USA").replace(/[^\w]+/g, "-") + "-records-" + y + "-as-of-" + todayISO() + ".zip", r.zip); } catch(e) { console.error(e); toast("Couldn't make the records file: " + e.message); } }, 50); },
   async snapGet(el){ try { const d = await GSync.getSnap(el.dataset.id); saveFile("awards-usa-books-backup-" + el.dataset.day + ".json", JSON.stringify({...d, app:"awards-usa-books", exported:d.exported || new Date(d.saved || Date.now()).toISOString()})); } catch(e) { toast("Couldn't download that copy."); } },
