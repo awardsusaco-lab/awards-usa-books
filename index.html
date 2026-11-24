@@ -406,6 +406,19 @@ body.ubon #toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 #undoBar .ub-msg{font-weight:500}
 #undoBar button{background:transparent;color:var(--bg);border:1px solid currentColor;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer;min-height:36px}
 #undoBar button.ub-undo{background:var(--bg);color:var(--ink)}
+.ppl-list{display:flex;flex-direction:column;gap:6px}
+.ppl-row{display:flex;align-items:center;gap:8px}
+.ppl-p{flex:1;text-align:left;border:1px solid var(--line);background:transparent;border-radius:12px;padding:8px 12px;cursor:pointer;font:inherit;color:inherit;line-height:1.35}
+.ppl-p.on{border:2px solid var(--primary);background:color-mix(in srgb, var(--primary) 9%, transparent)}
+.ppl-p.on b::before{content:"✓ ";color:var(--primary)}
+.ctrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;padding:8px 0;border-bottom:1px solid var(--line)}
+.ctrow input{min-width:0;width:100%;box-sizing:border-box}
+.ctrow button{justify-self:start}
+@media(min-width:861px){.ctrow{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto;align-items:center}}
+.homeprim{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:860px){.homeprim{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));flex:1 1 100%;width:100%}.homeprim .btn{flex-direction:column;justify-content:center;white-space:normal;text-align:center;line-height:1.15;padding:10px 6px;min-height:68px;gap:4px}.homeprim .btn .bico{margin:0}}
+.porow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.porow:last-child{border-bottom:0}.porow .actions{grid-column:1/-1;margin:0}.pomain{cursor:pointer;min-width:0}.poright{text-align:right}
 .minv{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
 .minv:last-child{border-bottom:0}
 .ce-b{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0;background:var(--surface)}
@@ -726,7 +739,7 @@ const BK = { FOLDER:"Awards USA Backups", KEEP:4, busy:false, t:null,
     const j = await (await gfetch("https://www.googleapis.com/drive/v3/files?" + new URLSearchParams({q:`name='${this.FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`, fields:"files(id)", spaces:"drive"}))).json();
     id = j.files && j.files[0] && j.files[0].id;
     if (!id) id = (await (await gfetch("https://www.googleapis.com/drive/v3/files?fields=id", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({name:this.FOLDER, mimeType:"application/vnd.google-apps.folder"})})).json()).id;
-    this.set("aub-bkfolder", id); return id; },
+    if (!id) throw new Error("no backup folder"); this.set("aub-bkfolder", id); return id; },
   soon(){ this.set("aub-bkpend", "1"); clearTimeout(this.t); this.t = setTimeout(() => this.run(true), 15000); },
   async run(force){ if (!GAuth.valid()) return false; if (this.busy) { this.again = true; return false; } const day = bkDay();
     if (!force && this.get("aub-bkday") === day && this.get("aub-bkpend") !== "1") return true;
@@ -774,7 +787,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "f08466fbb0";
+const APP_BUILD = "adadd1c66b";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -1065,7 +1078,7 @@ function route(){ const h = location.hash.replace(/^#\/?/, ""); const [view, id]
 const go = h => { location.hash = "#/" + h; };
 
 const NAV_ALL = [["home","Home"],["inbox","Inbox"],["customers","Customers"],["email","Email"],["sales","Sales"],["estimates","Estimates"],["prices","Prices I've charged"],["expenses","Expenses"],["banking","Banking"],["investments","Investments"],["taxes","Taxes"],["pay","Pay"],["inventory","Inventory"],["reports","Reports"],["accounts","Chart of accounts"],["settings","Settings"],["help","Help"]];
-const SECTION = {pos:"inventory", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"estimates", estimate:"estimates", bills:"expenses", checks:"expenses", card:"expenses", balance:"banking", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
+const SECTION = {purchaseorders:"inventory", pos:"inventory", orders:"sales", repeat:"sales", jobs:"sales", mileage:"expenses", payroll:"pay", campaign:"email", customer:"customers", invoice:"sales", payments:"sales", estimates:"estimates", estimate:"estimates", bills:"expenses", checks:"expenses", card:"expenses", balance:"banking", vendors:"expenses", report:"reports", register:"accounts", more:"more"};
 const ICONS = {
   home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   customers:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c1.9.8 3.1 2.5 3.5 5.2"/>',
@@ -1153,7 +1166,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("pagehide", () => sheetDraftSave());
 function lockScroll(on){ const b = document.body; if (on) { if (b.dataset.lockY) return; const y = window.scrollY; b.dataset.lockY = String(y); b.style.position = "fixed"; b.style.top = -y + "px"; b.style.left = "0"; b.style.right = "0"; }
   else if (b.dataset.lockY !== undefined) { const y = +b.dataset.lockY || 0; delete b.dataset.lockY; b.style.position = ""; b.style.top = ""; b.style.left = ""; b.style.right = ""; window.scrollTo(0, y); } }
-function closeSheet(){ sheetDraftClear(); if (CE) { ceSave(); CE = null; } $("#sheet").hidden = true; $("#sheetBody").innerHTML = ""; document.body.style.overflow = ""; lockScroll(false); }
+function closeSheet(){ { const pf = $('#sheetBody form[data-form="po"]'); if (pf) { clearTimeout(pf._pat); poAutoSave(pf); } } sheetDraftClear(); if (CE) { ceSave(); CE = null; } $("#sheet").hidden = true; $("#sheetBody").innerHTML = ""; document.body.style.overflow = ""; lockScroll(false); }
 let confirmCb = null;
 function confirmBox(msg, label, cb){
   confirmCb = cb;
@@ -1238,6 +1251,23 @@ Total due: ${money(tot)}
 ${payLinksText(list) ? "\n" + payLinksText(list) + "\n" : ""}
 ${sign}`; }
 function multiPicked(f){ return [...f.querySelectorAll("[name=minv]")].filter(x => x.type === "hidden" || x.checked).map(x => byId("invoices", x.value)).filter(Boolean); }
+/* ---------- contact book: pick who gets the email; whoever you send to becomes the main contact ---------- */
+const emLow = e => String(e || "").trim().toLowerCase();
+function sendPeople(c){ const out = [], seen = new Set(); const add = (name, email, phone, role, main) => { const k = emLow(email); if (!k || seen.has(k)) return; seen.add(k); out.push({name:name || "", email:String(email).trim(), phone:phone || "", role:role || "", main:!!main}); };
+  if (c) { add(c.contact, c.email, "", "", true); (c.contacts || []).forEach(x => add(x.name, x.email, x.phone, x.role)); } return out; }
+function pplPicker(cid, cur, col){ col = col || "customers"; const c = byId(col, cid); if (!c) return ""; const ppl = sendPeople(c), on = emLow(cur);
+  return `<div class="full ppl" data-pcust="${esc(cid)}" data-pcol="${col}"><p class="f" style="margin:0 0 6px"><b>Send to</b> <span class="small muted">Tap a person. Whoever you send to shows up first next time.</span></p>
+  <div class="ppl-list">${ppl.map(p => `<div class="ppl-row"><button type="button" class="ppl-p${emLow(p.email) === on ? " on" : ""}" data-act="pplPick" data-email="${esc(p.email)}" data-name="${esc(p.name)}"><b>${esc(p.name || p.email)}</b>${p.main ? ' <span class="badge">Main</span>' : ""}${p.role ? ` <span class="small muted">${esc(p.role)}</span>` : ""}<br><span class="small muted">${esc(p.name ? p.email : "")}</span></button><button type="button" class="linkbtn small" data-act="pplCc" data-email="${esc(p.email)}" title="Add to CC">+ CC</button></div>`).join("") || `<p class="small muted" style="margin:0">No contacts saved yet. Add one below or type an email in To.</p>`}</div>
+  <button type="button" class="btn small" data-act="pplAddShow" style="margin-top:8px">+ Add a contact</button>
+  <div class="ppl-add" hidden><div class="fields" style="margin-top:8px"><label class="f">Name<input data-pn placeholder="e.g. Coach Smith" autocapitalize="words"></label><label class="f">Email<input data-pe type="email" inputmode="email" autocapitalize="off"></label><label class="f">Role (optional)<input data-pr placeholder="e.g. Athletic director"></label><label class="f">Phone (optional)<input data-pp inputmode="tel"></label></div>
+  <div class="actions"><button type="button" class="btn small primary" data-act="pplAdd">Save contact & send to them</button><button type="button" class="linkbtn small" data-act="pplAddShow">Cancel</button></div></div></div>`; }
+function pplGreet(f, name){ const b = f.elements.body; if (!b) return; const w = String(name || "").trim().split(/\s+/), t = /^(coach|mr\.?|mrs\.?|ms\.?|miss|dr\.?|principal|sgt\.?|capt\.?)$/i.test(w[0] || "") && w.length > 1 ? w[0] + " " + w[w.length - 1] : "", fn = t || firstName({contact:name}); b.value = b.value.replace(/^(Hi|Hello|Hey|Good (?:morning|afternoon))\s+[^,\n]*,/, "$1 " + fn + ","); }
+async function promoteContact(cid, email, name, col){ col = col || "customers"; const c = byId(col, cid); const e = emLow(email); if (!c || !validEmail(email) || emLow(c.email) === e) return;
+  const was = (c.contacts || []).find(x => emLow(x.email) === e) || {name:name || "", email:String(email).trim()};
+  const others = (c.contacts || []).filter(x => emLow(x.email) !== e);
+  if (c.email && !others.some(x => emLow(x.email) === emLow(c.email))) others.unshift({name:c.contact || "", email:c.email});
+  await put(col, {...clone(c), contact:was.name || "", email:was.email, contacts:others}); }
+function ctRow(x){ x = x || {}; return `<div class="ctrow"><input data-cn placeholder="Name" value="${esc(x.name || "")}" autocapitalize="words"><input data-ce type="email" inputmode="email" autocapitalize="off" placeholder="Email" value="${esc(x.email || "")}"><input data-cr placeholder="Role (optional)" value="${esc(x.role || "")}"><input data-cp inputmode="tel" placeholder="Phone (optional)" value="${esc(x.phone || "")}"><button type="button" class="linkbtn small" data-act="ctDel" aria-label="Remove contact">Remove</button></div>`; }
 function emailInvoicesForm(cid, firstId, preIds){ const c0 = byId("customers", cid) || {}, first = firstId ? byId("invoices", firstId) : null;
   const bt = first ? billToOf(first) : {email:c0.email, contact:c0.contact}, c = {...c0, email:bt.email || c0.email, contact:bt.contact || c0.contact};
   let opts = openInvsFor(cid); if (first && !opts.some(i => i.id === first.id)) opts = [first, ...opts];
@@ -1248,6 +1278,7 @@ function emailInvoicesForm(cid, firstId, preIds){ const c0 = byId("customers", c
   const pick = opts.length > 1 ? `<div class="full"><p class="f" style="margin:0 0 4px"><b>Invoices in this email</b> <span class="small muted">Tick as many as you like. They all go as PDFs in one email.</span></p>
     <div class="panel" style="padding:4px 12px;margin:0">${opts.map(i => `<label class="minv"><input type="checkbox" name="minv" value="${i.id}" ${pre.has(i.id) ? "checked" : ""} data-act-change="minvPick"> <span>#${esc(i.num)} · ${fmtDate(i.date)}${i.emailedAt || i.sentAt ? ' <span class="badge">Sent before</span>' : ""}${invStatus(i) === "overdue" ? ' <span class="badge bad">Overdue</span>' : ""}</span><b class="num">${money(invBalance(i) > 0.004 ? invBalance(i) : invTotals(i).total)}</b></label>`).join("")}</div></div>` : `<input type="hidden" name="minv" value="${primary.id}" checked>`;
   openSheet(list.length > 1 ? "Email " + list.length + " invoices" : "Email invoice #" + primary.num, `<form data-form="sendInvoice" data-id="${primary.id}" data-cust="${esc(cid)}"><div class="fields">
+    ${pplPicker(cid, c.email)}
     <label class="f full">To<input name="to" type="email" required value="${esc(c.email || "")}"></label>
     <label class="f full">CC<input name="cc" type="text" inputmode="email" autocapitalize="off" value="${esc(c.billingCc || "")}" placeholder="Optional"></label>
     <label class="check full"><input type="checkbox" name="saveCc" checked> Always CC these people on this customer's invoices</label>
@@ -1360,7 +1391,8 @@ VIEWS.home = () => {
   const hour = new Date().getHours();
   return `
   <div class="pagehead"><div><h1>Good ${hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"}</h1><p>${new Date().toLocaleDateString("en-US", {weekday:"long", month:"long", day:"numeric"})}</p></div>
-    <div class="actions"><button class="btn primary" data-act="newInvoice">New invoice</button><button class="btn primary" data-act="newEstimate">New estimate</button><button class="btn" data-act="receivePayment">Receive payment</button>${MCP ? `<button class="btn" data-act="checkMyEmail">Check my email</button>` : ""}<button class="btn" data-act="newBill">Enter bill</button><button class="btn" data-act="newCustomer">New customer</button><button class="btn" data-act="newTrip">Log a trip</button>${MCP ? `<button class="btn" data-act="calSyncNow" ${UI.calBusy ? "disabled" : ""}>${UI.calBusy ? "Syncing calendar…" : "Sync to Google Calendar"}</button>` : ""}</div></div>
+    <div class="homeprim"><button class="btn primary" data-act="newInvoice">New invoice</button><button class="btn primary" data-act="newEstimate">New estimate</button><button class="btn primary" data-act="newPurchaseOrder">New PO</button></div>
+    <div class="actions"><button class="btn" data-act="receivePayment">Receive payment</button>${MCP ? `<button class="btn" data-act="checkMyEmail">Check my email</button>` : ""}<button class="btn" data-act="newBill">Enter bill</button><button class="btn" data-act="newCustomer">New customer</button><button class="btn" data-act="newTrip">Log a trip</button>${MCP ? `<button class="btn" data-act="calSyncNow" ${UI.calBusy ? "disabled" : ""}>${UI.calBusy ? "Syncing calendar…" : "Sync to Google Calendar"}</button>` : ""}</div></div>
   <div class="ledger"><div><span>Cash in bank <a href="#/balance" class="small" style="font-weight:400">Balance</a></span><b>${money(cash)}</b></div><div><span>Customers owe you</span><b>${money(ar)}</b></div><div><span>You owe vendors</span><b>${money(ap)}</b></div><div><span>${({month:"Sales this month", year:"Sales this year", last:"Sales last year"})[salesPer]} <span class="small" style="font-weight:400">${["month","year","last"].filter(k => k !== salesPer).map(k => `<a href="#" data-act="salesPer" data-v="${k}">${({month:"month", year:"year", last:"last yr"})[k]}</a>`).join(" · ")}</span></span>${UI.showSales ? `<b>${money(salesPer === "month" ? monthSales : salesPer === "year" ? yearSales : lastYearSales)}</b><div><button type="button" class="btn small" data-act="salesHide" style="margin-top:6px">Hide</button></div>` : `<button type="button" class="btn small" data-act="salesShow" style="margin-top:8px" aria-label="Show sales amount">👁 Show amount</button>`}${salesPer !== "month" ? `<span class="small" style="margin-top:2px">${salesPer === "year" ? "Jan 1 to today, before expenses" : "All of " + (+t.slice(0, 4) - 1)}</span>` : ""}</div></div>
   ${board}
   <div class="grid2">
@@ -1435,7 +1467,7 @@ VIEWS.customer = id => {
       ${c.contact ? `<span>Contact</span><div>${esc(c.contact)}</div>` : ""}
       ${c.email ? `<span>Email</span><div><a href="mailto:${esc(c.email)}">${esc(c.email)}</a>${isBounced(c) ? ' <span class="badge bad">Bounced: find a new email</span>' : ""}</div>` : ""}
       ${c.billingCc ? `<span>CC on invoices</span><div>${esc(c.billingCc)}</div>` : ""}
-      ${(c.contacts || []).length ? `<span>Other contacts</span><div>${(c.contacts || []).map(x => esc((x.name ? x.name + " · " : "") + x.email)).join("<br>")}</div>` : ""}
+      ${(c.contacts || []).length ? `<span>Other contacts</span><div>${(c.contacts || []).map(x => `${esc(x.name || "")}${x.role ? ` <span class="muted">(${esc(x.role)})</span>` : ""}${x.name && x.email ? " · " : ""}${x.email ? `<a href="mailto:${esc(x.email)}">${esc(x.email)}</a>` : ""}${x.phone ? ` · <a href="tel:${esc(x.phone)}">${esc(x.phone)}</a>` : ""}`).join("<br>")}</div>` : ""}
       ${c.phone ? `<span>Phone</span><div><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></div>` : ""}
       ${c.address ? `<span>Address</span><div class="pre">${esc(c.address)}</div>` : ""}
       <span>Sales tax</span><div>${c.taxable === false ? "Tax exempt" : "Taxable · " + custTax(c) + "%" + (hasOwnRate(c) ? "" : " (default)")}</div>
@@ -1768,7 +1800,7 @@ function cardNoteForm(id, label){ const n = cardNote(id);
 VIEWS.vendors = () => {
   const rows = S.vendors.slice().sort(byName);
   return expHead("vendors") + `<div class="panel"><div class="panel-head"><h2>Vendors</h2><button class="btn small" data-act="newVendor">New vendor</button></div><div class="list">
-  ${rows.map(v => { const owed = S.bills.filter(b => b.vendorId === v.id).reduce((s, b) => s + billBalance(b), 0); return `<div class="item" data-act="editVendor" data-id="${v.id}"><div><div class="t">${esc(v.name)}</div><div class="s">${esc([v.contact, v.phone, v.email].filter(Boolean).join(" · "))}</div>${vendCadence(v) ? `<div class="s">${esc(vendCadence(v))}</div>` : ""}${(v.emails || []).length ? `<div class="s">${(v.emails || []).length} email${(v.emails || []).length > 1 ? "s" : ""} filed · last ${fmtDate(((v.emails || []).slice(-1)[0].date || "").slice(0, 10))}</div>` : ""}<div class="actions" style="margin-top:6px">${v.website ? `<a class="btn small" href="${esc(v.website)}" target="_blank" rel="noopener noreferrer">Order online ↗</a>` : ""}<button class="btn small" data-act="newPO" data-vendor="${v.id}">Log an order</button></div></div><div class="r num">${owed > 0.004 ? money(owed) : '<span class="muted small">Nothing owed</span>'}</div></div>`; }).join("") || empty("Add your suppliers: blank plaques, trophy parts, badge stock, laser supplies.", '<button class="btn primary" data-act="newVendor">Add a vendor</button>')}
+  ${rows.map(v => { const owed = S.bills.filter(b => b.vendorId === v.id).reduce((s, b) => s + billBalance(b), 0); return `<div class="item" data-act="editVendor" data-id="${v.id}"><div><div class="t">${esc(v.name)}</div><div class="s">${esc([v.contact, v.phone, v.email].filter(Boolean).join(" · "))}</div>${vendCadence(v) ? `<div class="s">${esc(vendCadence(v))}</div>` : ""}${(v.emails || []).length ? `<div class="s">${(v.emails || []).length} email${(v.emails || []).length > 1 ? "s" : ""} filed · last ${fmtDate(((v.emails || []).slice(-1)[0].date || "").slice(0, 10))}</div>` : ""}<div class="actions" style="margin-top:6px">${v.website ? `<a class="btn small" href="${esc(v.website)}" target="_blank" rel="noopener noreferrer">Order online ↗</a>` : ""}<button class="btn small primary" data-act="newPurchaseOrder" data-vendor="${v.id}">New PO</button><button class="btn small" data-act="newPO" data-vendor="${v.id}">Log an order</button></div></div><div class="r num">${owed > 0.004 ? money(owed) : '<span class="muted small">Nothing owed</span>'}</div></div>`; }).join("") || empty("Add your suppliers: blank plaques, trophy parts, badge stock, laser supplies.", '<button class="btn primary" data-act="newVendor">Add a vendor</button>')}
   </div></div>`;
 };
 
@@ -1776,7 +1808,7 @@ function invHead(tab){
   const open = S.pos.filter(o => o.status === "placed" || o.status === "shipped"), low = S.items.filter(it => it.type === "inventory" && (isLow(it) || onHand(it) < 0));
   const value = S.items.filter(it => it.type === "inventory").reduce((s, it) => s + Math.max(0, onHand(it)) * (+it.cost || 0), 0);
   const la = UI.lastArrived && byId("pos", UI.lastArrived);
-  return `<div class="pagehead"><div><h1>Inventory</h1><p>${S.items.filter(i => i.type === "inventory").length} stocked items worth ${money(value)} at cost${open.length ? ` · ${open.length} order${open.length > 1 ? "s" : ""} on the way` : ""}</p></div><div class="actions"><button class="btn" data-act="newPO">Log order by hand</button><button class="btn" data-act="adjustStock">Count stock</button><button class="btn" data-act="newItem">New item</button></div></div>
+  return `<div class="pagehead"><div><h1>Inventory</h1><p>${S.items.filter(i => i.type === "inventory").length} stocked items worth ${money(value)} at cost${open.length ? ` · ${open.length} order${open.length > 1 ? "s" : ""} on the way` : ""}</p></div><div class="actions"><a class="btn" href="#/purchaseorders">Purchase orders</a><button class="btn" data-act="newPO">Log order by hand</button><button class="btn" data-act="adjustStock">Count stock</button><button class="btn" data-act="newItem">New item</button></div></div>
   ${la && la.status === "received" ? `<div class="notice" style="margin-bottom:12px">✓ Order from <b>${esc(vendName(la.vendorId) || "supplier")}</b> added to stock. <button class="linkbtn" data-act="poUnreceive" data-id="${la.id}">Undo</button> <button class="linkbtn" data-act="dismissArrived" style="margin-left:8px">Dismiss</button></div>` : ""}
   <div class="dropzone" data-act="orderPick" role="button" tabindex="0"><b>Drop a supplier order or invoice (PDF or picture) here</b><span>or tap to choose it. The app reads the items, you check the names, and it goes to <b>On order</b>.</span></div>
   <nav class="seg" aria-label="Inventory sections"><a href="#/inventory" ${tab === "stock" ? 'aria-current="page"' : ""}>Stock</a><a href="#/inventory/onorder" ${tab === "onorder" ? 'aria-current="page"' : ""}>On order${open.length ? " (" + open.length + ")" : ""}</a><a href="#/inventory/reorder" ${tab === "reorder" ? 'aria-current="page"' : ""}>Reorder${low.length ? " (" + low.length + ")" : ""}</a><a href="#/inventory/received" ${tab === "received" ? 'aria-current="page"' : ""}>Arrived</a></nav>`; }
@@ -1969,7 +2001,7 @@ VIEWS.prices = () => {
       </tbody></table></div>${x.rows.length > 150 ? `<p class="small muted">Showing the newest 150 of ${x.rows.length}.</p>` : ""}<p class="small muted" style="margin:4px 0 0">Red prices are 20% or more away from the middle price.</p></div>`}</details>`; }).join("") : empty(q ? "Nothing you've sold matches that. Try fewer words." : "No sales yet.")}
   </div>`; };
 /* ----- search everything ----- */
-const GS_PAGES = [["home","Home","home dashboard today"],["settings","Customize invoice look","invoice look design color colors layout font logo theme custom customize style"],["settings","App theme & colors","theme themes color colors dark mode light mode appearance"],["report/monthly","Monthly sales report","monthly month sales report reports revenue"],["inbox","Inbox","email mail inbox sort"],["customers","Customers","customer clients people contacts"],["sales","Invoices & sales","invoice invoices sales billing"],["orders","Orders","orders order jobs"],["jobs","Jobs in progress","jobs engraving ready pickup"],["estimates","Estimates","estimate quote quotes"],["payments","Payments received","payment payments paid received deposit"],["prices","Prices I've charged","price prices charged cost pricing"],["expenses","Bills","bills vendor suppliers owe"],["checks","Checks & charges","checks expenses receipts spent"],["card","Credit card","credit card navy federal charges"],["vendors","Vendors / suppliers","vendors suppliers marco jds"],["pos","Supplier orders","purchase orders po supplier ordered"],["banking","Banking","bank banking statement deposit checking"],["balance","Balance the books","balance reconcile reconciliation"],["taxes","Taxes","tax taxes sales tax irs colorado lakewood periodic report filing"],["pay","Pay yourself & tax estimate","pay owner draw estimate payroll"],["inventory","Inventory","inventory stock items products reorder"],["mileage","Mileage","mileage miles trips driving"],["reports","Reports","reports profit loss p&l balance sheet"],["email","Email customers","email marketing campaign outreach"],["accounts","Chart of accounts","accounts chart categories"],["settings","Settings","settings company logo payment links backup records"],["help","Help","help how"]];
+const GS_PAGES = [["home","Home","home dashboard today"],["settings","Customize invoice look","invoice look design color colors layout font logo theme custom customize style"],["settings","App theme & colors","theme themes color colors dark mode light mode appearance"],["report/monthly","Monthly sales report","monthly month sales report reports revenue"],["inbox","Inbox","email mail inbox sort"],["customers","Customers","customer clients people contacts"],["sales","Invoices & sales","invoice invoices sales billing"],["orders","Orders","orders order jobs"],["jobs","Jobs in progress","jobs engraving ready pickup"],["estimates","Estimates","estimate quote quotes"],["payments","Payments received","payment payments paid received deposit"],["prices","Prices I've charged","price prices charged cost pricing"],["expenses","Bills","bills vendor suppliers owe"],["checks","Checks & charges","checks expenses receipts spent"],["card","Credit card","credit card navy federal charges"],["vendors","Vendors / suppliers","vendors suppliers marco jds"],["purchaseorders","Purchase orders","purchase orders po supplier order send"],["pos","Supplier orders on the way","on order supplier ordered shipped"],["banking","Banking","bank banking statement deposit checking"],["balance","Balance the books","balance reconcile reconciliation"],["taxes","Taxes","tax taxes sales tax irs colorado lakewood periodic report filing"],["pay","Pay yourself & tax estimate","pay owner draw estimate payroll"],["inventory","Inventory","inventory stock items products reorder"],["mileage","Mileage","mileage miles trips driving"],["reports","Reports","reports profit loss p&l balance sheet"],["email","Email customers","email marketing campaign outreach"],["accounts","Chart of accounts","accounts chart categories"],["settings","Settings","settings company logo payment links backup records"],["help","Help","help how"]];
 function gsMatch(hay, words){ hay = String(hay || "").toLowerCase(); return words.every(w => hay.includes(w)); }
 function gsMark(text, words){ let t = esc(text || ""); words.filter(w => w.length > 1).forEach(w => { t = t.replace(new RegExp("(" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig"), "<mark>$1</mark>"); }); return t; }
 function globalSearch(q){ const words = String(q || "").toLowerCase().split(/\s+/).filter(Boolean); if (!words.length) return null; const R = {};
@@ -2015,7 +2047,7 @@ function productView(key){ const rows = allSoldLines().filter(l => l.key === key
   <div class="actions" style="margin-top:16px"><button type="button" class="btn" data-act="productAllSales" data-key="${esc(key)}" data-name="${esc(name)}">See every sale</button></div>`, true); }
 
 VIEWS.more = () => `<div class="pagehead"><div><h1>More</h1></div></div><div class="panel morelist">
-  <a href="#/inbox"><b>Inbox: sort my email</b>${inboxWaiting() ? ` <span class="badge brass">${inboxWaiting()}</span>` : ""} <span class="muted">›</span></a><a href="#/help"><b>Help: how do I…?</b> <span class="muted">›</span></a>  <a href="#/email">Email customers <span class="muted">›</span></a><a href="#/prices">Prices I've charged <span class="muted">›</span></a><a href="#/taxes">Taxes &amp; deadlines <span class="muted">›</span></a><a href="#/pay">Pay yourself, contractors &amp; tax estimate <span class="muted">›</span></a><a href="#/jobs">Jobs in progress <span class="muted">›</span></a><a href="#/mileage">Mileage log <span class="muted">›</span></a><a href="#/banking">Banking &amp; statement import <span class="muted">›</span></a><a href="#/inventory">Items &amp; inventory <span class="muted">›</span></a><a href="#/estimates">Estimates <span class="muted">›</span></a><a href="#/reports">Reports <span class="muted">›</span></a><a href="#/vendors">Vendors <span class="muted">›</span></a><a href="#/accounts">Chart of accounts <span class="muted">›</span></a><a href="#/payments">Payments received <span class="muted">›</span></a><a href="#/checks">Checks &amp; charges <span class="muted">›</span></a><a href="#/settings">Settings &amp; backup <span class="muted">›</span></a></div>`;
+  <a href="#/inbox"><b>Inbox: sort my email</b>${inboxWaiting() ? ` <span class="badge brass">${inboxWaiting()}</span>` : ""} <span class="muted">›</span></a><a href="#/help"><b>Help: how do I…?</b> <span class="muted">›</span></a>  <a href="#/email">Email customers <span class="muted">›</span></a><a href="#/prices">Prices I've charged <span class="muted">›</span></a><a href="#/taxes">Taxes &amp; deadlines <span class="muted">›</span></a><a href="#/pay">Pay yourself, contractors &amp; tax estimate <span class="muted">›</span></a><a href="#/jobs">Jobs in progress <span class="muted">›</span></a><a href="#/mileage">Mileage log <span class="muted">›</span></a><a href="#/banking">Banking &amp; statement import <span class="muted">›</span></a><a href="#/inventory">Items &amp; inventory <span class="muted">›</span></a><a href="#/estimates">Estimates <span class="muted">›</span></a><a href="#/purchaseorders">Purchase orders <span class="muted">›</span></a><a href="#/reports">Reports <span class="muted">›</span></a><a href="#/vendors">Vendors <span class="muted">›</span></a><a href="#/accounts">Chart of accounts <span class="muted">›</span></a><a href="#/payments">Payments received <span class="muted">›</span></a><a href="#/checks">Checks &amp; charges <span class="muted">›</span></a><a href="#/settings">Settings &amp; backup <span class="muted">›</span></a></div>`;
 
 /* reports */
 const REPORTS = [["monthly","Monthly sales","Each month's sales, top customers and items, compared to last year"],["pl","Profit & Loss","Income, cost of goods and expenses for a period"],["bs","Balance Sheet","What the business owns and owes on a date"],["aging","A/R Aging","Unpaid invoices by how late they are"],["salescust","Sales by Customer","Who you sold to in a period"],["salesitem","Sales by Item","What sold, how many, and for how much"],["ap","Unpaid Bills","What you owe each vendor"],["salestax","Sales Tax Liability","Tax collected by jurisdiction and what you owe each agency"],["gl","Transaction Journal","Every debit and credit in a period"]];
@@ -3849,7 +3881,7 @@ function reviewForm(inv){ const c = byId("customers", inv.customerId) || {}, has
 
 /* ---------- supplier orders (purchase orders) ---------- */
 const normUrl = u => !u ? "" : /^https?:\/\//i.test(u) ? u : "https://" + u;
-const PO_ST = {placed:["Placed","brass"], shipped:["Shipped","warn"], received:["Received","good"], cancelled:["Cancelled",""]};
+const PO_ST = {draft:["Not sent yet",""], placed:["Ordered","brass"], shipped:["Shipped","warn"], received:["Received","good"], cancelled:["Cancelled",""]};
 const poBadge = o => { const [l, c] = PO_ST[o.status] || PO_ST.placed; return `<span class="badge ${c}">${l}</span>`; };
 const poTotal = o => r2(linesTotal(o.lines) + (+o.shipping || 0) + (+o.tax || 0));
 function onOrder(itemId){ let q = 0; S.pos.forEach(o => { if (o.status !== "placed" && o.status !== "shipped") return; (o.lines || []).forEach(l => { if (l.ref === "i:" + itemId) q += +l.qty || 0; }); }); return Math.round(q * 1000) / 1000; }
@@ -3988,8 +4020,93 @@ async function receivePO(o, qtys, date){ const v = byId("vendors", o.vendorId) |
   const short = (o.lines || []).some((l, i) => (qtys ? (+qtys[i] || 0) : +l.qty) < +l.qty);
   await put("pos", {...clone(o), status:"received", receivedAt:date, received:lines.map(l => ({ref:l.ref, qty:l.qty})), link:{col, id:rid}, short});
   return {short, n:lines.filter(l => String(l.ref).startsWith("i:")).length}; }
+/* ---------- purchase orders you send to suppliers ---------- */
+/* a PO saves itself while you type, so nothing is lost if you close it */
+function poAutoSave(f){ if (!f || f.dataset.form !== "po" || f._poSaving) return; const vid = f.elements.vendorId ? f.elements.vendorId.value : ""; if (!vid || vid === "__newvend") return;
+  const old = byId("pos", f.dataset.id) || {}; if (old.status === "received") return; const st = f.elements.status ? f.elements.status.value : old.status || "draft";
+  if (!old.id && st !== "draft") return;
+  let lines = []; try { lines = readLines(f).filter(l => l.ref || l.memo || (l.qty && l.rate)); } catch(e) {}
+  const id = f.dataset.id || uid(); f.dataset.id = id; const g = n => f.elements[n] ? String(f.elements[n].value || "").trim() : "";
+  const rec = {...clone(old), id, vendorId:vid, poNum:g("poNum") || old.poNum || "", shipTo:g("shipTo"), orderNo:g("orderNo"), date:g("date") || todayISO(), status:st, tracking:g("tracking"), expected:g("expected"), payFrom:g("payFrom") || old.payFrom || "bill", lines, shipping:+g("shipping") || 0, tax:+g("tax") || 0, notes:g("notes")};
+  f._poSaving = true; put("pos", rec).then(() => { const m = f.querySelector("[data-posaved]"); if (m) m.textContent = "✓ Saved " + new Date().toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"}); }).catch(() => {}).finally(() => { f._poSaving = false; }); }
+document.addEventListener("input", e => { const f = e.target && e.target.closest && e.target.closest('form[data-form="po"]'); if (f) { clearTimeout(f._pat); f._pat = setTimeout(() => poAutoSave(f), 1200); } }, true);
+document.addEventListener("change", e => { const f = e.target && e.target.closest && e.target.closest('form[data-form="po"]'); if (f) { clearTimeout(f._pat); f._pat = setTimeout(() => poAutoSave(f), 600); } }, true);
+
+const poNo = o => o && o.poNum ? "PO " + o.poNum : "";
+const nextPoNum = () => Math.max(1000, ...S.pos.map(o => parseInt(o.poNum, 10) || 0)) + 1;
+const defaultShipTo = () => (S.company.address || "").trim() || shownAddr();
+const poFile = o => ("PO-" + (o.poNum || "") + "-" + (vendName(o.vendorId) || "supplier")).replace(/[^\w-]+/g, "-") + ".pdf";
+const poLineName = l => { const it = String(l.ref || "").startsWith("i:") ? byId("items", l.ref.slice(2)) : null; return it ? {name:it.name, sku:it.sku && it.sku !== it.name ? it.sku : "", sub:l.memo && l.memo !== it.name ? l.memo : ""} : {name:l.memo || acctName(String(l.ref || "").slice(2)) || "Item", sku:"", sub:""}; };
+async function ensurePoNum(o){ if (o.poNum) return o; const x = {...clone(o), poNum:String(nextPoNum())}; await put("pos", x); return byId("pos", o.id) || x; }
+function poPDF(o){ const co = S.company, v = byId("vendors", o.vendorId) || {}, lk = docLook(); PDF_FONT = lk.font === "serif" ? "T" : "H";
+  const P = new MiniPDF(), L = 50, R = 562, gray = [0.35, 0.39, 0.45], acc = hexRgb(lk.accent), brass = lk.style === "minimal" ? [0.09, 0.13, 0.17] : acc, bold = lk.style === "bold", mini = lk.style === "minimal";
+  if (bold) P.rect(0, 0, 612, 10, acc);
+  let y = 64, lx = L, logoBottom = 0;
+  if (lk.logo !== "off") { const lh = ({s:56, m:78, l:104})[lk.logo] || 78, lw = lh * LOGO_W / LOGO_H; P.image(LOGO_JPG, LOGO_W, LOGO_H, L, 40, lw, lh); lx = L + lw + 14; logoBottom = 40 + lh; y = 62; }
+  P.text(lx, y, co.name || "", {size:18, bold:true}); y += 16;
+  shownAddr().split("\n").concat([co.phone, co.email]).filter(Boolean).forEach(l => { P.text(lx, y, l, {size:9.5, color:gray}); y += 12.5; });
+  y = Math.max(y, logoBottom);
+  let ry = 66; P.text(R, ry, "PURCHASE ORDER", {size:20, bold:true, color:brass, align:"right"}); ry += 20;
+  [["PO no.", o.poNum, true], ["Date", fmtDate(o.date)], ["Needed by", o.expected ? fmtDate(o.expected) : ""], ["Terms", v.terms], ["Your ref.", o.orderNo]].filter(r => r[1]).forEach(([k, val, b]) => { P.text(470, ry, k, {size:9.5, color:gray, align:"right"}); P.text(R, ry, String(val), {size:9.5, bold:!!b, align:"right"}); ry += 13; });
+  y = Math.max(y, ry) + 18;
+  const SX = 320; P.text(L, y, "VENDOR", {size:8, bold:true, color:gray}); P.text(SX, y, "SHIP TO", {size:8, bold:true, color:gray}); y += 14;
+  const vl = [v.contact ? "Attn: " + v.contact : ""].concat((v.address || "").split("\n"), [v.phone, v.email]).map(x => (x || "").trim()).filter(Boolean);
+  const sl = (o.shipTo || defaultShipTo()).split("\n").map(x => x.trim()).filter(Boolean);
+  let vy = y, sy = y;
+  P.text(L, vy, v.name || "Supplier", {size:11, bold:true}); vy += 13.5; vl.forEach(l => { P.text(L, vy, l, {size:9.5}); vy += 12.5; });
+  P.text(SX, sy, co.name || "", {size:11, bold:true}); sy += 13.5; sl.filter(l => l !== co.name).forEach(l => { P.text(SX, sy, l, {size:9.5}); sy += 12.5; }); if (co.phone) { P.text(SX, sy, co.phone, {size:9.5}); sy += 12.5; }
+  y = Math.max(vy, sy) + 18;
+  const cx = {n:L + 8, item:L + 30, qty:404, each:484, tot:R - 8}, W = 330;
+  const head = () => { const hc = bold ? [1, 1, 1] : gray; if (bold) P.rect(L, y - 13, R - L, 20, acc); P.text(cx.n, y, "#", {size:8.5, bold:true, color:hc}); P.text(cx.item, y, "ITEM", {size:8.5, bold:true, color:hc}); P.text(cx.qty, y, "QTY", {size:8.5, bold:true, color:hc, align:"right"}); P.text(cx.each, y, "UNIT COST", {size:8.5, bold:true, color:hc, align:"right"}); P.text(cx.tot, y, "TOTAL", {size:8.5, bold:true, color:hc, align:"right"}); y += 6; if (!bold) P.line(L, y, R, y, 1.2, mini ? [0.1, 0.1, 0.1] : acc); y += 16; };
+  head();
+  (o.lines || []).forEach((l, i) => { const p = poLineName(l), nl = wrapText(p.name, W, 10, true), sub = [p.sku ? "Part no. " + p.sku : "", p.sub].filter(Boolean).join(" · "), sbl = sub ? wrapText(sub, W, 9, false) : [], h = nl.length * 12.5 + sbl.length * 11.5 + 12;
+    if (y + h > 700) { P.add(); y = 60; head(); }
+    if (i % 2 && !mini) P.rect(L, y - 13, R - L, h, tintRgb(acc, 0.93));
+    P.text(cx.n, y, String(i + 1), {size:9, color:gray});
+    nl.forEach((s, k) => P.text(cx.item, y + k * 12.5, s, {size:10, bold:true}));
+    sbl.forEach((s, k) => P.text(cx.item, y + nl.length * 12.5 + k * 11.5, s, {size:9, color:gray}));
+    P.text(cx.qty, y, String(+l.qty || 0), {size:10, align:"right"}); P.text(cx.each, y, +l.rate ? money(l.rate) : "", {size:10, align:"right"}); P.text(cx.tot, y, +l.rate ? money((+l.qty || 0) * (+l.rate || 0)) : "", {size:10, bold:true, align:"right"});
+    y += h - 13; P.line(L, y, R, y, 0.5, [0.85, 0.86, 0.88]); y += 13; });
+  if (y > 620) { P.add(); y = 60; }
+  y += 8; const tl = 360, tr = (k, val) => { P.text(tl, y, k, {size:10}); P.text(R - 8, y, val, {size:10, align:"right"}); y += 15; };
+  tr("Subtotal", money(linesTotal(o.lines))); if (+o.shipping) tr("Shipping", money(o.shipping)); if (+o.tax) tr("Tax", money(o.tax));
+  y += 4; const tc = bold ? [1, 1, 1] : undefined; if (mini) P.line(tl - 10, y - 16, R, y - 16, 1.2, [0.1, 0.1, 0.1]); else P.rect(tl - 10, y - 16, R - tl + 10, 26, bold ? acc : tintRgb(acc, 0.85)); P.text(tl, y + 1, "PO total", {size:12.5, bold:true, color:tc}); P.text(R - 8, y + 1, money(poTotal(o)), {size:12.5, bold:true, align:"right", color:tc}); y += 34;
+  if ((o.notes || "").trim()) { if (y > 680) { P.add(); y = 60; } P.text(L, y, "NOTES", {size:8, bold:true, color:gray}); y += 13; wrapText(o.notes.trim(), R - L, 9.5, false).forEach(s => { P.text(L, y, s, {size:9.5}); y += 12; }); y += 8; }
+  if (y > 700) { P.add(); y = 60; }
+  P.text(L, y, "Please confirm this order and the expected ship date by reply email. Include the PO number on your invoice and packing slip.", {size:8.5, color:gray});
+  return P.bytes(); }
+function poMailBody(o, name){ const n = (o.lines || []).length, nm = String(name || "").trim(), w = nm.split(/\s+/);
+  return `Hi ${nm ? (/^(mr\.?|mrs\.?|ms\.?|dr\.?)$/i.test(w[0]) && w.length > 1 ? w[0] + " " + w[w.length - 1] : w[0]) : "there"},
+
+Attached is purchase order ${poNo(o)} for ${n} item${n === 1 ? "" : "s"} (${money(poTotal(o))}).${o.expected ? " We need it by " + fmtDate(o.expected) + "." : ""}
+
+Please ship to the address on the PO and reply with your order confirmation and expected ship date.
+
+Thank you!
+
+Parker
+${S.company.name}${S.company.phone ? "\n" + S.company.phone : ""}`; }
+function emailPOForm(o){ const v = byId("vendors", o.vendorId) || {};
+  openSheet("Email " + poNo(o) + " to " + (v.name || "supplier"), `<form data-form="sendPO" data-id="${o.id}"><div class="fields">
+    ${pplPicker(o.vendorId, v.email, "vendors")}
+    <label class="f full">To<input name="to" type="email" required value="${esc(v.email || "")}"></label>
+    <label class="f full">CC<input name="cc" type="text" inputmode="email" autocapitalize="off" placeholder="Optional"></label>
+    <label class="f full">Subject<input name="subject" value="${esc("Purchase order " + poNo(o) + " from " + S.company.name)}"></label>
+    <label class="f full">Message<textarea name="body" style="min-height:200px">${esc(poMailBody(o, v.contact))}</textarea></label></div>
+    ${!v.email ? `<p class="small">No email saved for ${esc(v.name || "this supplier")} yet. Add one with <b>+ Add a contact</b> or type it in To.</p>` : ""}
+    ${MCP ? `<p class="small muted">The purchase order is attached as a PDF. After you press Send you get ${UNDO_SECS} seconds to undo it. Sending marks the PO as ordered, so the items show as on order.</p>${foot(null, "Send")}` : `<p class="small muted">The next step saves the PO as a PDF and opens this message in Gmail, ready to go. You attach the PDF and press Send.</p>${foot(null, "Save PDF & open email")}`}</form>`, true); }
+async function poMarkSent(id, to){ const x = byId("pos", id); if (x) await put("pos", {...clone(x), status:x.status === "draft" ? "placed" : x.status, sentAt:new Date().toISOString(), sentTo:to}); }
+VIEWS.purchaseorders = () => { const f = UI.filter.pord || "open", isOpen = o => o.status === "draft" || o.status === "placed" || o.status === "shipped";
+  const rows = S.pos.filter(o => f === "all" || (f === "open" ? isOpen(o) : f === "draft" ? o.status === "draft" : o.status === f)).sort((a, b) => (b.date || "") < (a.date || "") ? -1 : (b.date || "") > (a.date || "") ? 1 : (parseInt(b.poNum, 10) || 0) - (parseInt(a.poNum, 10) || 0));
+  const shown = capRows("pord", rows), drafts = S.pos.filter(o => o.status === "draft").length;
+  return `<div class="pagehead"><div><h1>Purchase orders</h1><p>Orders you send to the companies you buy from.${drafts ? ` <b>${drafts} not sent yet.</b>` : ""}</p></div><div class="actions"><button class="btn primary" data-act="newPurchaseOrder">New purchase order</button></div></div>
+  <div class="panel"><div class="toolbar"><div class="chips">${[["open","Open"],["draft","Not sent"],["received","Received"],["all","All"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="pord" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
+  <div class="polist">${shown.map(o => `<div class="porow"><div class="pomain" data-act="editPO" data-id="${o.id}" role="button" tabindex="0"><b>${esc(poNo(o) || "Order")}</b> · ${esc(vendName(o.vendorId) || "Supplier")}<div class="small muted">${fmtDate(o.date)} · ${(o.lines || []).length} line${(o.lines || []).length === 1 ? "" : "s"}${o.sentAt ? " · emailed " + fmtDate(o.sentAt.slice(0, 10)) + (o.sentTo ? " to " + esc(o.sentTo) : "") : o.status === "draft" ? " · not sent yet" : ""}${o.expected ? " · needed by " + fmtDate(o.expected) : ""}</div></div>
+    <div class="poright">${poBadge(o)}<div class="num" style="margin-top:4px"><b>${money(poTotal(o))}</b></div></div>
+    <div class="actions">${o.status !== "received" && o.status !== "cancelled" ? `<button class="btn small primary" data-act="emailPO" data-id="${o.id}">${o.sentAt ? "Email again" : "Email to supplier"}</button>` : ""}<button class="btn small" data-act="pdfPOAct" data-id="${o.id}">PDF</button>${o.status === "placed" || o.status === "shipped" ? `<button class="btn small" data-act="poArrived" data-id="${o.id}">Arrived</button>` : ""}<button class="btn small" data-act="editPO" data-id="${o.id}">Edit</button></div></div>`).join("") || empty(S.pos.length ? "No purchase orders here." : "Make a purchase order, then email it to your supplier as a PDF.", S.pos.length ? "" : '<button class="btn primary" data-act="newPurchaseOrder">Create your first PO</button>')}</div>${capMore("pord", rows.length)}</div>
+  <p class="small muted">When the order shows up, tap <b>✓ Arrived</b> to add it to your stock and record what you paid.</p>`; };
 const poCard = o => { const ls = o.lines || [], nm = l => { const it = String(l.ref || "").startsWith("i:") ? byId("items", l.ref.slice(2)) : null; return it ? it.name : l.memo || acctName(String(l.ref || "").slice(2)); };
-  return `<div class="ordcard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><div class="t" style="font-weight:700;font-size:16px;cursor:pointer" data-act="editPO" data-id="${o.id}">${esc(vendName(o.vendorId) || "Supplier")}${o.orderNo ? " · #" + esc(o.orderNo) : ""}</div>
+  return `<div class="ordcard"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap"><div><div class="t" style="font-weight:700;font-size:16px;cursor:pointer" data-act="editPO" data-id="${o.id}">${esc(vendName(o.vendorId) || "Supplier")}${o.poNum ? " · " + esc(poNo(o)) : ""}${o.orderNo ? " · #" + esc(o.orderNo) : ""}</div>
     <div class="small muted">Ordered ${fmtDate(o.date)}${o.status === "shipped" ? " · shipped" + (o.expected ? ", arriving " + fmtDate(o.expected) : "") : ""}${o.tracking ? ` · <a href="${esc(trackUrl(o.tracking))}" target="_blank" rel="noopener noreferrer">Track ↗</a>` : ""}${o.deliveredHint ? " · <b>email says delivered</b>" : ""}${o.status === "received" ? " · arrived " + fmtDate(o.receivedAt) + (o.short ? " (some items short)" : "") : ""}</div></div>
     <div style="text-align:right">${poBadge(o)}<div class="num" style="margin-top:4px;font-weight:600">${money(poTotal(o))}</div></div></div>
     <ul class="ordlines">${ls.slice(0, 8).map(l => `<li><b class="num">${+l.qty}</b> × ${esc(nm(l))}</li>`).join("")}${ls.length > 8 ? `<li class="muted">and ${ls.length - 8} more</li>` : ""}</ul>
@@ -3997,22 +4114,25 @@ const poCard = o => { const ls = o.lines || [], nm = l => { const it = String(l.
 function poForm(o){ const isNew = !o || !o.id; o = o || {date:todayISO(), status:"placed", payFrom:"a2200", lines:[]};
   const payOpts = sortedAccts(a => a.type === "bank" || a.type === "ccard").map(a => [a.id, "Paid with " + a.name]).concat([["bill", "They'll send me a bill (pay later)"]]);
   const v = byId("vendors", o.vendorId);
-  openSheet(isNew ? "Log a supplier order" : "Order" + (o.orderNo ? " #" + o.orderNo : ""), `<form data-form="po" data-id="${o.id || ""}"><div class="fields">
+  openSheet(isNew ? (o.status === "draft" ? "New purchase order" : "Log a supplier order") : (poNo(o) ? "Purchase order " + poNo(o) : "Order" + (o.orderNo ? " #" + o.orderNo : "")), `<form data-form="po" data-id="${o.id || ""}"><div class="fields">
   <label class="f">Supplier<select name="vendorId" required data-act-change="poVendor"><option value="__newvend">+ Add a new supplier…</option>${opts(S.vendors.slice().sort(byName).map(x => [x.id, x.name]), o.vendorId, "Choose supplier")}</select></label>
-  <label class="f">Their order / confirmation no.<input name="orderNo" value="${esc(o.orderNo || "")}"></label>
+  <label class="f">PO number<input name="poNum" inputmode="numeric" value="${esc(o.poNum || (isNew ? String(nextPoNum()) : ""))}"></label>
+  <label class="f">Their order / confirmation no.<input name="orderNo" value="${esc(o.orderNo || "")}" placeholder="Optional"></label>
   <label class="f">Ordered on<input name="date" type="date" required value="${esc(o.date)}"></label>
   <label class="f">Status<select name="status">${opts(Object.entries(PO_ST).filter(([k]) => k !== "received" || o.status === "received").map(([k, [l]]) => [k, l]), o.status)}</select></label>
   <label class="f">Tracking number<input name="tracking" value="${esc(o.tracking || "")}"></label>
-  <label class="f">Expected arrival<input name="expected" type="date" value="${esc(o.expected || "")}"></label>
-  <label class="f full">How you paid<select name="payFrom">${opts(payOpts, o.payFrom)}</select></label>
+  <label class="f">Needed by / expected<input name="expected" type="date" value="${esc(o.expected || "")}"></label>
+  <label class="f full">How you'll pay<select name="payFrom">${opts(payOpts, o.payFrom)}</select></label>
+  <label class="f full">Ship to (printed on the PO)<textarea name="shipTo" rows="3">${esc(o.shipTo || defaultShipTo())}</textarea></label>
   </div>${v && v.website ? `<p class="small"><a href="${esc(v.website)}" target="_blank" rel="noopener noreferrer">Open ${esc(v.name)}'s website ↗</a></p>` : ""}
   ${linesBlock("buy", o.lines && o.lines.length ? o.lines : [{qty:1}])}
-  <div class="fields" style="margin-top:12px"><label class="f">Shipping<input name="shipping" type="number" step="0.01" min="0" value="${esc(o.shipping || "")}"></label><label class="f">Tax charged<input name="tax" type="number" step="0.01" min="0" value="${esc(o.tax || "")}"></label>
-  <label class="f full">Notes<input name="notes" value="${esc(o.notes || "")}"></label></div>
+  <div class="fields" style="margin-top:12px"><label class="f">Shipping<input name="shipping" type="number" step="0.01" min="0" value="${esc(o.shipping || "")}" data-act-input="poRecalc"></label><label class="f">Tax charged<input name="tax" type="number" step="0.01" min="0" value="${esc(o.tax || "")}" data-act-input="poRecalc"></label>
+  <label class="f full">Notes to the supplier (printed on the PO)<textarea name="notes" class="descbox" rows="2" placeholder="e.g. Please include packing slip. Call before delivery.">${esc(o.notes || "")}</textarea></label></div>
   <div class="totals"></div>
   <p class="small muted">Pick an item for anything you stock so it's added to inventory when it arrives; use an expense account for supplies you don't count.</p>
   ${o.status === "received" ? `<p class="small">Received ${fmtDate(o.receivedAt)} and added to your books. To change it, use Undo receive first.</p>` : ""}
-  ${foot(isNew || o.status === "received" ? null : {act:"delPO", id:o.id}, isNew ? "Save order" : "Save changes")}</form>`);
+  ${o.status !== "received" ? `<div class="actions" style="margin-top:10px"><button type="button" class="btn primary" data-act="poSaveThen" data-then="email">Save & email to supplier</button><button type="button" class="btn" data-act="poSaveThen" data-then="pdf">Save & get PDF</button><span data-posaved class="small muted" style="align-self:center"></span></div>${o.status === "draft" || isNew ? `<p class="small muted" style="margin:4px 0 0">This PO saves itself as you type. You'll find it under <b>Purchase orders → Not sent</b> if you close it.</p>` : ""}` : `<div class="actions" style="margin-top:10px"><button type="button" class="btn" data-act="pdfPOAct" data-id="${o.id}">PDF</button></div>`}
+  ${foot(isNew || o.status === "received" ? null : {act:"delPO", id:o.id}, isNew ? "Save" : "Save changes")}</form>`);
   recalc($("#sheetBody form")); }
 function poReceiveForm(o){
   openSheet("Receive order from " + (vendName(o.vendorId) || "supplier"), `<form data-form="poReceive" data-id="${o.id}">
@@ -4050,6 +4170,7 @@ function customerForm(c){ c = c || {status:"active", terms:"Net 30", taxable:tru
   <label class="f">Type<select name="type">${opts(CUST_TYPES.map(t => [t, t]), c.type, "Choose type")}</select></label>
   <label class="f">Email<input name="email" type="email" value="${esc(c.email)}"></label>
   <label class="f">Phone<input name="phone" inputmode="tel" value="${esc(c.phone)}"></label>
+  <div class="full"><p class="f" style="margin:0 0 2px"><b>Other contacts</b> <span class="small muted">Coaches, secretaries, bookkeepers… pick any of them when you email an invoice.</span></p><div data-ctlist>${(c.contacts || []).map(ctRow).join("")}</div><button type="button" class="btn small" data-act="ctAdd" style="margin-top:6px">+ Add a contact</button></div>
   <label class="f full">CC on invoices (billing / accounts payable)<input name="billingCc" type="text" inputmode="email" autocapitalize="off" value="${esc(c.billingCc || "")}" placeholder="e.g. treasurer@example.org"><span class="small muted" style="font-weight:400">Copied on every invoice you email this customer. Separate more than one with commas.</span></label>
   <label class="f full">Billing address<textarea name="address">${esc(c.address)}</textarea></label>
   <label class="f">Status<select name="status">${opts([["active","Active customer"],["lead","Lead"],["past","Past customer"],["inactive","Inactive"]], c.status)}</select></label>
@@ -4169,7 +4290,7 @@ function recalc(f){ const lines = $(".lines", f); if (!lines) return; const kind
   const box = $(".totals", f); if (!box) return;
   if (kind === "inv") { const t = invTotals({lines:readLines(f), taxRate:+(f.elements.taxRate?.value || 0)}); box.innerHTML = `<div><span>Subtotal</span><span>${money(t.sub)}</span></div><div><span>Sales tax</span><span>${money(t.tax)}</span></div><div class="grand"><span>Total</span><span>${money(t.total)}</span></div>`; }
   else if (kind === "tax") box.innerHTML = `<div class="grand"><span>Combined rate</span><span>${partsRate(readLines(f))}%</span></div>`;
-  else if (kind === "buy") box.innerHTML = `<div class="grand"><span>Total</span><span>${money(linesTotal(readLines(f)))}</span></div>`;
+  else if (kind === "buy") { const sub = linesTotal(readLines(f)), sh = f.elements.shipping ? +f.elements.shipping.value || 0 : 0, tx = f.elements.tax && f.elements.tax.type === "number" ? +f.elements.tax.value || 0 : 0; box.innerHTML = (sh || tx ? `<div><span>Items</span><span>${money(sub)}</span></div>${sh ? `<div><span>Shipping</span><span>${money(sh)}</span></div>` : ""}${tx ? `<div><span>Tax</span><span>${money(tx)}</span></div>` : ""}` : "") + `<div class="grand"><span>Total</span><span>${money(r2(sub + sh + tx))}</span></div>`; }
   else { const ls = readLines(f), d = ls.reduce((s, l) => s + l.debit, 0), c = ls.reduce((s, l) => s + l.credit, 0); box.innerHTML = `<div><span>Debits</span><span>${money(d)}</span></div><div><span>Credits</span><span>${money(c)}</span></div><div class="grand"><span>Difference</span><span class="${Math.abs(d - c) > 0.004 ? "neg" : ""}">${money(d - c)}</span></div>`; } }
 
 function taxHint(){ const parts = S.company.taxParts || [];
@@ -4252,6 +4373,7 @@ Thank you!
 Parker
 ${S.company.name}${S.company.phone ? "\n" + S.company.phone : ""}`;
   openSheet("Email estimate " + e.num, `<form data-form="sendEstimate" data-id="${e.id}"><div class="fields">
+    ${pplPicker(e.customerId, c.email)}
     <label class="f full">To<input name="to" type="email" required value="${esc(c.email || "")}"></label>
     <label class="f full">CC<input name="cc" type="text" inputmode="email" autocapitalize="off" value="${esc(c0.billingCc || "")}" placeholder="Optional"></label>
     <label class="f full">Subject<input name="subject" value="${esc(subject)}"></label>
@@ -4374,7 +4496,7 @@ function billpayView(bp){
 /* form submission */
 const FORMS = {
   async customer(f){ const id = f.dataset.id, old = id ? byId("customers", id) : {};
-    await put("customers", {...clone(old || {}), id:id || undefined, name:val(f, "name"), contact:val(f, "contact"), type:val(f, "type"), email:val(f, "email"), phone:val(f, "phone"), address:val(f, "address"), status:val(f, "status"), terms:val(f, "terms"), taxable:f.elements.taxable.checked, taxRate:(v => v === "" || isNaN(+v) || Math.abs(+v - coRate()) < 0.0005 ? "" : +v)(f.elements.custTaxRate.value.trim()), noEmail:f.elements.noEmail.checked, billingCc:ccList(f.elements.billingCc.value).join(", "), notes:old?.notes || []}).then(nid => { if (!id) go("customer/" + nid); });
+    await put("customers", {...clone(old || {}), id:id || undefined, name:val(f, "name"), contact:val(f, "contact"), type:val(f, "type"), email:val(f, "email"), phone:val(f, "phone"), address:val(f, "address"), status:val(f, "status"), terms:val(f, "terms"), taxable:f.elements.taxable.checked, taxRate:(v => v === "" || isNaN(+v) || Math.abs(+v - coRate()) < 0.0005 ? "" : +v)(f.elements.custTaxRate.value.trim()), noEmail:f.elements.noEmail.checked, billingCc:ccList(f.elements.billingCc.value).join(", "), notes:old?.notes || [], contacts:$$("[data-ctlist] .ctrow", f).map(r => ({name:r.querySelector("[data-cn]").value.trim(), email:r.querySelector("[data-ce]").value.trim(), role:r.querySelector("[data-cr]").value.trim(), phone:r.querySelector("[data-cp]").value.trim()})).filter(x => x.name || x.email)}).then(nid => { if (!id) go("customer/" + nid); });
     toast(id ? "Customer saved" : "Customer added"); },
   async vendor(f){ const id = f.dataset.id; await put("vendors", {...clone(byId("vendors", id) || {}), id:id || undefined, name:val(f, "name"), contact:val(f, "contact"), phone:val(f, "phone"), email:val(f, "email"), terms:val(f, "terms"), defaultAcct:val(f, "defaultAcct") || (f.elements.contractor.checked ? "a6060" : ""), address:val(f, "address"), website:normUrl(val(f, "website")), contractor:f.elements.contractor.checked, w9:f.elements.w9.checked}); toast("Saved"); },
   async item(f){ const id = f.dataset.id, type = val(f, "type");
@@ -4550,6 +4672,7 @@ const FORMS = {
   async sendEstimate(f){ const e = byId("estimates", f.dataset.id); if (!e) return false; const to = val(f, "to"), cc = ccList(f.elements.cc ? f.elements.cc.value : "");
     if (!validEmail(to)) return formErr(f, "Enter a valid email address.");
     if (cc.some(x => !validEmail(x))) return formErr(f, "Check the CC email address.");
+    try { await promoteContact(e.customerId, to, f._pname); } catch(e2) {}
     const subject = val(f, "subject"), body = f.elements.body.value, fname = pdfName(e, "estimate");
     if (!MCP) { saveFile(fname, docPDF(e, "estimate"));
       openSheet("Email estimate " + e.num, `<ol style="padding-left:20px;margin:0 0 14px;line-height:1.7"><li>The PDF <b>${esc(fname)}</b> is saving to your computer.</li><li>Press <b>Open in Gmail</b>. The message to ${esc(to)} is already written.</li><li>Click the paperclip in Gmail, attach the PDF, and press Send.</li></ol>
@@ -4565,6 +4688,7 @@ const FORMS = {
     if (!validEmail(to)) return formErr(f, "Enter a valid email address.");
     if (cc.some(x => !validEmail(x))) return formErr(f, "Check the CC email address.");
     let list = multiPicked(f); if (!f.querySelector("[name=minv]")) list = [inv]; if (!list.length) return formErr(f, "Tick at least one invoice to send.");
+    try { await promoteContact(inv.customerId, to, f._pname); } catch(e) {}
     { const cu = byId("customers", inv.customerId); if (cu && f.elements.saveCc && f.elements.saveCc.checked && cc.join(", ") !== (cu.billingCc || "")) await put("customers", {...clone(cu), billingCc:cc.join(", ")}); }
     const ask = f.elements.askReview && f.elements.askReview.checked, rlink = f.elements.reviewLink ? val(f, "reviewLink") : "";
     if (ask && !S.company.reviewLink && !rlink) return formErr(f, "Paste your Google review link, or uncheck the review request.");
@@ -4596,8 +4720,27 @@ const FORMS = {
     if (!vid || vid === "__newvend") return formErr(f, "Choose the supplier.");
     if (!lines.length) return formErr(f, "Add at least one line."); if (lines.some(l => !l.ref)) return formErr(f, "Choose an item or account on each line.");
     const old = byId("pos", id) || {}; const status = val(f, "status") || "placed";
-    await put("pos", {...clone(old), id, vendorId:vid, orderNo:val(f, "orderNo"), date:val(f, "date"), status:old.status === "received" ? "received" : status, tracking:val(f, "tracking"), expected:val(f, "expected"), payFrom:val(f, "payFrom"), lines, shipping:num(f, "shipping"), tax:num(f, "tax"), notes:val(f, "notes"), shippedAt:status === "shipped" && !old.shippedAt ? todayISO() : old.shippedAt || ""});
-    toast(id ? "Order saved" : "Order logged"); if (!id) go("pos"); },
+    const nid = id || uid();
+    await put("pos", {...clone(old), id:nid, vendorId:vid, poNum:val(f, "poNum") || old.poNum || "", shipTo:f.elements.shipTo ? f.elements.shipTo.value.trim() : old.shipTo || "", orderNo:val(f, "orderNo"), date:val(f, "date"), status:old.status === "received" ? "received" : status, tracking:val(f, "tracking"), expected:val(f, "expected"), payFrom:val(f, "payFrom"), lines, shipping:num(f, "shipping"), tax:num(f, "tax"), notes:f.elements.notes.value.trim(), shippedAt:status === "shipped" && !old.shippedAt ? todayISO() : old.shippedAt || ""});
+    f.dataset.id = nid; clearTimeout(f._pat); const then = f.dataset.then || ""; f.dataset.then = "";
+    if (then === "email") { emailPOForm(byId("pos", nid)); return "keep"; }
+    if (then === "pdf") { const o2 = byId("pos", nid); saveFile(poFile(o2), poPDF(o2)); }
+    toast(id ? "Saved" : (status === "draft" ? "Purchase order saved" : "Order logged")); if (!id && route().view !== "purchaseorders") go("pos"); },
+  async sendPO(f){ const o = byId("pos", f.dataset.id); if (!o) return false; const to = val(f, "to"), cc = ccList(f.elements.cc ? f.elements.cc.value : "");
+    if (!validEmail(to)) return formErr(f, "Enter a valid email address.");
+    if (cc.some(x => !validEmail(x))) return formErr(f, "Check the CC email address.");
+    try { await promoteContact(o.vendorId, to, f._pname, "vendors"); } catch(e2) {}
+    const subject = val(f, "subject"), body = f.elements.body.value, fname = poFile(o);
+    if (!MCP) { saveFile(fname, poPDF(o)); await poMarkSent(o.id, to);
+      openSheet("Email " + poNo(o), `<ol style="padding-left:20px;margin:0 0 14px;line-height:1.7"><li>The PDF <b>${esc(fname)}</b> is saving.</li><li>Press <b>Open in Gmail</b>. The message to ${esc(to)} is already written.</li><li>Tap the paperclip in Gmail, attach the PDF, and press Send.</li></ol>
+      <div class="actions"><a class="btn primary" href="${esc(gmailCompose(to, subject, body, cc))}" target="_blank" rel="noopener noreferrer">Open in Gmail</a><a class="btn" href="${esc("mailto:" + encodeURIComponent(to) + "?" + (cc.length ? "cc=" + encodeURIComponent(cc.join(",")) + "&" : "") + "subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body))}" target="_blank" rel="noopener noreferrer">Use another email app</a><button class="btn" data-act="pdfPOAct" data-id="${o.id}">Save the PDF again</button></div>`, true);
+      return "keep"; }
+    queueSend({args:{to:[to], ...(cc.length ? {cc} : {}), subject, body, attachments:[{content:b64bytes(poPDF(o)), filename:fname, mimeType:"application/pdf"}]},
+      label:"Sending " + poNo(o) + " to " + to,
+      done:poNo(o) + " sent to " + to + (cc.length ? " (CC " + cc.join(", ") + ")" : ""),
+      async after(){ await poMarkSent(o.id, to); },
+      fail(err){ toast("Couldn't send: " + mcpErrText(err)); },
+      undo(){ emailPOForm(byId("pos", o.id)); const g = $("#sheetBody form[data-form=sendPO]"); if (g) { g.elements.to.value = to; if (g.elements.cc) g.elements.cc.value = cc.join(", "); g.elements.subject.value = subject; g.elements.body.value = body; } }}); },
   async poReceive(f){ const o = byId("pos", f.dataset.id), date = val(f, "date");
     const r = await receivePO(o, (o.lines || []).map((l, i) => +(f.querySelector(`[data-rl="${i}"]`)?.value || 0)), date);
     if (!r) return formErr(f, "Nothing marked as received.");
@@ -5047,6 +5190,10 @@ ${text}`, {modelTier:"default"});
     confirmBox(`Send "${c.subject}" to ${n} customer${n === 1 ? "" : "s"} from your Gmail now? Each person gets their own copy.`, "Send " + n + " emails", () => runCampaign(c.id, false)); },
   campDrafts(el){ const c = byId("campaigns", el.dataset.id); confirmBox("Create one Gmail draft per customer? You can review and send them from Gmail.", "Create drafts", () => runCampaign(c.id, true)); },
   delCampaign(el){ confirmBox("Delete this email?", "Delete", async () => { await remove("campaigns", el.dataset.id); go("email"); }); },
+  newPurchaseOrder(el){ poForm({date:todayISO(), status:"draft", payFrom:"bill", vendorId:el && el.dataset.vendor || "", poNum:String(nextPoNum()), lines:[{qty:1}]}); },
+  poSaveThen(el){ const f = el.closest("form"); f.dataset.then = el.dataset.then; f.requestSubmit(); },
+  async emailPO(el){ const o = await ensurePoNum(byId("pos", el.dataset.id)); emailPOForm(o); },
+  async pdfPOAct(el){ const o = await ensurePoNum(byId("pos", el.dataset.id)); saveFile(poFile(o), poPDF(o)); },
   newPO(el){ poForm(el && el.dataset.vendor ? {date:todayISO(), status:"placed", payFrom:"a2200", vendorId:el.dataset.vendor, lines:[{qty:1}]} : null); },
   editPO(el){ poForm(clone(byId("pos", el.dataset.id))); },
   async poShipped(el){ const o = byId("pos", el.dataset.id); await put("pos", {...clone(o), status:"shipped", shippedAt:todayISO()}); toast("Marked shipped. Add a tracking number by tapping the order."); },
@@ -5102,6 +5249,17 @@ ${text}`, {modelTier:"default"});
     saveFile(("Invoice-" + inv.num + "-" + custName(inv.customerId)).replace(/[^\w-]+/g, "-") + ".html", html); },
   backup(){ const data = {app:"awards-usa-books", version:1, exported:new Date().toISOString(), company:S.company}; COLS.forEach(c => data[c] = S[c]); saveFile("awards-usa-books-backup-" + todayISO() + ".json", JSON.stringify(data, null, 1)); },
   restore(){ $("#restoreFile").click(); },
+  pplPick(el){ const f = el.closest("form"); f.elements.to.value = el.dataset.email; f._pname = el.dataset.name; $$(".ppl-p", f).forEach(b => b.classList.toggle("on", b === el)); pplGreet(f, el.dataset.name); },
+  pplCc(el){ const f = el.closest("form"), cc = f.elements.cc; if (!cc) return; const l = ccList(cc.value); if (emLow(f.elements.to.value) === emLow(el.dataset.email)) { toast("They're already in To."); return; } if (!l.map(emLow).includes(emLow(el.dataset.email))) l.push(el.dataset.email); cc.value = l.join(", "); toast("Added to CC"); },
+  pplAddShow(el){ const box = el.closest(".ppl").querySelector(".ppl-add"); box.hidden = !box.hidden; if (!box.hidden) box.querySelector("[data-pn]").focus(); },
+  async pplAdd(el){ const w = el.closest(".ppl"), f = el.closest("form"), cid = w.dataset.pcust, col = w.dataset.pcol || "customers", c = byId(col, cid); if (!c) return;
+    const name = w.querySelector("[data-pn]").value.trim(), email = w.querySelector("[data-pe]").value.trim(), role = w.querySelector("[data-pr]").value.trim(), phone = w.querySelector("[data-pp]").value.trim();
+    if (!validEmail(email)) { toast("Type a valid email for the new contact."); w.querySelector("[data-pe]").focus(); return; }
+    if (!sendPeople(c).some(p => emLow(p.email) === emLow(email))) await put(col, {...clone(c), contacts:[...(c.contacts || []), {name, email, role, phone}]});
+    f.elements.to.value = email; f._pname = name; pplGreet(f, name);
+    const old = f.querySelector(".ppl"), tmp = document.createElement("div"); tmp.innerHTML = pplPicker(cid, email, col); old.replaceWith(tmp.firstElementChild); toast((name || email) + " saved to " + c.name); },
+  ctAdd(el){ el.closest("form").querySelector("[data-ctlist]").insertAdjacentHTML("beforeend", ctRow()); const r = el.closest("form").querySelector("[data-ctlist] .ctrow:last-child [data-cn]"); if (r) r.focus(); },
+  ctDel(el){ el.closest(".ctrow").remove(); },
   async bkNow(){ if (!GAuth.valid()) { toast("Connect Google first, then tap Back up now."); return; } toast("Backing up to Google Drive…"); const ok = await BK.run(true); toast(ok ? "✅ Backed up to your Google Drive" : BK.need() ? "Google needs your OK first. Tap Allow backups." : "The backup didn't finish. Check your connection and try again."); render(); },
   bkAllow(){ GAuth.redirect(); },
   recordsPack(){ const y = ($("#main [data-rec-year]") || {}).value || todayISO().slice(0, 4); toast("Putting your " + y + " records together…");
@@ -5174,6 +5332,7 @@ document.addEventListener("input", e => {
   if (t.dataset && t.dataset.ce && CE) { const row = t.closest(".ce-row"), r = CE.buckets[+row.dataset.b]?.rows[+row.dataset.r]; if (r) { r[t.dataset.ce] = t.value; ceTotals(); ceSave(); } return; }
   if (t.dataset && t.dataset.ceStmt !== undefined && CE) { CE.stmt = t.value; ceTotals(); ceSave(); return; }
   if (t.dataset && "cmQ" in t.dataset) { const ws = t.value.toLowerCase().split(/\s+/).filter(Boolean); t.closest(".cm").querySelectorAll(".cm-row").forEach(r => { r.hidden = !ws.every(w => r.dataset.s.includes(w)); }); return; }
+  if (t.dataset && t.dataset.actInput === "poRecalc") { recalc(t.closest("form")); return; }
   if (t.dataset && t.dataset.actInput === "spendPayee") { spendLast(); return; }
   if (t.dataset && t.dataset.actInput === "spendLeft") { spendLeft(t.closest("form")); return; }
   if (t.dataset && t.dataset.actInput === "taxPaidAmt") { taxPaidLeft(t.closest("form")); return; }
@@ -5590,8 +5749,8 @@ const ICO = {
   upload:'<path d="M12 20V9M7 13.5l5-5 5 5"/><path d="M4 4h16"/>'
 };
 const ICOL = {home:"#2f6fde", inbox:"#0f9d8a", users:"#7c4dff", userplus:"#7c4dff", mail:"#1e88e5", send:"#1e88e5", receipt:"#2e9d4f", clipboard:"#e0902b", tag:"#d6457a", wallet:"#e0573a", cart:"#e0573a", bank:"#3f51b5", trend:"#10a37f", percent:"#b7892a", pay:"#5c9e2e", box:"#8d6e4c", chart:"#00a3c4", book:"#607d8b", gear:"#6b7280", help:"#2f6fde", plus:"#2f6fde", cash:"#2e9d4f", card:"#c2410c", car:"#455a64", truck:"#8d6e4c", hammer:"#e07a2b", refresh:"#7c4dff", scale:"#3f51b5", pencil:"#6b7280", trash:"#c62828", download:"#455a64", printer:"#455a64", check:"#2e9d4f", copy:"#607d8b", calendar:"#1e88e5", search:"#6b7280", list:"#8d6e4c", arrow:"#2e9d4f", bell:"#e0902b", grid:"#6b7280", star:"#b7892a", upload:"#455a64"};
-const SEC_ICO = {home:"home", inbox:"inbox", customers:"users", customer:"users", email:"mail", campaign:"mail", sales:"receipt", invoice:"receipt", orders:"inbox", jobs:"hammer", repeat:"refresh", payments:"cash", estimates:"clipboard", estimate:"clipboard", prices:"tag", expenses:"wallet", bills:"mail", checks:"cart", card:"card", vendors:"truck", mileage:"car", banking:"bank", balance:"scale", investments:"trend", taxes:"percent", pay:"pay", payroll:"pay", inventory:"box", pos:"truck", reports:"chart", report:"chart", accounts:"book", register:"book", settings:"gear", help:"help", more:"grid", "inv:onorder":"truck", "inv:reorder":"refresh", "inv:received":"check"};
-const ACT_ICO = {newInvoice:"receipt", newEstimate:"clipboard", receivePayment:"cash", checkMyEmail:"mail", newBill:"mail", newCustomer:"userplus", newTrip:"car", calSyncNow:"calendar", payBills:"cash", cardPay:"card", spend:"cart", newExpense:"cart", newExpenseAdv:"cart", cardEntry:"card", newItem:"box", adjustStock:"list", stockSheet:"list", newPO:"truck", emailInvoice:"send", emailEstimate:"send", markSent:"check", estToInvoice:"arrow", dupEstimate:"copy", dupInvoice:"copy", newFollowup:"bell", openSearch:"search", reorderItem:"truck", monthlyNew:"plus", monthlyPay:"check", leadMail:"send", estBlank:"plus", estStatus:"check", jobStatus:"arrow", statement:"receipt", payMyself:"pay", newJournal:"book", reconcile:"scale", importBank:"upload", askReview:"star", copyInvoice:"copy", backup:"download", restore:"upload", accountantPack:"download", acctZip:"download", recordsPack:"download", zipInvoices:"download", taxDl:"download", taxExport:"download", retDl:"download", coXmlDl:"download", mailAtt:"download", bankImport:"upload", balSave:"check", balAdjust:"scale", balTickAll:"check", cardCharge:"card", cardNote:"pencil", itemize:"list", itemizeTx:"list", txCategorize:"tag", txMatch:"check", txPayInv:"cash", txQuick:"check", checkOrderEmail:"mail", checkReplies:"mail", scanInbox:"inbox", scanNow:"inbox", fileMail:"inbox", checkShipping:"truck", poArrived:"check", poReceive:"check", poShipped:"truck", poUnreceive:"refresh", orderToInvoice:"receipt", takeOrder:"receipt", repeatInvoice:"receipt", remindEmail:"send", remindDone:"check", doneFollowup:"check", replyDone:"check", campSend:"send", campTest:"send", campDrafts:"mail", payPayroll:"pay", payPerson:"pay", taxPay:"cash", taxFiled:"check", taxPaidEdit:"pencil", retEdit:"pencil", syncNow:"refresh", productAllSales:"chart", invValue:"chart", setItemPrice:"tag", setItemPriceOther:"tag", reorderGroup:"truck", kitFromPick:"box", kitAdd:"plus", itzAdd:"plus", ceAddRow:"plus", coSetup:"gear", unstamp:"refresh", wrongSend:"refresh", confirmYes:"check", saveInlineCustomer:"check", saveInlineItem:"check", changeContact:"pencil", readOrderAI:"search", inqLead:"userplus", outreachSent:"check", mailTplReset:"refresh"};
+const SEC_ICO = {purchaseorders:"truck", home:"home", inbox:"inbox", customers:"users", customer:"users", email:"mail", campaign:"mail", sales:"receipt", invoice:"receipt", orders:"inbox", jobs:"hammer", repeat:"refresh", payments:"cash", estimates:"clipboard", estimate:"clipboard", prices:"tag", expenses:"wallet", bills:"mail", checks:"cart", card:"card", vendors:"truck", mileage:"car", banking:"bank", balance:"scale", investments:"trend", taxes:"percent", pay:"pay", payroll:"pay", inventory:"box", pos:"truck", reports:"chart", report:"chart", accounts:"book", register:"book", settings:"gear", help:"help", more:"grid", "inv:onorder":"truck", "inv:reorder":"refresh", "inv:received":"check"};
+const ACT_ICO = {newInvoice:"receipt", newEstimate:"clipboard", newPurchaseOrder:"truck", emailPO:"mail", receivePayment:"cash", checkMyEmail:"mail", newBill:"mail", newCustomer:"userplus", newTrip:"car", calSyncNow:"calendar", payBills:"cash", cardPay:"card", spend:"cart", newExpense:"cart", newExpenseAdv:"cart", cardEntry:"card", newItem:"box", adjustStock:"list", stockSheet:"list", newPO:"truck", emailInvoice:"send", emailEstimate:"send", markSent:"check", estToInvoice:"arrow", dupEstimate:"copy", dupInvoice:"copy", newFollowup:"bell", openSearch:"search", reorderItem:"truck", monthlyNew:"plus", monthlyPay:"check", leadMail:"send", estBlank:"plus", estStatus:"check", jobStatus:"arrow", statement:"receipt", payMyself:"pay", newJournal:"book", reconcile:"scale", importBank:"upload", askReview:"star", copyInvoice:"copy", backup:"download", restore:"upload", accountantPack:"download", acctZip:"download", recordsPack:"download", zipInvoices:"download", taxDl:"download", taxExport:"download", retDl:"download", coXmlDl:"download", mailAtt:"download", bankImport:"upload", balSave:"check", balAdjust:"scale", balTickAll:"check", cardCharge:"card", cardNote:"pencil", itemize:"list", itemizeTx:"list", txCategorize:"tag", txMatch:"check", txPayInv:"cash", txQuick:"check", checkOrderEmail:"mail", checkReplies:"mail", scanInbox:"inbox", scanNow:"inbox", fileMail:"inbox", checkShipping:"truck", poArrived:"check", poReceive:"check", poShipped:"truck", poUnreceive:"refresh", orderToInvoice:"receipt", takeOrder:"receipt", repeatInvoice:"receipt", remindEmail:"send", remindDone:"check", doneFollowup:"check", replyDone:"check", campSend:"send", campTest:"send", campDrafts:"mail", payPayroll:"pay", payPerson:"pay", taxPay:"cash", taxFiled:"check", taxPaidEdit:"pencil", retEdit:"pencil", syncNow:"refresh", productAllSales:"chart", invValue:"chart", setItemPrice:"tag", setItemPriceOther:"tag", reorderGroup:"truck", kitFromPick:"box", kitAdd:"plus", itzAdd:"plus", ceAddRow:"plus", coSetup:"gear", unstamp:"refresh", wrongSend:"refresh", confirmYes:"check", saveInlineCustomer:"check", saveInlineItem:"check", changeContact:"pencil", readOrderAI:"search", inqLead:"userplus", outreachSent:"check", mailTplReset:"refresh"};
 const ico = (n, cls) => ICO[n] ? `<svg class="${cls || "ico"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[n]}</svg>` : "";
 const icoTile = (n, cls) => ICO[n] ? `<span class="${cls || "itile"}" style="--c:${ICOL[n] || "#6b7280"}" aria-hidden="true">${ico(n)}</span>` : "";
 const actIco = a => ACT_ICO[a] || (/^del/.test(a) ? "trash" : /^edit/.test(a) ? "pencil" : /^(email|send)/.test(a) ? "send" : /^(pdf|export|download)/.test(a) ? "download" : /^print/.test(a) ? "printer" : /^(new|add)/.test(a) ? "plus" : "");
