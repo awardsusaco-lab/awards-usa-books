@@ -787,7 +787,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "adadd1c66b";
+const APP_BUILD = "0b7ec69b76";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -4033,7 +4033,9 @@ document.addEventListener("input", e => { const f = e.target && e.target.closest
 document.addEventListener("change", e => { const f = e.target && e.target.closest && e.target.closest('form[data-form="po"]'); if (f) { clearTimeout(f._pat); f._pat = setTimeout(() => poAutoSave(f), 600); } }, true);
 
 const poNo = o => o && o.poNum ? "PO " + o.poNum : "";
-const nextPoNum = () => Math.max(1000, ...S.pos.map(o => parseInt(o.poNum, 10) || 0)) + 1;
+const poStartNum = () => parseInt(S.company.poStart, 10) || 482;
+const nextPoNum = () => { const st = poStartNum(); return Math.max(st - 1, ...S.pos.map(o => parseInt(o.poNum, 10) || 0).filter(n => n >= st)) + 1; };
+function poStartForm(){ openSheet("PO numbers", `<form data-form="poStart"><div class="fields"><label class="f full">Next PO number<input name="next" inputmode="numeric" required value="${nextPoNum()}"></label></div><p class="small muted">New purchase orders count up from this number. You can still change the number on any single PO.</p>${foot(null, "Save")}</form>`, true); }
 const defaultShipTo = () => (S.company.address || "").trim() || shownAddr();
 const poFile = o => ("PO-" + (o.poNum || "") + "-" + (vendName(o.vendorId) || "supplier")).replace(/[^\w-]+/g, "-") + ".pdf";
 const poLineName = l => { const it = String(l.ref || "").startsWith("i:") ? byId("items", l.ref.slice(2)) : null; return it ? {name:it.name, sku:it.sku && it.sku !== it.name ? it.sku : "", sub:l.memo && l.memo !== it.name ? l.memo : ""} : {name:l.memo || acctName(String(l.ref || "").slice(2)) || "Item", sku:"", sub:""}; };
@@ -4099,7 +4101,7 @@ async function poMarkSent(id, to){ const x = byId("pos", id); if (x) await put("
 VIEWS.purchaseorders = () => { const f = UI.filter.pord || "open", isOpen = o => o.status === "draft" || o.status === "placed" || o.status === "shipped";
   const rows = S.pos.filter(o => f === "all" || (f === "open" ? isOpen(o) : f === "draft" ? o.status === "draft" : o.status === f)).sort((a, b) => (b.date || "") < (a.date || "") ? -1 : (b.date || "") > (a.date || "") ? 1 : (parseInt(b.poNum, 10) || 0) - (parseInt(a.poNum, 10) || 0));
   const shown = capRows("pord", rows), drafts = S.pos.filter(o => o.status === "draft").length;
-  return `<div class="pagehead"><div><h1>Purchase orders</h1><p>Orders you send to the companies you buy from.${drafts ? ` <b>${drafts} not sent yet.</b>` : ""}</p></div><div class="actions"><button class="btn primary" data-act="newPurchaseOrder">New purchase order</button></div></div>
+  return `<div class="pagehead"><div><h1>Purchase orders</h1><p>Orders you send to the companies you buy from.${drafts ? ` <b>${drafts} not sent yet.</b>` : ""} Next PO number: <b>${nextPoNum()}</b> <button class="linkbtn" data-act="poStartOpen">Change</button></p></div><div class="actions"><button class="btn primary" data-act="newPurchaseOrder">New purchase order</button></div></div>
   <div class="panel"><div class="toolbar"><div class="chips">${[["open","Open"],["draft","Not sent"],["received","Received"],["all","All"]].map(([k, l]) => `<button class="chip" data-act="filter" data-key="pord" data-val="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div></div>
   <div class="polist">${shown.map(o => `<div class="porow"><div class="pomain" data-act="editPO" data-id="${o.id}" role="button" tabindex="0"><b>${esc(poNo(o) || "Order")}</b> · ${esc(vendName(o.vendorId) || "Supplier")}<div class="small muted">${fmtDate(o.date)} · ${(o.lines || []).length} line${(o.lines || []).length === 1 ? "" : "s"}${o.sentAt ? " · emailed " + fmtDate(o.sentAt.slice(0, 10)) + (o.sentTo ? " to " + esc(o.sentTo) : "") : o.status === "draft" ? " · not sent yet" : ""}${o.expected ? " · needed by " + fmtDate(o.expected) : ""}</div></div>
     <div class="poright">${poBadge(o)}<div class="num" style="margin-top:4px"><b>${money(poTotal(o))}</b></div></div>
@@ -4726,6 +4728,7 @@ const FORMS = {
     if (then === "email") { emailPOForm(byId("pos", nid)); return "keep"; }
     if (then === "pdf") { const o2 = byId("pos", nid); saveFile(poFile(o2), poPDF(o2)); }
     toast(id ? "Saved" : (status === "draft" ? "Purchase order saved" : "Order logged")); if (!id && route().view !== "purchaseorders") go("pos"); },
+  async poStart(f){ const n = parseInt(val(f, "next"), 10); if (!n || n < 1) return formErr(f, "Type a number, like 482."); const higher = S.pos.map(o => parseInt(o.poNum, 10) || 0).filter(x => x >= n); if (higher.length) return formErr(f, "PO " + Math.max(...higher) + " already exists. Pick a number above it."); await saveCompany({poStart:n}); toast("Next PO will be " + n); },
   async sendPO(f){ const o = byId("pos", f.dataset.id); if (!o) return false; const to = val(f, "to"), cc = ccList(f.elements.cc ? f.elements.cc.value : "");
     if (!validEmail(to)) return formErr(f, "Enter a valid email address.");
     if (cc.some(x => !validEmail(x))) return formErr(f, "Check the CC email address.");
@@ -5191,6 +5194,7 @@ ${text}`, {modelTier:"default"});
   campDrafts(el){ const c = byId("campaigns", el.dataset.id); confirmBox("Create one Gmail draft per customer? You can review and send them from Gmail.", "Create drafts", () => runCampaign(c.id, true)); },
   delCampaign(el){ confirmBox("Delete this email?", "Delete", async () => { await remove("campaigns", el.dataset.id); go("email"); }); },
   newPurchaseOrder(el){ poForm({date:todayISO(), status:"draft", payFrom:"bill", vendorId:el && el.dataset.vendor || "", poNum:String(nextPoNum()), lines:[{qty:1}]}); },
+  poStartOpen(){ poStartForm(); },
   poSaveThen(el){ const f = el.closest("form"); f.dataset.then = el.dataset.then; f.requestSubmit(); },
   async emailPO(el){ const o = await ensurePoNum(byId("pos", el.dataset.id)); emailPOForm(o); },
   async pdfPOAct(el){ const o = await ensurePoNum(byId("pos", el.dataset.id)); saveFile(poFile(o), poPDF(o)); },
