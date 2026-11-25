@@ -806,7 +806,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "4c7bcc7b07";
+const APP_BUILD = "93b6a4ad71";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -856,6 +856,7 @@ const numFmt = n => String(n).padStart(+S.company.invoiceDigits || 0, "0");
 function nextInvNum(){ let n = +S.company.nextInvoice || 1001; for (const i of S.invoices) { const v = parseInt(String(i.num).replace(/\D/g, ""), 10); if (isFinite(v) && v >= n && v < n + 100000) n = v + 1; } const used = new Set(S.invoices.map(i => String(i.num))); while (used.has(numFmt(n))) n++; return numFmt(n); }
 
 const TERMS = {"Due on receipt":0, "Net 10":10, "Net 15":15, "Net 30":30, "Net 45":45, "Net 60":60};
+const VEND_TERMS = {...TERMS, "Credit card":0};
 const CUST_TYPES = ["School","Business","Club / league","Nonprofit","Government","Individual"];
 const ACCT_TYPES = {bank:"Bank", ar:"Accounts receivable", ocasset:"Other current asset", fixed:"Fixed asset", ap:"Accounts payable", ccard:"Credit card", ocliab:"Other current liability", ltliab:"Long-term liability", equity:"Equity", income:"Income", cogs:"Cost of goods sold", expense:"Expense", oincome:"Other income", oexpense:"Other expense"};
 const TYPE_ORDER = Object.keys(ACCT_TYPES);
@@ -992,7 +993,7 @@ async function start(){
 }
 
 /* ---------- accounting ---------- */
-const termDays = t => TERMS[t] ?? 30;
+const termDays = t => TERMS[t] ?? VEND_TERMS[t] ?? 30;
 function invTotals(inv){
   let sub = 0, taxable = 0;
   for (const l of inv.lines || []) { const a = r2((+l.qty||0) * (+l.rate||0)); sub += a; if (l.taxable) taxable += a; }
@@ -4095,12 +4096,15 @@ async function receivePO(o, qtys, date){ const v = byId("vendors", o.vendorId) |
   return {short, n:lines.filter(l => String(l.ref).startsWith("i:")).length}; }
 /* ---------- purchase orders you send to suppliers ---------- */
 /* a PO saves itself while you type, so nothing is lost if you close it */
+function poTermsPay(f){ const pf = f.elements.payFrom; if (!pf || pf.disabled || !f.elements.terms) return; const card = cardAccts()[0];
+  if (f.elements.terms.value === "Credit card") { if (card && byId("accounts", pf.value)?.type !== "ccard") { pf.value = card.id; toast("Set to pay with " + card.name); } }
+  else if (byId("accounts", pf.value)?.type === "ccard" && [...pf.options].some(o => o.value === "bill")) pf.value = "bill"; }
 function poAutoSave(f){ if (!f || f.dataset.form !== "po" || f._poSaving) return; const vid = f.elements.vendorId ? f.elements.vendorId.value : ""; if (!vid || vid === "__newvend") return;
   const old = byId("pos", f.dataset.id) || {}; if (old.status === "received") return; const st = f.elements.status ? f.elements.status.value : old.status || "draft";
   if (!old.id && st !== "draft") return;
   let lines = []; try { lines = readLines(f).filter(l => l.ref || l.memo || (l.qty && l.rate)); } catch(e) {}
   const id = f.dataset.id || uid(); f.dataset.id = id; const g = n => f.elements[n] ? String(f.elements[n].value || "").trim() : "";
-  const rec = {...clone(old), id, vendorId:vid, poNum:g("poNum") || old.poNum || "", shipTo:g("shipTo"), orderNo:g("orderNo"), date:g("date") || todayISO(), status:st, tracking:g("tracking"), expected:g("expected"), payFrom:g("payFrom") || old.payFrom || "bill", lines, shipping:+g("shipping") || 0, tax:+g("tax") || 0, notes:g("notes")};
+  const rec = {...clone(old), id, vendorId:vid, poNum:g("poNum") || old.poNum || "", terms:g("terms") || old.terms || "", shipTo:g("shipTo"), orderNo:g("orderNo"), date:g("date") || todayISO(), status:st, tracking:g("tracking"), expected:g("expected"), payFrom:g("payFrom") || old.payFrom || "bill", lines, shipping:+g("shipping") || 0, tax:+g("tax") || 0, notes:g("notes")};
   f._poSaving = true; put("pos", rec).then(() => { const m = f.querySelector("[data-posaved]"); if (m) m.textContent = "✓ Saved " + new Date().toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"}); }).catch(() => {}).finally(() => { f._poSaving = false; }); }
 document.addEventListener("input", e => { const f = e.target && e.target.closest && e.target.closest('form[data-form="po"]'); if (f) { clearTimeout(f._pat); f._pat = setTimeout(() => poAutoSave(f), 1200); } }, true);
 document.addEventListener("change", e => { const f = e.target && e.target.closest && e.target.closest('form[data-form="po"]'); if (f) { clearTimeout(f._pat); f._pat = setTimeout(() => poAutoSave(f), 600); } }, true);
@@ -4122,7 +4126,7 @@ function poPDF(o){ const co = S.company, v = byId("vendors", o.vendorId) || {}, 
   shownAddr().split("\n").concat([co.phone, co.email]).filter(Boolean).forEach(l => { P.text(lx, y, l, {size:9.5, color:gray}); y += 12.5; });
   y = Math.max(y, logoBottom);
   let ry = 66; P.text(R, ry, "PURCHASE ORDER", {size:20, bold:true, color:brass, align:"right"}); ry += 20;
-  [["PO no.", o.poNum, true], ["Date", fmtDate(o.date)], ["Needed by", o.expected ? fmtDate(o.expected) : ""], ["Terms", v.terms], ["Your ref.", o.orderNo]].filter(r => r[1]).forEach(([k, val, b]) => { P.text(470, ry, k, {size:9.5, color:gray, align:"right"}); P.text(R, ry, String(val), {size:9.5, bold:!!b, align:"right"}); ry += 13; });
+  [["PO no.", o.poNum, true], ["Date", fmtDate(o.date)], ["Needed by", o.expected ? fmtDate(o.expected) : ""], ["Terms", o.terms || v.terms], ["Your ref.", o.orderNo]].filter(r => r[1]).forEach(([k, val, b]) => { P.text(470, ry, k, {size:9.5, color:gray, align:"right"}); P.text(R, ry, String(val), {size:9.5, bold:!!b, align:"right"}); ry += 13; });
   y = Math.max(y, ry) + 18;
   const SX = 320; P.text(L, y, "VENDOR", {size:8, bold:true, color:gray}); P.text(SX, y, "SHIP TO", {size:8, bold:true, color:gray}); y += 14;
   const vl = [v.contact ? "Attn: " + v.contact : ""].concat((v.address || "").split("\n"), [v.phone, v.email]).map(x => (x || "").trim()).filter(Boolean);
@@ -4189,8 +4193,10 @@ const poCard = o => { const ls = o.lines || [], nm = l => { const it = String(l.
     <ul class="ordlines">${ls.slice(0, 8).map(l => `<li><b class="num">${+l.qty}</b> × ${esc(nm(l))}</li>`).join("")}${ls.length > 8 ? `<li class="muted">and ${ls.length - 8} more</li>` : ""}</ul>
     <div class="actions">${o.status === "placed" || o.status === "shipped" ? `<button class="btn primary" data-act="poArrived" data-id="${o.id}">✓ Arrived: add to stock</button><button class="btn small" data-act="poReceive" data-id="${o.id}">Some items missing?</button>${o.status === "placed" ? `<button class="btn small" data-act="poShipped" data-id="${o.id}">Mark shipped</button>` : ""}<button class="btn small" data-act="editPO" data-id="${o.id}">Edit</button>${vendorSite(o) ? `<a class="btn small" href="${esc(vendorSite(o))}" target="_blank" rel="noopener noreferrer">Supplier site ↗</a>` : ""}` : `<button class="btn small" data-act="poUnreceive" data-id="${o.id}">Undo arrived</button><button class="btn small" data-act="editPO" data-id="${o.id}">View</button>`}</div></div>`; };
 function poForm(o){ const isNew = !o || !o.id; o = o || {date:todayISO(), status:"placed", payFrom:"a2200", lines:[]};
-  const payOpts = sortedAccts(a => a.type === "bank" || a.type === "ccard").map(a => [a.id, "Paid with " + a.name]).concat([["bill", "They'll send me a bill (pay later)"]]);
+  const payOpts = sortedAccts(a => a.type === "bank" || a.type === "ccard").map(a => [a.id, "Paid with " + a.name + (a.type === "ccard" ? " (credit card)" : "")]).concat([["bill", "They'll send me a bill (pay later)"]]);
   const v = byId("vendors", o.vendorId);
+  if (isNew && !o.terms && v && v.terms) o.terms = v.terms;
+  if (isNew && o.terms === "Credit card" && cardAccts()[0] && (o.payFrom === "bill" || !o.payFrom)) o.payFrom = cardAccts()[0].id;
   openSheet(isNew ? (o.status === "draft" ? "New purchase order" : "Log a supplier order") : (poNo(o) ? "Purchase order " + poNo(o) : "Order" + (o.orderNo ? " #" + o.orderNo : "")), `<form data-form="po" data-id="${o.id || ""}"><div class="fields">
   <label class="f">Supplier<select name="vendorId" required data-act-change="poVendor"><option value="__newvend">+ Add a new supplier…</option>${opts(S.vendors.slice().sort(byName).map(x => [x.id, x.name]), o.vendorId, "Choose supplier")}</select></label>
   <label class="f">PO number<input name="poNum" inputmode="numeric" value="${esc(o.poNum || (isNew ? String(nextPoNum()) : ""))}"></label>
@@ -4199,7 +4205,8 @@ function poForm(o){ const isNew = !o || !o.id; o = o || {date:todayISO(), status
   <label class="f">Status<select name="status" ${o.status === "received" ? "disabled" : ""}>${opts(Object.entries(PO_ST).filter(([k]) => k !== "received" || o.status === "received").map(([k, [l]]) => [k, l]), o.status)}</select></label>
   <label class="f">Tracking number<input name="tracking" value="${esc(o.tracking || "")}"></label>
   <label class="f">Needed by / expected<input name="expected" type="date" value="${esc(o.expected || "")}"></label>
-  <label class="f full">How you'll pay<select name="payFrom" ${o.status === "received" ? "disabled" : ""}>${opts(payOpts, o.payFrom)}</select></label>
+  <label class="f">Payment terms<select name="terms" data-act-change="poTerms">${opts(Object.keys(VEND_TERMS).map(t => [t, t]), o.terms || (v && v.terms) || "Net 30")}</select></label>
+  <label class="f">How you'll pay<select name="payFrom" ${o.status === "received" ? "disabled" : ""}>${opts(payOpts, o.payFrom)}</select>${cardAccts().length ? "" : `<span class="small muted">To pay by credit card, add your card under Banking first.</span>`}</label>
   <label class="f full">Ship to (printed on the PO)<textarea name="shipTo" rows="3">${esc(o.shipTo || defaultShipTo())}</textarea></label>
   </div>${v && v.website ? `<p class="small"><a href="${esc(v.website)}" target="_blank" rel="noopener noreferrer">Open ${esc(v.name)}'s website ↗</a></p>` : ""}
   ${o.status === "received" ? `<div class="notice" style="margin:10px 0">This order arrived ${fmtDate(o.receivedAt)} and is in your books, so the items and amounts are locked. You can still change the PO number, ship-to, notes, tracking and their order number. To change items or amounts: <button type="button" class="linkbtn" data-act="poUnreceive" data-id="${o.id}">Undo arrived</button>, edit, then mark it arrived again.</div>` : ""}<fieldset ${o.status === "received" ? "disabled" : ""} style="border:0;padding:0;margin:0;min-width:0">${linesBlock("buy", o.lines && o.lines.length ? o.lines : [{qty:1}])}</fieldset>
@@ -4262,7 +4269,7 @@ function vendorForm(v){ v = v || {terms:"Net 30"};
   <label class="f">Contact person<input name="contact" value="${esc(v.contact)}"></label>
   <label class="f">Phone<input name="phone" inputmode="tel" value="${esc(v.phone)}"></label>
   <label class="f">Email<input name="email" type="email" value="${esc(v.email)}"></label>
-  <label class="f">Payment terms<select name="terms">${opts(Object.keys(TERMS).map(t => [t, t]), v.terms)}</select></label>
+  <label class="f">Payment terms<select name="terms">${opts(Object.keys(VEND_TERMS).map(t => [t, t]), v.terms)}</select></label>
   <label class="f">My account number with them<input name="accountNo" value="${esc(v.accountNo || "")}" autocapitalize="off" placeholder="e.g. 102938"></label>
   <label class="f">Website login (username or email)<input name="login" value="${esc(v.login || "")}" autocapitalize="off" placeholder="No passwords, please"></label>
   <div class="full"><p class="f" style="margin:0 0 2px"><b>Other contacts</b> <span class="small muted">Sales reps, customer service, billing…</span></p><div data-ctlist>${(v.contacts || []).map(ctRow).join("")}</div><button type="button" class="btn small" data-act="ctAdd" style="margin-top:6px">+ Add a contact</button></div>
@@ -4802,7 +4809,7 @@ const FORMS = {
     if (old.status === "received") { await put("pos", {...clone(old), poNum:val(f, "poNum") || old.poNum || "", shipTo:f.elements.shipTo ? f.elements.shipTo.value.trim() : old.shipTo || "", orderNo:val(f, "orderNo"), tracking:val(f, "tracking"), expected:val(f, "expected"), notes:f.elements.notes.value.trim()}); f.dataset.id = old.id; const then = f.dataset.then || ""; f.dataset.then = ""; if (then === "pdf") { const o2 = byId("pos", old.id); saveFile(poFile(o2), poPDF(o2)); } toast("Saved"); return; }
     if (!lines.length) return formErr(f, "Add at least one line."); if (lines.some(l => !l.ref)) return formErr(f, "Choose an item or account on each line.");
     const nid = id || uid();
-    await put("pos", {...clone(old), id:nid, vendorId:vid, poNum:val(f, "poNum") || old.poNum || "", shipTo:f.elements.shipTo ? f.elements.shipTo.value.trim() : old.shipTo || "", orderNo:val(f, "orderNo"), date:val(f, "date"), status:old.status === "received" ? "received" : status, tracking:val(f, "tracking"), expected:val(f, "expected"), payFrom:val(f, "payFrom"), lines, shipping:num(f, "shipping"), tax:num(f, "tax"), notes:f.elements.notes.value.trim(), shippedAt:status === "shipped" && !old.shippedAt ? todayISO() : old.shippedAt || ""});
+    await put("pos", {...clone(old), id:nid, vendorId:vid, poNum:val(f, "poNum") || old.poNum || "", terms:val(f, "terms") || old.terms || "", shipTo:f.elements.shipTo ? f.elements.shipTo.value.trim() : old.shipTo || "", orderNo:val(f, "orderNo"), date:val(f, "date"), status:old.status === "received" ? "received" : status, tracking:val(f, "tracking"), expected:val(f, "expected"), payFrom:val(f, "payFrom"), lines, shipping:num(f, "shipping"), tax:num(f, "tax"), notes:f.elements.notes.value.trim(), shippedAt:status === "shipped" && !old.shippedAt ? todayISO() : old.shippedAt || ""});
     f.dataset.id = nid; clearTimeout(f._pat); const then = f.dataset.then || ""; f.dataset.then = "";
     if (then === "email") { emailPOForm(byId("pos", nid)); return "keep"; }
     if (then === "pdf") { const o2 = byId("pos", nid); saveFile(poFile(o2), poPDF(o2)); }
@@ -5459,7 +5466,8 @@ document.addEventListener("change", async e => {
   if (!f) return;
   const act = t.dataset.actChange;
   if (act === "poVendor" && t.value === "__newvend") { t.value = ""; closeSheet(); vendorForm(); toast("Add the supplier, then log the order again."); return; }
-  if (act === "poVendor") { const v = byId("vendors", t.value); if (v && v.defaultAcct) $$(".line.buy [name=ref]", f).forEach(sel => { if (!sel.value) sel.value = "a:" + v.defaultAcct; }); return; }
+  if (act === "poVendor") { const v = byId("vendors", t.value); if (v && v.defaultAcct) $$(".line.buy [name=ref]", f).forEach(sel => { if (!sel.value) sel.value = "a:" + v.defaultAcct; }); if (v && v.terms && f.elements.terms) { f.elements.terms.value = v.terms; poTermsPay(f); } return; }
+  if (act === "poTerms") { poTermsPay(f); return; }
   if (act === "reviewToggle") { const ta = f.elements.body, rl = f.querySelector("[data-rl]"), link = S.company.reviewLink || (f.elements.reviewLink && f.elements.reviewLink.value) || "";
     if (rl) rl.hidden = !t.checked;
     const blk = reviewBlock(link), i = ta.value.indexOf("If you were happy with your order, would you mind");
