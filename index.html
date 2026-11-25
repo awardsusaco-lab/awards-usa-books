@@ -806,7 +806,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("online", () => { if (GAuth.valid()) GSync.run(); });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 /* ----- tell the user when a newer version of the app has been published ----- */
-const APP_BUILD = "8997787840";
+const APP_BUILD = "4c7bcc7b07";
 async function checkAppUpdate(){ if (location.protocol !== "https:") return; try { const t = await (await fetch("sw.js?nc=" + Date.now(), {cache:"no-store"})).text(); const m = /aub-([0-9a-f]+)/.exec(t); if (m && m[1] !== APP_BUILD) showUpdateBar(m[1]); } catch(e) {} }
 function showUpdateBar(v){ if (document.getElementById("updBar")) return; const d = document.createElement("div"); d.id = "updBar";
   d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:70;display:flex;gap:10px;align-items:center;background:#1D3A5E;color:#fff;padding:9px 10px 9px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-weight:500;max-width:calc(100vw - 24px)";
@@ -1112,9 +1112,8 @@ const NAV_GROUPS = [
   ["Reports & taxes", "chart", [["reports","Reports"],["taxes","Taxes"],["accounts","Chart of accounts"]]],
   ["Settings & help", "gear", [["settings","Settings & backups"],["help","Help"]]]];
 const navGroupOf = k => NAV_GROUPS.findIndex(g => g[2].some(([x]) => x === k));
-function navOpenSet(){ try { return new Set(JSON.parse(localStorage.getItem("aub-navopen") || "[]")); } catch(e) { return new Set(); } }
-function sideNavHTML(active){ const open = navOpenSet(), ag = navGroupOf(active);
-  return `<a href="#/home" ${active === "home" ? 'aria-current="page"' : ""}>Home</a>` + NAV_GROUPS.map(([label, icon, items], gi) => { const isOpen = open.has(gi) || gi === ag;
+function sideNavHTML(active){ const ag = navGroupOf(active); if (UI.navLastActive !== active) { UI.navLastActive = active; UI.navOpen = ag; }
+  return `<a href="#/home" ${active === "home" ? 'aria-current="page"' : ""}>Home</a>` + NAV_GROUPS.map(([label, icon, items], gi) => { const isOpen = UI.navOpen === gi;
     return `<div class="ngrp${isOpen ? " open" : ""}${gi === ag ? " has-cur" : ""}"><button type="button" class="ngrp-h" data-act="navGroup" data-g="${gi}" aria-expanded="${isOpen}">${icoTile(icon, "itile nav")}<span>${label}</span><svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     <div class="ngrp-b">${items.map(([k, l]) => `<a href="#/${k}" ${active === k ? 'aria-current="page"' : ""}>${l}${k === "inbox" && typeof inboxWaiting === "function" && inboxWaiting() ? ` <span class="badge brass">${inboxWaiting()}</span>` : ""}</a>`).join("")}</div></div>`; }).join(""); }
 function renderNav(active){
@@ -5337,7 +5336,9 @@ ${text}`, {modelTier:"default"});
     saveFile(("Invoice-" + inv.num + "-" + custName(inv.customerId)).replace(/[^\w-]+/g, "-") + ".html", html); },
   backup(){ const data = {app:"awards-usa-books", version:1, exported:new Date().toISOString(), company:S.company}; COLS.forEach(c => data[c] = S[c]); saveFile("awards-usa-books-backup-" + todayISO() + ".json", JSON.stringify(data, null, 1)); },
   restore(){ $("#restoreFile").click(); },
-  navGroup(el){ const g = +el.dataset.g, o = navOpenSet(), wasOpen = el.parentElement.classList.contains("open"); if (wasOpen) o.delete(g); else o.add(g); try { localStorage.setItem("aub-navopen", JSON.stringify([...o])); } catch(e) {} if (wasOpen && navGroupOf(UI.navActive) === g) { el.parentElement.classList.remove("open"); el.setAttribute("aria-expanded", "false"); return; } renderNav(UI.navActive); decorate(); },
+  navGroup(el){ const g = +el.dataset.g; UI.navOpen = UI.navOpen === g ? -1 : g;
+    $$("#sideNav .ngrp").forEach((d, i) => { const on = i === UI.navOpen; d.classList.toggle("open", on); const h = d.querySelector(".ngrp-h"); if (h) h.setAttribute("aria-expanded", String(on)); });
+    if (UI.navOpen >= 0) { const d = $$("#sideNav .ngrp")[UI.navOpen]; if (d && d.scrollIntoView) setTimeout(() => d.scrollIntoView({block:"nearest", behavior:"smooth"}), 30); } },
   pplPick(el){ const f = el.closest("form"); f.elements.to.value = el.dataset.email; f._pname = el.dataset.name; $$(".ppl-p", f).forEach(b => b.classList.toggle("on", b === el)); pplGreet(f, el.dataset.name); },
   pplCc(el){ const f = el.closest("form"), cc = f.elements.cc; if (!cc) return; const l = ccList(cc.value); if (emLow(f.elements.to.value) === emLow(el.dataset.email)) { toast("They're already in To."); return; } if (!l.map(emLow).includes(emLow(el.dataset.email))) l.push(el.dataset.email); cc.value = l.join(", "); toast("Added to CC"); },
   pplAddShow(el){ const box = el.closest(".ppl").querySelector(".ppl-add"); box.hidden = !box.hidden; if (!box.hidden) box.querySelector("[data-pn]").focus(); },
